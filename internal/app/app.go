@@ -5,12 +5,16 @@ import (
 
 	"git.juancwu.dev/juancwu/budgething/internal/config"
 	"git.juancwu.dev/juancwu/budgething/internal/db"
+	"git.juancwu.dev/juancwu/budgething/internal/repository"
+	"git.juancwu.dev/juancwu/budgething/internal/service"
 	"github.com/jmoiron/sqlx"
 )
 
 type App struct {
-	Cfg *config.Config
-	DB  *sqlx.DB
+	Cfg         *config.Config
+	DB          *sqlx.DB
+	UserService *service.UserService
+	AuthService *service.AuthService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -24,9 +28,16 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
+	userRepository := repository.NewUserRepository(database)
+
+	userService := service.NewUserService(userRepository)
+	authService := service.NewAuthService(userRepository)
+
 	return &App{
-		Cfg: cfg,
-		DB:  database,
+		Cfg:         cfg,
+		DB:          database,
+		UserService: userService,
+		AuthService: authService,
 	}, nil
 }
 
