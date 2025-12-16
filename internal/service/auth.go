@@ -14,6 +14,12 @@ var (
 	ErrInvalidCredentials  = errors.New("invalid email or password")
 	ErrNoPassword          = errors.New("account uses passwordless login. Use magic link")
 	ErrPasswordsDoNotMatch = errors.New("passwords do not match")
+	ErrEmailAlreadyExists  = errors.New("email already exists")
+	ErrWeakPassword        = errors.New("password must be at least 12 characters")
+	ErrCommonPassword      = errors.New("password is too common, please choose a stronger one")
+	ErrEmailNotVerified    = errors.New("email not verified")
+	ErrInvalidEmail        = errors.New("invalid email address")
+	ErrNameRequired        = errors.New("name is required")
 )
 
 type AuthService struct {

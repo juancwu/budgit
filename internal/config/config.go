@@ -9,11 +9,12 @@ import (
 )
 
 type Config struct {
-	AppName string
-	AppEnv  string
-	AppURL  string
-	Host    string
-	Port    string
+	AppName    string
+	AppTagline string
+	AppEnv     string
+	AppURL     string
+	Host       string
+	Port       string
 
 	DBDriver     string
 	DBConnection string
@@ -32,11 +33,12 @@ func Load() *Config {
 	}
 
 	cfg := &Config{
-		AppName: envString("APP_NAME", "Budgething"),
-		AppEnv:  envRequired("APP_ENV"),
-		AppURL:  envRequired("APP_URL"),
-		Host:    envString("HOST", "127.0.0.1"),
-		Port:    envString("PORT", "9000"),
+		AppName:    envString("APP_NAME", "Budgit"),
+		AppTagline: envString("APP_TAGLINE", "Finance tracking made easy."),
+		AppEnv:     envRequired("APP_ENV"),
+		AppURL:     envRequired("APP_URL"),
+		Host:       envString("HOST", "127.0.0.1"),
+		Port:       envString("PORT", "9000"),
 
 		DBDriver:     envString("DB_DRIVER", "sqlite"),
 		DBConnection: envString("DB_CONNECTION", "./data/local.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"),
@@ -49,6 +51,25 @@ func Load() *Config {
 	}
 
 	return cfg
+}
+
+func (cfg *Config) IsProduction() bool {
+	return cfg.AppEnv == "production"
+}
+
+// Sanitized returns a copy of the config with only public/safe fields.
+// All secrets, credentials, and sensitive data are excluded.
+// Safe to expose in ctx, templates and client-facing contexts.
+func (c *Config) Sanitized() *Config {
+	return &Config{
+		AppName:    c.AppName,
+		AppEnv:     c.AppEnv,
+		AppURL:     c.AppURL,
+		Port:       c.Port,
+		AppTagline: c.AppTagline,
+
+		EmailFrom: c.EmailFrom,
+	}
 }
 
 func envString(key, def string) string {

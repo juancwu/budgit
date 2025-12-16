@@ -12,8 +12,13 @@ import (
 
 func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler()
+	home := handler.NewHomeHandler()
 
 	mux := http.NewServeMux()
+
+	// ====================================================================================
+	// PUBLIC ROUTES
+	// ====================================================================================
 
 	// Static
 	sub, _ := fs.Sub(assets.AssetsFS, ".")
@@ -22,5 +27,17 @@ func SetupRoutes(a *app.App) http.Handler {
 	// Auth pages
 	mux.HandleFunc("GET /auth", middleware.RequireGuest(auth.AuthPage))
 
-	return mux
+	// 404
+	mux.HandleFunc("/{path...}", home.NotFoundPage)
+
+	// Global middlewares
+	handler := middleware.Chain(
+		mux,
+		middleware.Config(a.Cfg),
+		middleware.RequestLogging,
+		middleware.CSRFProtection,
+		middleware.WithURLPath,
+	)
+
+	return handler
 }

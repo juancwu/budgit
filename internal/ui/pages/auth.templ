@@ -1,0 +1,76 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgething/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgething/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgething/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgething/internal/ui/components/form"
+	"git.juancwu.dev/juancwu/budgething/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgething/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgething/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgething/internal/ui/layouts"
+)
+
+templ Auth(errorMsg string) {
+	{{ cfg := ctxkeys.Config(ctx) }}
+	@layouts.Auth(layouts.SEOProps{
+		Title:       "Welcome",
+		Description: "Sign in or create your account",
+		Path:        ctxkeys.URLPath(ctx),
+	}) {
+		<div class="min-h-screen flex items-center justify-center p-4">
+			<div class="w-full max-w-sm">
+				<div class="text-center mb-8">
+					<div class="mb-8">
+						@button.Button(button.Props{
+							Variant: button.VariantSecondary,
+							Size:    button.SizeLg,
+							Href:    "/",
+						}) {
+							@icon.Layers()
+							{ cfg.AppName }
+						}
+					</div>
+					<h2 class="text-3xl font-bold">Welcome</h2>
+					<p class="text-muted-foreground mt-2">Sign in or create your account</p>
+				</div>
+				<form action="/auth/magic-link" method="POST" class="space-y-6">
+					@csrf.Token()
+					@form.Item() {
+						@label.Label(label.Props{
+							For:   "email",
+							Class: "block mb-2",
+						}) {
+							Email
+						}
+						@input.Input(input.Props{
+							ID:          "email",
+							Name:        "email",
+							Type:        input.TypeEmail,
+							Placeholder: "name@example.com",
+							HasError:    errorMsg != "",
+							Attributes:  templ.Attributes{"autofocus": ""},
+						})
+						if errorMsg != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ errorMsg }
+							}
+						}
+					}
+					@button.Button(button.Props{
+						Type:      button.TypeSubmit,
+						FullWidth: true,
+					}) {
+						Continue with Email
+					}
+				</form>
+				<!-- Password option -->
+				<p class="mt-6 text-center text-sm text-muted-foreground">
+					<a href="/auth/password" class="text-primary hover:underline">
+						Sign in with password instead
+					</a>
+				</p>
+			</div>
+		</div>
+	}
+}
