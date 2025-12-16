@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
-	"git.juancwu.dev/juancwu/budgething/internal/exception"
-	"git.juancwu.dev/juancwu/budgething/internal/model"
-	"git.juancwu.dev/juancwu/budgething/internal/repository"
+	"git.juancwu.dev/juancwu/budgit/internal/exception"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/alexedwards/argon2id"
 )
 

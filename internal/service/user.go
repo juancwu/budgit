@@ -1,8 +1,8 @@
 package service
 
 import (
-	"git.juancwu.dev/juancwu/budgething/internal/model"
-	"git.juancwu.dev/juancwu/budgething/internal/repository"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/repository"
 )
 
 type UserService struct {

@@ -3,8 +3,8 @@ package ctxkeys
 import (
 	"context"
 
-	"git.juancwu.dev/juancwu/budgething/internal/config"
-	"git.juancwu.dev/juancwu/budgething/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/config"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
 )
 
 const (

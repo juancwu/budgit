@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"git.juancwu.dev/juancwu/budgething/internal/config"
-	"git.juancwu.dev/juancwu/budgething/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/config"
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 )
 
 // Config middleware adds the sanitized app configuration to the request context.

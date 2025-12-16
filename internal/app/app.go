@@ -3,10 +3,10 @@ package app
 import (
 	"fmt"
 
-	"git.juancwu.dev/juancwu/budgething/internal/config"
-	"git.juancwu.dev/juancwu/budgething/internal/db"
-	"git.juancwu.dev/juancwu/budgething/internal/repository"
-	"git.juancwu.dev/juancwu/budgething/internal/service"
+	"git.juancwu.dev/juancwu/budgit/internal/config"
+	"git.juancwu.dev/juancwu/budgit/internal/db"
+	"git.juancwu.dev/juancwu/budgit/internal/repository"
+	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"github.com/jmoiron/sqlx"
 )
 

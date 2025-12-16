@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"strings"
 
-	"git.juancwu.dev/juancwu/budgething/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 )
 
 const (

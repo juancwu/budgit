@@ -1,4 +1,4 @@
-module git.juancwu.dev/juancwu/budgething
+module git.juancwu.dev/juancwu/budgit
 
 go 1.25.1
 

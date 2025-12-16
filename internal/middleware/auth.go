@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"git.juancwu.dev/juancwu/budgething/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 )
 
 // RequireGuest ensures request is not authenticated

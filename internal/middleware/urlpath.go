@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"git.juancwu.dev/juancwu/budgething/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 )
 
 // WithURLPath adds the current URL's path to the context

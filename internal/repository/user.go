@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"git.juancwu.dev/juancwu/budgething/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/jmoiron/sqlx"
 )
 

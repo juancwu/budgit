@@ -4,10 +4,10 @@ import (
 	"io/fs"
 	"net/http"
 
-	"git.juancwu.dev/juancwu/budgething/assets"
-	"git.juancwu.dev/juancwu/budgething/internal/app"
-	"git.juancwu.dev/juancwu/budgething/internal/handler"
-	"git.juancwu.dev/juancwu/budgething/internal/middleware"
+	"git.juancwu.dev/juancwu/budgit/assets"
+	"git.juancwu.dev/juancwu/budgit/internal/app"
+	"git.juancwu.dev/juancwu/budgit/internal/handler"
+	"git.juancwu.dev/juancwu/budgit/internal/middleware"
 )
 
 func SetupRoutes(a *app.App) http.Handler {

@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 
-	"git.juancwu.dev/juancwu/budgething/internal/app"
-	"git.juancwu.dev/juancwu/budgething/internal/config"
-	"git.juancwu.dev/juancwu/budgething/internal/routes"
+	"git.juancwu.dev/juancwu/budgit/internal/app"
+	"git.juancwu.dev/juancwu/budgit/internal/config"
+	"git.juancwu.dev/juancwu/budgit/internal/routes"
 )
 
 func main() {
