@@ -3,7 +3,7 @@ package model
 import "time"
 
 type User struct {
-	ID    string `db:"id"`
+	ID    uint64 `db:"id"`
 	Email string `db:"email"`
 	// Allow null for passwordless users
 	PasswordHash    *string    `db:"password_hash"`

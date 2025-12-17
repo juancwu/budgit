@@ -1,7 +1,7 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
+    id SERIAL PRIMARY KEY NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NULL, -- Allow null for passwordless login
     pending_email TEXT NULL, -- Store new email when changing email

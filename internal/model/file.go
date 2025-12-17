@@ -9,8 +9,8 @@ const (
 )
 
 type File struct {
-	ID           string    `db:"id"`
-	UserID       string    `db:"user_id"`    // Who owns/created this file
+	ID           uint64    `db:"id"`
+	UserID       uint64    `db:"user_id"`    // Who owns/created this file
 	OwnerType    string    `db:"owner_type"` // "user", "profile", etc. - the entity that owns the file
 	OwnerID      string    `db:"owner_id"`   // Polymorphic FK
 	Type         string    `db:"type"`
