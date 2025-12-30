@@ -22,8 +22,12 @@ type Config struct {
 	JWTSecret string
 	JWTExpiry time.Duration
 
-	EmailFrom string
-	ResendKey string
+	MailerSMTPHost     string
+	MailerSMTPPort     string
+	MailerUsername     string
+	MailerPassword     string
+	MailerEmailFrom    string
+	MailerEnvelopeFrom string
 }
 
 func Load() *Config {
@@ -46,8 +50,12 @@ func Load() *Config {
 		JWTSecret: envRequired("JWT_SECRET"),
 		JWTExpiry: envDuration("JWT_EXPIRY", 168*time.Hour), // 7 days default
 
-		EmailFrom: envString("EMAIL_FROM", ""),
-		ResendKey: envString("RESEND_KEY", ""),
+		MailerSMTPHost:     envString("MAILER_SMTP_HOST", ""),
+		MailerSMTPPort:     envString("MAILER_SMTP_PORT", ""),
+		MailerUsername:     envString("MAILER_USERNAME", ""),
+		MailerPassword:     envString("MAILER_PASSWORD", ""),
+		MailerEmailFrom:    envString("MAILER_EMAIL_FROM", ""),
+		MailerEnvelopeFrom: envString("MAILER_ENVELOPE_FROM", ""),
 	}
 
 	return cfg
@@ -68,7 +76,8 @@ func (c *Config) Sanitized() *Config {
 		Port:       c.Port,
 		AppTagline: c.AppTagline,
 
-		EmailFrom: c.EmailFrom,
+		MailerEmailFrom:    c.MailerEmailFrom,
+		MailerEnvelopeFrom: c.MailerEnvelopeFrom,
 	}
 }
 
