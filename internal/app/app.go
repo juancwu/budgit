@@ -29,13 +29,13 @@ func New(cfg *config.Config) (*App, error) {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
 
-	emailClient := service.NewResendClient(cfg.ResendKey)
+	emailClient := service.NewEmailClient(cfg.MailerSMTPHost, cfg.MailerSMTPPort, cfg.MailerIMAPHost, cfg.MailerIMAPPort, cfg.MailerUsername, cfg.MailerPassword)
 
 	userRepository := repository.NewUserRepository(database)
 
 	userService := service.NewUserService(userRepository)
 	authService := service.NewAuthService(userRepository)
-	emailService := service.NewEmailService(emailClient, cfg.EmailFrom, cfg.AppURL, cfg.AppName, cfg.AppEnv == "development")
+	emailService := service.NewEmailService(emailClient, cfg.MailerEmailFrom, cfg.MailerEnvelopeFrom, cfg.MailerSupportFrom, cfg.MailerSupportEnvelopeFrom, cfg.AppURL, cfg.AppName, cfg.AppEnv == "development")
 
 	return &App{
 		Cfg:          cfg,

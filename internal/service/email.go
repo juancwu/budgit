@@ -1,75 +1,151 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
+	"time"
 
-	"github.com/resend/resend-go/v2"
+	"github.com/emersion/go-imap"
+	"github.com/emersion/go-imap/client"
+	"github.com/wneessen/go-mail"
 )
 
 type EmailParams struct {
-	From    string
-	To      []string
-	Bcc     []string
-	Cc      []string
-	ReplyTo string
-	Subject string
-	Text    string
-	Html    string
+	From         string
+	EnvelopeFrom string
+	To           []string
+	Bcc          []string
+	Cc           []string
+	ReplyTo      string
+	Subject      string
+	Text         string
+	Html         string
 }
 
-type EmailClient interface {
-	SendWithContext(ctx context.Context, params *EmailParams) (string, error)
+type EmailClient struct {
+	smtpHost string
+	smtpPort int
+	imapHost string
+	imapPort int
+	username string
+	password string
 }
 
-type ResendClient struct {
-	client *resend.Client
-}
-
-func NewResendClient(apiKey string) *ResendClient {
-	var client *resend.Client
-	if apiKey != "" {
-		client = resend.NewClient(apiKey)
-	} else {
-		slog.Warn("cannot initialize Resend client with empty api key")
-		return nil
+func NewEmailClient(smtpHost string, smtpPort int, imapHost string, imapPort int, username, password string) *EmailClient {
+	return &EmailClient{
+		smtpHost: smtpHost,
+		smtpPort: smtpPort,
+		imapHost: imapHost,
+		imapPort: imapPort,
+		username: username,
+		password: password,
 	}
-	return &ResendClient{client: client}
 }
 
-func (c *ResendClient) SendWithContext(ctx context.Context, params *EmailParams) (string, error) {
-	res, err := c.client.Emails.SendWithContext(ctx, &resend.SendEmailRequest{
-		From:    params.From,
-		To:      params.To,
-		Bcc:     params.Bcc,
-		Cc:      params.Cc,
-		ReplyTo: params.ReplyTo,
-		Subject: params.Subject,
-		Text:    params.Text,
-		Html:    params.Html,
-	})
+func (nc *EmailClient) SendWithContext(ctx context.Context, params *EmailParams) (string, error) {
+	m := mail.NewMsg()
+	m.From(params.From)
+	m.EnvelopeFrom(params.EnvelopeFrom)
+	m.To(params.To...)
+	m.Subject(params.Subject)
+	m.SetBodyString(mail.TypeTextPlain, params.Text)
+	m.SetBodyString(mail.TypeTextHTML, params.Html)
+	m.ReplyTo(params.ReplyTo)
+	m.SetDate()
+	m.SetMessageID()
+
+	msgID := m.GetMessageID()
+
+	var msgBuffer bytes.Buffer
+	if _, err := m.WriteTo(&msgBuffer); err != nil {
+		return "", fmt.Errorf("failed to buffer message: %w", err)
+	}
+
+	smtpClient, err := nc.connectToSMTP()
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to connect to SMTP server: %w", err)
 	}
-	return res.Id, nil
+
+	err = smtpClient.DialAndSendWithContext(ctx, m)
+	if err != nil {
+		return "", fmt.Errorf("failed to send email: %w", err)
+	}
+
+	imapClient, err := nc.connectToIMAP()
+	if err != nil {
+		slog.Error("failed to establish connection with IMAP server", "error", err)
+		return msgID, nil
+	}
+	defer imapClient.Logout()
+
+	flags := []string{imap.SeenFlag}
+
+	folderName := "Sent"
+
+	literal := bytes.NewReader(msgBuffer.Bytes())
+
+	err = imapClient.Append(folderName, flags, time.Now(), literal)
+	if err != nil {
+		slog.Error("IMAP append failed", "error", err)
+	}
+
+	return msgID, nil
+}
+
+func (nc *EmailClient) connectToSMTP() (*mail.Client, error) {
+	smtpClient, err := mail.NewClient(
+		nc.smtpHost,
+		mail.WithPort(nc.smtpPort),
+		mail.WithSMTPAuth(mail.SMTPAuthPlain),
+		mail.WithUsername(nc.username),
+		mail.WithPassword(nc.password),
+		mail.WithTLSPolicy(mail.TLSMandatory),
+	)
+	return smtpClient, err
+}
+
+func (nc *EmailClient) connectToIMAP() (*client.Client, error) {
+	var c *client.Client
+	var err error
+
+	addr := fmt.Sprintf("%s:%d", nc.imapHost, nc.imapPort)
+
+	c, err = client.DialTLS(addr, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	err = c.Login(nc.username, nc.password)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }
 
 type EmailService struct {
-	client    EmailClient
-	fromEmail string
-	isDev     bool
-	appURL    string
-	appName   string
+	client          *EmailClient
+	fromEmail       string
+	fromEnvelope    string
+	supportEmail    string
+	supportEnvelope string
+	isDev           bool
+	appURL          string
+	appName         string
 }
 
-func NewEmailService(client EmailClient, fromEmail, appURL, appName string, isDev bool) *EmailService {
+func NewEmailService(client *EmailClient, fromEmail, fromEnvelope, supportEmail, supportEnvelope, appURL, appName string, isDev bool) *EmailService {
 	return &EmailService{
-		client:    client,
-		fromEmail: fromEmail,
-		isDev:     isDev,
-		appURL:    appURL,
-		appName:   appName,
+		client:          client,
+		fromEmail:       fromEmail,
+		fromEnvelope:    fromEnvelope,
+		supportEmail:    supportEmail,
+		supportEnvelope: supportEnvelope,
+		isDev:           isDev,
+		appURL:          appURL,
+		appName:         appName,
 	}
 }
 
@@ -80,10 +156,6 @@ func (s *EmailService) SendMagicLinkEmail(email, token, name string) error {
 	if s.isDev {
 		slog.Info("email sent (dev mode)", "type", "magic_link", "to", email, "subject", subject, "url", magicURL)
 		return nil
-	}
-
-	if s.client == nil {
-		return fmt.Errorf("email service not configured (missing RESEND_API_KEY)")
 	}
 
 	params := &EmailParams{
