@@ -20,19 +20,19 @@ type Config struct {
 	DBDriver     string
 	DBConnection string
 
-	JWTSecret string
-	JWTExpiry time.Duration
+	JWTSecret            string
+	JWTExpiry            time.Duration
+	TokenMagicLinkExpiry time.Duration
 
-	MailerSMTPHost            string
-	MailerSMTPPort            int
-	MailerIMAPHost            string
-	MailerIMAPPort            int
-	MailerUsername            string
-	MailerPassword            string
-	MailerEmailFrom           string
-	MailerEnvelopeFrom        string
-	MailerSupportFrom         string
-	MailerSupportEnvelopeFrom string
+	MailerSMTPHost  string
+	MailerSMTPPort  int
+	MailerIMAPHost  string
+	MailerIMAPPort  int
+	MailerUsername  string
+	MailerPassword  string
+	MailerEmailFrom string
+
+	SupportEmail string
 }
 
 func Load() *Config {
@@ -52,19 +52,19 @@ func Load() *Config {
 		DBDriver:     envString("DB_DRIVER", "sqlite"),
 		DBConnection: envString("DB_CONNECTION", "./data/local.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"),
 
-		JWTSecret: envRequired("JWT_SECRET"),
-		JWTExpiry: envDuration("JWT_EXPIRY", 168*time.Hour), // 7 days default
+		JWTSecret:            envRequired("JWT_SECRET"),
+		JWTExpiry:            envDuration("JWT_EXPIRY", 168*time.Hour), // 7 days default
+		TokenMagicLinkExpiry: envDuration("TOKEN_MAGIC_LINK_EXPIRY", 10*time.Minute),
 
-		MailerSMTPHost:            envString("MAILER_SMTP_HOST", ""),
-		MailerSMTPPort:            envInt("MAILER_SMTP_PORT", 587),
-		MailerIMAPHost:            envString("MAILER_IMAP_HOST", ""),
-		MailerIMAPPort:            envInt("MAILER_IMAP_PORT", 993),
-		MailerUsername:            envString("MAILER_USERNAME", ""),
-		MailerPassword:            envString("MAILER_PASSWORD", ""),
-		MailerEmailFrom:           envString("MAILER_EMAIL_FROM", ""),
-		MailerEnvelopeFrom:        envString("MAILER_ENVELOPE_FROM", ""),
-		MailerSupportFrom:         envString("MAILER_SUPPORT_EMAIL_FROM", ""),
-		MailerSupportEnvelopeFrom: envString("MAILER_SUPPORT_ENVELOPE_FROM", ""),
+		MailerSMTPHost:  envString("MAILER_SMTP_HOST", ""),
+		MailerSMTPPort:  envInt("MAILER_SMTP_PORT", 587),
+		MailerIMAPHost:  envString("MAILER_IMAP_HOST", ""),
+		MailerIMAPPort:  envInt("MAILER_IMAP_PORT", 993),
+		MailerUsername:  envString("MAILER_USERNAME", ""),
+		MailerPassword:  envString("MAILER_PASSWORD", ""),
+		MailerEmailFrom: envString("MAILER_EMAIL_FROM", ""),
+
+		SupportEmail: envString("SUPPORT_EMAIL", ""),
 	}
 
 	return cfg
@@ -85,8 +85,8 @@ func (c *Config) Sanitized() *Config {
 		Port:       c.Port,
 		AppTagline: c.AppTagline,
 
-		MailerEmailFrom:    c.MailerEmailFrom,
-		MailerEnvelopeFrom: c.MailerEnvelopeFrom,
+		MailerEmailFrom: c.MailerEmailFrom,
+		SupportEmail:    c.SupportEmail,
 	}
 }
 

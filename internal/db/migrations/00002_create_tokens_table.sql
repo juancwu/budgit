@@ -1,8 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS tokens (
-    id SERIAL PRIMARY KEY NOT NULL,
-    user_id INTEGER NOT NULL,
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
     type TEXT NOT NULL,
     token TEXT UNIQUE NOT NULL,
     expires_at TIMESTAMP NOT NULL,

@@ -11,7 +11,7 @@ import (
 )
 
 func SetupRoutes(a *app.App) http.Handler {
-	auth := handler.NewAuthHandler()
+	auth := handler.NewAuthHandler(a.AuthService)
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler()
 
@@ -26,8 +26,16 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
 
 	// Auth pages
+	// authRateLimiter := middleware.RateLimitAuth()
+
 	mux.HandleFunc("GET /auth", middleware.RequireGuest(auth.AuthPage))
 	mux.HandleFunc("GET /auth/password", middleware.RequireGuest(auth.PasswordPage))
+
+	// Token Verifications
+	mux.HandleFunc("GET /auth/magic-link/{token}", auth.VerifyMagicLink)
+
+	// Auth Actions
+	mux.HandleFunc("POST /auth/magic-link", middleware.RequireGuest(auth.SendMagicLink))
 
 	// ====================================================================================
 	// PRIVATE ROUTES
@@ -44,7 +52,7 @@ func SetupRoutes(a *app.App) http.Handler {
 		middleware.Config(a.Cfg),
 		middleware.RequestLogging,
 		middleware.CSRFProtection,
-		middleware.AuthMiddleware(a.AuthService, a.UserService),
+		middleware.AuthMiddleware(a.AuthService, a.UserService, a.ProfileService),
 		middleware.WithURLPath,
 	)
 

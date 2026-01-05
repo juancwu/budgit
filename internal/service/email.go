@@ -13,15 +13,14 @@ import (
 )
 
 type EmailParams struct {
-	From         string
-	EnvelopeFrom string
-	To           []string
-	Bcc          []string
-	Cc           []string
-	ReplyTo      string
-	Subject      string
-	Text         string
-	Html         string
+	From    string
+	To      []string
+	Bcc     []string
+	Cc      []string
+	ReplyTo string
+	Subject string
+	Text    string
+	Html    string
 }
 
 type EmailClient struct {
@@ -47,12 +46,20 @@ func NewEmailClient(smtpHost string, smtpPort int, imapHost string, imapPort int
 func (nc *EmailClient) SendWithContext(ctx context.Context, params *EmailParams) (string, error) {
 	m := mail.NewMsg()
 	m.From(params.From)
-	m.EnvelopeFrom(params.EnvelopeFrom)
 	m.To(params.To...)
 	m.Subject(params.Subject)
-	m.SetBodyString(mail.TypeTextPlain, params.Text)
-	m.SetBodyString(mail.TypeTextHTML, params.Html)
-	m.ReplyTo(params.ReplyTo)
+
+	if params.Html != "" {
+		m.SetBodyString(mail.TypeTextHTML, params.Html)
+		m.AddAlternativeString(mail.TypeTextPlain, params.Text)
+	} else {
+		m.SetBodyString(mail.TypeTextPlain, params.Text)
+	}
+
+	if params.ReplyTo != "" {
+		m.ReplyTo(params.ReplyTo)
+	}
+
 	m.SetDate()
 	m.SetMessageID()
 
@@ -126,26 +133,20 @@ func (nc *EmailClient) connectToIMAP() (*client.Client, error) {
 }
 
 type EmailService struct {
-	client          *EmailClient
-	fromEmail       string
-	fromEnvelope    string
-	supportEmail    string
-	supportEnvelope string
-	isDev           bool
-	appURL          string
-	appName         string
+	client    *EmailClient
+	fromEmail string
+	isProd    bool
+	appURL    string
+	appName   string
 }
 
-func NewEmailService(client *EmailClient, fromEmail, fromEnvelope, supportEmail, supportEnvelope, appURL, appName string, isDev bool) *EmailService {
+func NewEmailService(client *EmailClient, fromEmail, appURL, appName string, isProd bool) *EmailService {
 	return &EmailService{
-		client:          client,
-		fromEmail:       fromEmail,
-		fromEnvelope:    fromEnvelope,
-		supportEmail:    supportEmail,
-		supportEnvelope: supportEnvelope,
-		isDev:           isDev,
-		appURL:          appURL,
-		appName:         appName,
+		client:    client,
+		fromEmail: fromEmail,
+		isProd:    isProd,
+		appURL:    appURL,
+		appName:   appName,
 	}
 }
 
@@ -153,10 +154,10 @@ func (s *EmailService) SendMagicLinkEmail(email, token, name string) error {
 	magicURL := fmt.Sprintf("%s/auth/magic-link/%s", s.appURL, token)
 	subject, body := magicLinkEmailTemplate(magicURL, s.appName)
 
-	if s.isDev {
-		slog.Info("email sent (dev mode)", "type", "magic_link", "to", email, "subject", subject, "url", magicURL)
-		return nil
-	}
+	// if !s.isProd {
+	// 	slog.Info("email sent (dev mode)", "type", "magic_link", "to", email, "subject", subject, "url", magicURL)
+	// 	return nil
+	// }
 
 	params := &EmailParams{
 		From:    s.fromEmail,

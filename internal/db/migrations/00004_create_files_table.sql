@@ -1,8 +1,8 @@
 -- +goose Up
 -- +goose StatementBegin
 CREATE TABLE IF NOT EXISTS files (
-    id SERIAL PRIMARY KEY NOT NULL,
-    user_id INTEGER NOT NULL,
+    id TEXT PRIMARY KEY NOT NULL,
+    user_id TEXT NOT NULL,
     owner_type TEXT NOT NULL,
     owner_id TEXT NOT NULL,
     type TEXT NOT NULL,

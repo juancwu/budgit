@@ -31,7 +31,7 @@ func AuthMiddleware(authService *service.AuthService, userService *service.UserS
 			}
 
 			// Get user ID from claims
-			userID, ok := claims["user_id"].(string)
+			userID, ok := claims["user_id"].(int64)
 			if !ok {
 				authService.ClearJWTCookie(w)
 				next.ServeHTTP(w, r)
@@ -41,7 +41,6 @@ func AuthMiddleware(authService *service.AuthService, userService *service.UserS
 			// Fetch user from database
 			user, err := userService.ByID(userID)
 			if err != nil {
-
 				authService.ClearJWTCookie(w)
 				next.ServeHTTP(w, r)
 				return

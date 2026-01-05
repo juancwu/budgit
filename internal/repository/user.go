@@ -15,7 +15,7 @@ var (
 )
 
 type UserRepository interface {
-	Create(user *model.User) error
+	Create(user *model.User) (string, error)
 	ByID(id string) (*model.User, error)
 	ByEmail(email string) (*model.User, error)
 	Update(user *model.User) error
@@ -30,19 +30,19 @@ func NewUserRepository(db *sqlx.DB) UserRepository {
 	return &userRepository{db: db}
 }
 
-func (r *userRepository) Create(user *model.User) error {
+func (r *userRepository) Create(user *model.User) (string, error) {
 	query := `INSERT INTO users (id, email, password_hash, email_verified_at, created_at) VALUES ($1, $2, $3, $4, $5);`
 
 	_, err := r.db.Exec(query, user.ID, user.Email, user.PasswordHash, user.EmailVerifiedAt, user.CreatedAt)
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "UNIQUE constraint failed") || strings.Contains(errStr, "duplicate key value") {
-			return ErrDuplicateEmail
+			return "", ErrDuplicateEmail
 		}
-		return err
+		return "", err
 	}
 
-	return nil
+	return user.ID, nil
 }
 
 func (r *userRepository) ByID(id string) (*model.User, error) {
@@ -58,15 +58,15 @@ func (r *userRepository) ByID(id string) (*model.User, error) {
 }
 
 func (r *userRepository) ByEmail(email string) (*model.User, error) {
-	user := &model.User{}
+	var user model.User
 	query := `SELECT * FROM users WHERE email = $1;`
 
-	err := r.db.Get(user, query, email)
+	err := r.db.Get(&user, query, email)
 	if err == sql.ErrNoRows {
 		return nil, ErrUserNotFound
 	}
 
-	return user, err
+	return &user, err
 }
 
 func (r *userRepository) Update(user *model.User) error {

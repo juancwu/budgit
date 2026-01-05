@@ -11,11 +11,12 @@ import (
 )
 
 type App struct {
-	Cfg          *config.Config
-	DB           *sqlx.DB
-	UserService  *service.UserService
-	AuthService  *service.AuthService
-	EmailService *service.EmailService
+	Cfg            *config.Config
+	DB             *sqlx.DB
+	UserService    *service.UserService
+	AuthService    *service.AuthService
+	EmailService   *service.EmailService
+	ProfileService *service.ProfileService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -32,17 +33,36 @@ func New(cfg *config.Config) (*App, error) {
 	emailClient := service.NewEmailClient(cfg.MailerSMTPHost, cfg.MailerSMTPPort, cfg.MailerIMAPHost, cfg.MailerIMAPPort, cfg.MailerUsername, cfg.MailerPassword)
 
 	userRepository := repository.NewUserRepository(database)
+	profileRepository := repository.NewProfileRepository(database)
+	tokenRepository := repository.NewTokenRepository(database)
 
 	userService := service.NewUserService(userRepository)
-	authService := service.NewAuthService(userRepository)
-	emailService := service.NewEmailService(emailClient, cfg.MailerEmailFrom, cfg.MailerEnvelopeFrom, cfg.MailerSupportFrom, cfg.MailerSupportEnvelopeFrom, cfg.AppURL, cfg.AppName, cfg.AppEnv == "development")
+	emailService := service.NewEmailService(
+		emailClient,
+		cfg.MailerEmailFrom,
+		cfg.AppURL,
+		cfg.AppName,
+		cfg.IsProduction(),
+	)
+	authService := service.NewAuthService(
+		emailService,
+		userRepository,
+		profileRepository,
+		tokenRepository,
+		cfg.JWTSecret,
+		cfg.JWTExpiry,
+		cfg.TokenMagicLinkExpiry,
+		cfg.IsProduction(),
+	)
+	profileService := service.NewProfileService(profileRepository)
 
 	return &App{
-		Cfg:          cfg,
-		DB:           database,
-		UserService:  userService,
-		AuthService:  authService,
-		EmailService: emailService,
+		Cfg:            cfg,
+		DB:             database,
+		UserService:    userService,
+		AuthService:    authService,
+		EmailService:   emailService,
+		ProfileService: profileService,
 	}, nil
 }
 
