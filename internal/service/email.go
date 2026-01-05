@@ -154,10 +154,10 @@ func (s *EmailService) SendMagicLinkEmail(email, token, name string) error {
 	magicURL := fmt.Sprintf("%s/auth/magic-link/%s", s.appURL, token)
 	subject, body := magicLinkEmailTemplate(magicURL, s.appName)
 
-	// if !s.isProd {
-	// 	slog.Info("email sent (dev mode)", "type", "magic_link", "to", email, "subject", subject, "url", magicURL)
-	// 	return nil
-	// }
+	if !s.isProd {
+		slog.Info("email sent (dev mode)", "type", "magic_link", "to", email, "subject", subject, "url", magicURL)
+		return nil
+	}
 
 	params := &EmailParams{
 		From:    s.fromEmail,
