@@ -7,8 +7,6 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 )
 
-// TODO: implement clearing jwt token in auth service
-
 // AuthMiddleware checks for JWT token and adds user + profile + subscription to context if valid
 func AuthMiddleware(authService *service.AuthService, userService *service.UserService, profileService *service.ProfileService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
