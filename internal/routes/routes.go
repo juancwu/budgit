@@ -42,7 +42,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	// ====================================================================================
 
 	mux.HandleFunc("GET /auth/onboarding", middleware.RequireAuth(auth.OnboardingPage))
-	mux.HandleFunc("POST /auth/onboarding", middleware.RequireAuth(auth.CompleteOnboarding))
+	mux.HandleFunc("POST /auth/onboarding", authRateLimiter(middleware.RequireAuth(auth.CompleteOnboarding)))
 
 	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
 
