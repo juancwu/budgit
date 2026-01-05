@@ -1,11 +1,25 @@
 package handler
 
-import "net/http"
+import (
+	"net/http"
+
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+)
 
 type homeHandler struct{}
 
 func NewHomeHandler() *homeHandler {
 	return &homeHandler{}
+}
+
+// HomePage will redirect to /auth if not authenticated or to /app/dashboard if authenticated.
+func (h *homeHandler) HomePage(w http.ResponseWriter, r *http.Request) {
+	user := ctxkeys.User(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/auth", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
 }
 
 func (home *homeHandler) NotFoundPage(w http.ResponseWriter, r *http.Request) {

@@ -25,6 +25,9 @@ func SetupRoutes(a *app.App) http.Handler {
 	sub, _ := fs.Sub(assets.AssetsFS, ".")
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
 
+	// Home
+	mux.HandleFunc("GET /{$}", home.HomePage)
+
 	// Auth pages
 	authRateLimiter := middleware.RateLimitAuth()
 
