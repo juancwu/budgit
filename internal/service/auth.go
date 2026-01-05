@@ -194,56 +194,56 @@ func (s *AuthService) SendMagicLink(email string) error {
 				Email:     email,
 				CreatedAt: now,
 			}
-			            _, err := s.userRepository.Create(user)
-			            if err != nil {
-			                return fmt.Errorf("failed to create user: %w", err)
-			            }
-			
-			            slog.Info("new user created with id", "id", user.ID)
-			
-			            profile := &model.Profile{
-			            	ID:        uuid.NewString(),
-			                UserID:    user.ID,
-			                Name:      "",
-			                CreatedAt: now,
-			                UpdatedAt: now,
-			            }
-			
-			            _, err = s.profileRepository.Create(profile)
-			            if err != nil {
-			                return fmt.Errorf("failed to create profile: %w", err)
-			            }
-			
-			            slog.Info("new passwordless user created", "email", email, "user_id", user.ID)
-			        } else {
-			            // user look up unexpected error
-			            return fmt.Errorf("failed to look up user: %w", err)
-			        }
-			    }
-			
-			    err = s.tokenRepository.DeleteByUserAndType(user.ID, model.TokenTypeMagicLink)
-			    if err != nil {
-			        slog.Warn("failed to delete old magic link tokens", "error", err, "user_id", user.ID)
-			    }
-			
-			    magicToken, err := s.GenerateToken()
-			    if err != nil {
-			        return fmt.Errorf("failed to generate token: %w", err)
-			    }
-			
-			    token := &model.Token{
-			    	ID:        uuid.NewString(),
-			        UserID:    user.ID,
-			        Type:      model.TokenTypeMagicLink,
-			        Token:     magicToken,
-			        ExpiresAt: time.Now().Add(s.tokenMagicLinkExpiry),
-			    }
-			
-			    _, err = s.tokenRepository.Create(token)
-			    if err != nil {
-			        return fmt.Errorf("failed to create token: %w", err)
-			    }
-			
+			_, err := s.userRepository.Create(user)
+			if err != nil {
+				return fmt.Errorf("failed to create user: %w", err)
+			}
+
+			slog.Info("new user created with id", "id", user.ID)
+
+			profile := &model.Profile{
+				ID:        uuid.NewString(),
+				UserID:    user.ID,
+				Name:      "",
+				CreatedAt: now,
+				UpdatedAt: now,
+			}
+
+			_, err = s.profileRepository.Create(profile)
+			if err != nil {
+				return fmt.Errorf("failed to create profile: %w", err)
+			}
+
+			slog.Info("new passwordless user created", "email", email, "user_id", user.ID)
+		} else {
+			// user look up unexpected error
+			return fmt.Errorf("failed to look up user: %w", err)
+		}
+	}
+
+	err = s.tokenRepository.DeleteByUserAndType(user.ID, model.TokenTypeMagicLink)
+	if err != nil {
+		slog.Warn("failed to delete old magic link tokens", "error", err, "user_id", user.ID)
+	}
+
+	magicToken, err := s.GenerateToken()
+	if err != nil {
+		return fmt.Errorf("failed to generate token: %w", err)
+	}
+
+	token := &model.Token{
+		ID:        uuid.NewString(),
+		UserID:    user.ID,
+		Type:      model.TokenTypeMagicLink,
+		Token:     magicToken,
+		ExpiresAt: time.Now().Add(s.tokenMagicLinkExpiry),
+	}
+
+	_, err = s.tokenRepository.Create(token)
+	if err != nil {
+		return fmt.Errorf("failed to create token: %w", err)
+	}
+
 	profile, err := s.profileRepository.ByUserID(user.ID)
 	name := ""
 	if err == nil && profile != nil {
@@ -290,4 +290,38 @@ func (s *AuthService) VerifyMagicLink(tokenString string) (*model.User, error) {
 	slog.Info("user authenticated via magic link", "user_id", user.ID, "email", user.Email)
 
 	return user, nil
+}
+
+// NeedsOnboarding checks if user needs to complete onboarding (name not set)
+func (s *AuthService) NeedsOnboarding(userID string) (bool, error) {
+	profile, err := s.profileRepository.ByUserID(userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get profile: %w", err)
+	}
+
+	return profile.Name == "", nil
+}
+
+// CompleteOnboarding sets the user's name during onboarding
+func (s *AuthService) CompleteOnboarding(userID, name string) error {
+	name = strings.TrimSpace(name)
+
+	err := validation.ValidateName(name)
+	if err != nil {
+		return err
+	}
+
+	err = s.profileRepository.UpdateName(userID, name)
+	if err != nil {
+		return fmt.Errorf("failed to update profile: %w", err)
+	}
+
+	user, err := s.userRepository.ByID(userID)
+	if err == nil {
+		// TODO: send welcome email
+	}
+
+	slog.Info("onboarding completed", "user_id", user.ID, "name", name)
+
+	return nil
 }

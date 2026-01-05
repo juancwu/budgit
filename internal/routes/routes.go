@@ -26,7 +26,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
 
 	// Auth pages
-	// authRateLimiter := middleware.RateLimitAuth()
+	authRateLimiter := middleware.RateLimitAuth()
 
 	mux.HandleFunc("GET /auth", middleware.RequireGuest(auth.AuthPage))
 	mux.HandleFunc("GET /auth/password", middleware.RequireGuest(auth.PasswordPage))
@@ -35,11 +35,14 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("GET /auth/magic-link/{token}", auth.VerifyMagicLink)
 
 	// Auth Actions
-	mux.HandleFunc("POST /auth/magic-link", middleware.RequireGuest(auth.SendMagicLink))
+	mux.HandleFunc("POST /auth/magic-link", authRateLimiter(middleware.RequireGuest(auth.SendMagicLink)))
 
 	// ====================================================================================
 	// PRIVATE ROUTES
 	// ====================================================================================
+
+	mux.HandleFunc("GET /auth/onboarding", middleware.RequireAuth(auth.OnboardingPage))
+	mux.HandleFunc("POST /auth/onboarding", middleware.RequireAuth(auth.CompleteOnboarding))
 
 	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
 

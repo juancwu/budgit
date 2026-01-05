@@ -101,17 +101,17 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 
 		// Check if user has completed onboarding
 		// Uses profile.Name as indicator (empty = incomplete onboarding)
-		// profile := ctxkeys.Profile(r.Context())
-		// if profile.Name == "" && r.URL.Path != "/auth/onboarding" {
-		// 	// User hasn't completed onboarding, redirect to onboarding
-		// 	if r.Header.Get("HX-Request") == "true" {
-		// 		w.Header().Set("HX-Redirect", "/auth/onboarding")
-		// 		w.WriteHeader(http.StatusSeeOther)
-		// 		return
-		// 	}
-		// 	http.Redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
-		// 	return
-		// }
+		profile := ctxkeys.Profile(r.Context())
+		if profile.Name == "" && r.URL.Path != "/auth/onboarding" {
+			// User hasn't completed onboarding, redirect to onboarding
+			if r.Header.Get("HX-Request") == "true" {
+				w.Header().Set("HX-Redirect", "/auth/onboarding")
+				w.WriteHeader(http.StatusSeeOther)
+				return
+			}
+			http.Redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
+			return
+		}
 
 		next.ServeHTTP(w, r)
 	}

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
@@ -82,8 +83,41 @@ func (h *authHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 
 	h.authService.SetJWTCookie(w, jwtToken, time.Now().Add(7*24*time.Hour))
 
-	// TODO: check for onboarding
+	needsOnboarding, err := h.authService.NeedsOnboarding(user.ID)
+	if err != nil {
+		slog.Warn("failed to check onboarding status", "error", err, "user_id", user.ID)
+	}
+
+	if needsOnboarding {
+		slog.Info("new user needs onboarding", "user_id", user.ID, "email", user.Email)
+		http.Redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
+		return
+	}
 
 	slog.Info("user logged via magic link", "user_id", user.ID, "email", user.Email)
+	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
+}
+
+func (h *authHandler) OnboardingPage(w http.ResponseWriter, r *http.Request) {
+	ui.Render(w, r, pages.Onboarding(""))
+}
+
+func (h *authHandler) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
+	user := ctxkeys.User(r.Context())
+	if user == nil {
+		http.Redirect(w, r, "/auth", http.StatusSeeOther)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+
+	err := h.authService.CompleteOnboarding(user.ID, name)
+	if err != nil {
+		slog.Error("onboarding failed", "error", err, "user_id", user.ID)
+		ui.Render(w, r, pages.Onboarding("Please enter your name"))
+		return
+	}
+
+	slog.Info("onboarding completed", "user_id", user.ID, "name", name)
 	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
 }

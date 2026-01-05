@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
@@ -16,6 +17,7 @@ var (
 type ProfileRepository interface {
 	Create(profile *model.Profile) (string, error)
 	ByUserID(userID string) (*model.Profile, error)
+	UpdateName(userID, name string) error
 }
 
 type profileRepository struct {
@@ -57,4 +59,26 @@ func (r *profileRepository) ByUserID(userID string) (*model.Profile, error) {
 	}
 
 	return &profile, nil
+}
+
+func (r *profileRepository) UpdateName(userID, name string) error {
+	result, err := r.db.Exec(`
+		UPDATE profiles
+		SET name = $1, updated_at = $2
+		WHERE user_id = $3
+		`, name, time.Now(), userID)
+
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("no profile found for user_id: %s", userID)
+	}
+
+	return nil
 }
