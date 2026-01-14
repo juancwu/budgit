@@ -17,6 +17,7 @@ type App struct {
 	AuthService    *service.AuthService
 	EmailService   *service.EmailService
 	ProfileService *service.ProfileService
+	SpaceService   *service.SpaceService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -35,8 +36,10 @@ func New(cfg *config.Config) (*App, error) {
 	userRepository := repository.NewUserRepository(database)
 	profileRepository := repository.NewProfileRepository(database)
 	tokenRepository := repository.NewTokenRepository(database)
+	spaceRepository := repository.NewSpaceRepository(database)
 
 	userService := service.NewUserService(userRepository)
+	spaceService := service.NewSpaceService(spaceRepository)
 	emailService := service.NewEmailService(
 		emailClient,
 		cfg.MailerEmailFrom,
@@ -49,6 +52,7 @@ func New(cfg *config.Config) (*App, error) {
 		userRepository,
 		profileRepository,
 		tokenRepository,
+		spaceService,
 		cfg.JWTSecret,
 		cfg.JWTExpiry,
 		cfg.TokenMagicLinkExpiry,
@@ -63,6 +67,7 @@ func New(cfg *config.Config) (*App, error) {
 		AuthService:    authService,
 		EmailService:   emailService,
 		ProfileService: profileService,
+		SpaceService:   spaceService,
 	}, nil
 }
 

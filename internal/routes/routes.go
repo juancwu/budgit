@@ -27,6 +27,7 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	// Home
 	mux.HandleFunc("GET /{$}", home.HomePage)
+	mux.HandleFunc("GET /forbidden", home.ForbiddenPage)
 
 	// Auth pages
 	authRateLimiter := middleware.RateLimitAuth()

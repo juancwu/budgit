@@ -27,3 +27,7 @@ func (h *homeHandler) HomePage(w http.ResponseWriter, r *http.Request) {
 func (home *homeHandler) NotFoundPage(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, pages.NotFound())
 }
+
+func (h *homeHandler) ForbiddenPage(w http.ResponseWriter, r *http.Request) {
+	ui.Render(w, r, pages.Forbidden())
+}
