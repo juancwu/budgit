@@ -1,6 +1,11 @@
 package handler
 
-import "net/http"
+import (
+	"net/http"
+
+	"git.juancwu.dev/juancwu/budgit/internal/ui"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
+)
 
 type dashboardHandler struct{}
 
@@ -9,6 +14,5 @@ func NewDashboardHandler() *dashboardHandler {
 }
 
 func (h *dashboardHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(200)
-	w.Write([]byte("Dashboard page"))
+	ui.Render(w, r, pages.Dashboard())
 }
