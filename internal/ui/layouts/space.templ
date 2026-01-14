@@ -93,42 +93,44 @@ templ Space(title string, space *model.Space) {
 				}
 			}
 			@sidebar.Inset() {
-				// Top Navigation Bar
-				<header class="sticky top-0 z-10 border-b bg-background">
-					<div class="flex h-14 items-center px-6">
-						<div class="flex items-center gap-4">
-							@sidebar.Trigger()
-							@breadcrumb.Breadcrumb() {
-								@breadcrumb.List() {
-									@breadcrumb.Item() {
-										@breadcrumb.Link(breadcrumb.LinkProps{Href: "/app/dashboard"}) {
-											Home
+				<div hx-sse={ "connect:/app/spaces/" + space.ID + "/stream" } class="flex flex-col h-full">
+					// Top Navigation Bar
+					<header class="sticky top-0 z-10 border-b bg-background">
+						<div class="flex h-14 items-center px-6">
+							<div class="flex items-center gap-4">
+								@sidebar.Trigger()
+								@breadcrumb.Breadcrumb() {
+									@breadcrumb.List() {
+										@breadcrumb.Item() {
+											@breadcrumb.Link(breadcrumb.LinkProps{Href: "/app/dashboard"}) {
+												Home
+											}
 										}
-									}
-									@breadcrumb.Separator()
-									@breadcrumb.Item() {
-										@breadcrumb.Link(breadcrumb.LinkProps{Href: "/app/spaces/" + space.ID}) {
-											{ space.Name }
+										@breadcrumb.Separator()
+										@breadcrumb.Item() {
+											@breadcrumb.Link(breadcrumb.LinkProps{Href: "/app/spaces/" + space.ID}) {
+												{ space.Name }
+											}
 										}
-									}
-									@breadcrumb.Separator()
-									@breadcrumb.Item() {
-										@breadcrumb.Page() {
-											{ title }
+										@breadcrumb.Separator()
+										@breadcrumb.Item() {
+											@breadcrumb.Page() {
+												{ title }
+											}
 										}
 									}
 								}
-							}
+							</div>
+							<div class="ml-auto flex items-center gap-4">
+								@blocks.ThemeSwitcher()
+							</div>
 						</div>
-						<div class="ml-auto flex items-center gap-4">
-							@blocks.ThemeSwitcher()
-						</div>
-					</div>
-				</header>
-				// App Content
-				<main class="flex-1 p-6">
-					{ children... }
-				</main>
+					</header>
+					// App Content
+					<main class="flex-1 p-6">
+						{ children... }
+					</main>
+				</div>
 			}
 		}
 	}

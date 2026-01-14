@@ -7,11 +7,14 @@ import (
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/event"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tag"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
 )
 
@@ -21,15 +24,54 @@ type SpaceHandler struct {
 	listService    *service.ShoppingListService
 	expenseService *service.ExpenseService
 	inviteService  *service.InviteService
+	eventBus       *event.Broker
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, eb *event.Broker) *SpaceHandler {
 	return &SpaceHandler{
 		spaceService:   ss,
 		tagService:     ts,
 		listService:    sls,
 		expenseService: es,
 		inviteService:  is,
+		eventBus:       eb,
+	}
+}
+
+func (h *SpaceHandler) StreamEvents(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	// Set headers for SSE
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	// Subscribe to events
+	eventChan := h.eventBus.Subscribe(spaceID)
+	defer h.eventBus.Unsubscribe(spaceID, eventChan)
+
+	// Listen for client disconnect
+	ctx := r.Context()
+
+	// Flush immediately to establish connection
+	if flusher, ok := w.(http.Flusher); ok {
+		flusher.Flush()
+	}
+
+	for {
+		select {
+		case event := <-eventChan:
+			// Write event to stream
+			if _, err := w.Write([]byte(event.String())); err != nil {
+				return
+			}
+			if flusher, ok := w.(http.Flusher); ok {
+				flusher.Flush()
+			}
+		case <-ctx.Done():
+			return
+		}
 	}
 }
 
@@ -378,8 +420,14 @@ func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Return a nice UI response (toast or list update)
-	w.Write([]byte("Invitation sent!"))
+	ui.Render(w, r, toast.Toast(toast.Props{
+		Title:       "Invitation sent",
+		Description: "An email has been sent to " + email,
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
@@ -408,4 +456,57 @@ func (h *SpaceHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteLaxMode,
 	})
 	http.Redirect(w, r, "/auth?invite=true", http.StatusTemporaryRedirect)
+}
+
+func (h *SpaceHandler) GetBalanceCard(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, expense.BalanceCard(spaceID, balance, false))
+}
+
+func (h *SpaceHandler) GetExpensesList(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	expenses, err := h.expenseService.GetExpensesForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get expenses", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.ExpensesListContent(expenses))
+}
+
+func (h *SpaceHandler) GetShoppingListItems(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	listID := r.PathValue("listID")
+
+	items, err := h.listService.GetItemsForList(listID)
+	if err != nil {
+		slog.Error("failed to get items", "error", err, "list_id", listID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.ShoppingListItems(spaceID, items))
+}
+
+func (h *SpaceHandler) GetLists(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	lists, err := h.listService.GetListsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get lists", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.ListsContainer(lists))
 }

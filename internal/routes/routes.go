@@ -14,7 +14,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService)
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler()
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.EventBus)
 
 	mux := http.NewServeMux()
 
@@ -56,6 +56,11 @@ func SetupRoutes(a *app.App) http.Handler {
 	spaceDashboardHandler := middleware.RequireAuth(space.DashboardPage)
 	spaceDashboardWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(spaceDashboardHandler)
 	mux.Handle("GET /app/spaces/{spaceID}", spaceDashboardWithAccess)
+
+	// SSE
+	streamHandler := middleware.RequireAuth(space.StreamEvents)
+	streamWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(streamHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/stream", streamWithAccess)
 
 	listsPageHandler := middleware.RequireAuth(space.ListsPage)
 	listsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsPageHandler)
@@ -102,6 +107,23 @@ func SetupRoutes(a *app.App) http.Handler {
 	createExpenseHandler := middleware.RequireAuth(space.CreateExpense)
 	createExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createExpenseHandler)
 	mux.Handle("POST /app/spaces/{spaceID}/expenses", createExpenseWithAccess)
+
+	// Component routes (HTMX updates)
+	balanceCardHandler := middleware.RequireAuth(space.GetBalanceCard)
+	balanceCardWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(balanceCardHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/components/balance", balanceCardWithAccess)
+
+	expensesListHandler := middleware.RequireAuth(space.GetExpensesList)
+	expensesListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(expensesListHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/components/expenses", expensesListWithAccess)
+
+	shoppingListItemsHandler := middleware.RequireAuth(space.GetShoppingListItems)
+	shoppingListItemsWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(shoppingListItemsHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/lists/{listID}/items", shoppingListItemsWithAccess)
+
+	listsComponentHandler := middleware.RequireAuth(space.GetLists)
+	listsComponentWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsComponentHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/components/lists", listsComponentWithAccess)
 
 	// Invite routes
 	createInviteHandler := middleware.RequireAuth(space.CreateInvite)

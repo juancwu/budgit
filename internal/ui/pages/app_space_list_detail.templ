@@ -31,15 +31,25 @@ templ SpaceListDetailPage(space *model.Space, list *model.ShoppingList, items []
 					Add Item
 				}
 			</form>
-			<div id="items-container" class="border rounded-lg">
-				if len(items) == 0 {
-					<p class="text-center text-muted-foreground p-8">This list is empty.</p>
-				} else {
-					for _, item := range items {
-						@shoppinglist.ItemDetail(space.ID, item)
-					}
-				}
+			<div
+				id="items-container"
+				class="border rounded-lg"
+				hx-get={ "/app/spaces/" + space.ID + "/lists/" + list.ID + "/items" }
+				hx-trigger="sse:item_added, sse:item_updated, sse:item_deleted"
+				hx-swap="innerHTML"
+			>
+				@ShoppingListItems(space.ID, items)
 			</div>
 		</div>
+	}
+}
+
+templ ShoppingListItems(spaceID string, items []*model.ListItem) {
+	if len(items) == 0 {
+		<p class="text-center text-muted-foreground p-8">This list is empty.</p>
+	} else {
+		for _, item := range items {
+			@shoppinglist.ItemDetail(spaceID, item)
+		}
 	}
 }

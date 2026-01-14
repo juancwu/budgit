@@ -33,22 +33,32 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance i
 			</div>
 
 			// Balance Card
-			@expense.BalanceCard(balance, false)
+			@expense.BalanceCard(space.ID, balance, false)
 
 			// List of expenses
-			<div id="expenses-list" class="border rounded-lg">
-				<h2 class="text-lg font-semibold p-4">History</h2>
-				<div class="divide-y">
-					if len(expenses) == 0 {
-						<p class="p-4 text-sm text-muted-foreground">No expenses recorded yet.</p>
-					}
-					for _, expense := range expenses {
-						@ExpenseListItem(expense)
-					}
-				</div>
+			<div
+				id="expenses-list"
+				class="border rounded-lg"
+				hx-get={ "/app/spaces/" + space.ID + "/components/expenses" }
+				hx-trigger="sse:expenses_updated"
+				hx-swap="innerHTML"
+			>
+				@ExpensesListContent(expenses)
 			</div>
 		</div>
 	}
+}
+
+templ ExpensesListContent(expenses []*model.Expense) {
+	<h2 class="text-lg font-semibold p-4">History</h2>
+	<div class="divide-y">
+		if len(expenses) == 0 {
+			<p class="p-4 text-sm text-muted-foreground">No expenses recorded yet.</p>
+		}
+		for _, expense := range expenses {
+			@ExpenseListItem(expense)
+		}
+	</div>
 }
 
 templ ExpenseListItem(expense *model.Expense) {
@@ -73,5 +83,5 @@ templ ExpenseListItem(expense *model.Expense) {
 
 templ ExpenseCreatedResponse(newExpense *model.Expense, balance int) {
 	@ExpenseListItem(newExpense)
-	@expense.BalanceCard(balance, true)
+	@expense.BalanceCard(newExpense.SpaceID, balance, true)
 }

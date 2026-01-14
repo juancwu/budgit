@@ -33,11 +33,21 @@ templ SpaceListsPage(space *model.Space, lists []*model.ShoppingList) {
 					Create
 				}
 			</form>
-			<div id="lists-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-				for _, list := range lists {
-					@shoppinglist.ListItem(list)
-				}
+			<div
+				id="lists-container"
+				class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+				hx-get={ "/app/spaces/" + space.ID + "/components/lists" }
+				hx-trigger="sse:list_created, sse:list_deleted"
+				hx-swap="innerHTML"
+			>
+				@ListsContainer(lists)
 			</div>
 		</div>
+	}
+}
+
+templ ListsContainer(lists []*model.ShoppingList) {
+	for _, list := range lists {
+		@shoppinglist.ListItem(list)
 	}
 }
