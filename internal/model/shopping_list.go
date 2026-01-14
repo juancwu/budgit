@@ -11,11 +11,11 @@ type ShoppingList struct {
 }
 
 type ListItem struct {
-	ID         string    `db:"id"`
-	ListID     string    `db:"list_id"`
-	Name       string    `db:"name"`
-	IsChecked  bool      `db:"is_checked"`
-	CreatedBy  string    `db:"created_by"`
-	CreatedAt  time.Time `db:"created_at"`
-	UpdatedAt  time.Time `db:"updated_at"`
+	ID        string    `db:"id"`
+	ListID    string    `db:"list_id"`
+	Name      string    `db:"name"`
+	IsChecked bool      `db:"is_checked"`
+	CreatedBy string    `db:"created_by"`
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
 }

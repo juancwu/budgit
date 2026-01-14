@@ -70,6 +70,16 @@ templ Space(title string, space *model.Space) {
 									<span>Tags</span>
 								}
 							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/expenses",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/expenses",
+									Tooltip:  "Expenses",
+								}) {
+									@icon.Landmark(icon.Props{Class: "size-4"})
+									<span>Expenses</span>
+								}
+							}
 						}
 					}
 				}

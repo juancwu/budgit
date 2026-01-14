@@ -3,8 +3,11 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
+	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
@@ -13,16 +16,18 @@ import (
 )
 
 type SpaceHandler struct {
-	spaceService *service.SpaceService
-	tagService   *service.TagService
-	listService  *service.ShoppingListService
+	spaceService   *service.SpaceService
+	tagService     *service.TagService
+	listService    *service.ShoppingListService
+	expenseService *service.ExpenseService
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService) *SpaceHandler {
 	return &SpaceHandler{
-		spaceService: ss,
-		tagService:   ts,
-		listService:  sls,
+		spaceService:   ss,
+		tagService:     ts,
+		listService:    sls,
+		expenseService: es,
 	}
 }
 
@@ -73,7 +78,7 @@ func (h *SpaceHandler) ListsPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *SpaceHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
-	
+
 	err := r.ParseForm()
 	if err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
@@ -240,3 +245,111 @@ func (h *SpaceHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	expenses, err := h.expenseService.GetExpensesForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get expenses for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	tags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	lists, err := h.listService.GetListsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get lists for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, lists))
+}
+
+func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	// --- Form Parsing ---
+	description := r.FormValue("description")
+	amountStr := r.FormValue("amount")
+	typeStr := r.FormValue("type")
+	dateStr := r.FormValue("date")
+	tagIDs := r.Form["tags"] // For multi-select
+
+	// --- Validation & Conversion ---
+	if description == "" || amountStr == "" || typeStr == "" || dateStr == "" {
+		http.Error(w, "All fields are required.", http.StatusBadRequest)
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		http.Error(w, "Invalid amount format.", http.StatusBadRequest)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		http.Error(w, "Invalid date format.", http.StatusBadRequest)
+		return
+	}
+
+	expenseType := model.ExpenseType(typeStr)
+	if expenseType != model.ExpenseTypeExpense && expenseType != model.ExpenseTypeTopup {
+		http.Error(w, "Invalid transaction type.", http.StatusBadRequest)
+		return
+	}
+
+	// --- DTO Creation & Service Call ---
+	dto := service.CreateExpenseDTO{
+		SpaceID:     spaceID,
+		UserID:      user.ID,
+		Description: description,
+		Amount:      amountCents,
+		Type:        expenseType,
+		Date:        date,
+		TagIDs:      tagIDs,
+		ItemIDs:     []string{}, // TODO: Add item IDs from form
+	}
+
+	newExpense, err := h.expenseService.CreateExpense(dto)
+	if err != nil {
+		slog.Error("failed to create expense", "error", err)
+		http.Error(w, "Failed to create expense.", http.StatusInternalServerError)
+		return
+	}
+
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
+		// Fallback: return just the item if balance fails, but ideally we want both.
+		// For now we will just log and continue, potentially showing stale balance.
+	}
+
+	ui.Render(w, r, pages.ExpenseCreatedResponse(newExpense, balance))
+}

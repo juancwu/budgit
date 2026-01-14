@@ -14,7 +14,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService)
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler()
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService)
 
 	mux := http.NewServeMux()
 
@@ -93,6 +93,15 @@ func SetupRoutes(a *app.App) http.Handler {
 	deleteTagHandler := middleware.RequireAuth(space.DeleteTag)
 	deleteTagWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteTagHandler)
 	mux.Handle("DELETE /app/spaces/{spaceID}/tags/{tagID}", deleteTagWithAccess)
+
+	// Expense routes
+	expensesPageHandler := middleware.RequireAuth(space.ExpensesPage)
+	expensesPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(expensesPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/expenses", expensesPageWithAccess)
+
+	createExpenseHandler := middleware.RequireAuth(space.CreateExpense)
+	createExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createExpenseHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/expenses", createExpenseWithAccess)
 
 	// 404
 	mux.HandleFunc("/{path...}", home.NotFoundPage)

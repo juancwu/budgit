@@ -11,15 +11,16 @@ import (
 )
 
 type App struct {
-	Cfg            *config.Config
-	DB             *sqlx.DB
-	UserService    *service.UserService
+	Cfg                 *config.Config
+	DB                  *sqlx.DB
+	UserService         *service.UserService
 	AuthService         *service.AuthService
 	EmailService        *service.EmailService
 	ProfileService      *service.ProfileService
 	SpaceService        *service.SpaceService
 	TagService          *service.TagService
 	ShoppingListService *service.ShoppingListService
+	ExpenseService      *service.ExpenseService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -43,6 +44,7 @@ func New(cfg *config.Config) (*App, error) {
 	tagRepository := repository.NewTagRepository(database)
 	shoppingListRepository := repository.NewShoppingListRepository(database)
 	listItemRepository := repository.NewListItemRepository(database)
+	expenseRepository := repository.NewExpenseRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
@@ -68,6 +70,7 @@ func New(cfg *config.Config) (*App, error) {
 	profileService := service.NewProfileService(profileRepository)
 	tagService := service.NewTagService(tagRepository)
 	shoppingListService := service.NewShoppingListService(shoppingListRepository, listItemRepository)
+	expenseService := service.NewExpenseService(expenseRepository)
 
 	return &App{
 		Cfg:                 cfg,
@@ -79,9 +82,9 @@ func New(cfg *config.Config) (*App, error) {
 		SpaceService:        spaceService,
 		TagService:          tagService,
 		ShoppingListService: shoppingListService,
+		ExpenseService:      expenseService,
 	}, nil
 }
-
 func (a *App) Close() error {
 	if a.DB != nil {
 		return a.DB.Close()

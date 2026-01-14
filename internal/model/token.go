@@ -5,8 +5,8 @@ import (
 )
 
 type Token struct {
-	ID        string      `db:"id"`
-	UserID    string      `db:"user_id"`
+	ID        string     `db:"id"`
+	UserID    string     `db:"user_id"`
 	Type      string     `db:"type"` // "email_verify" or "password_reset"
 	Token     string     `db:"token"`
 	ExpiresAt time.Time  `db:"expires_at"`

@@ -1,0 +1,94 @@
+package expense
+
+import (
+	"fmt"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"time"
+)
+
+templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.ShoppingList) {
+	<form
+		hx-post={ "/app/spaces/" + space.ID + "/expenses" }
+		hx-target="#expenses-list"
+		hx-swap="afterbegin"
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Type
+		<div class="flex gap-4">
+			<label>
+				<input type="radio" name="type" value="expense" checked class="radio"/>
+				<span class="label-text ml-2">Expense</span>
+			</label>
+			<label>
+				<input type="radio" name="type" value="topup" class="radio"/>
+				<span class="label-text ml-2">Top-up</span>
+			</label>
+		</div>
+
+		// Description
+		<div>
+			<label for="description" class="label">Description</label>
+			@input.Input(input.Props{
+				Name: "description",
+				ID: "description",
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+
+		// Amount
+		<div>
+			<label for="amount" class="label">Amount</label>
+			@input.Input(input.Props{
+				Name: "amount",
+				ID: "amount",
+				Type: "number",
+				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
+			})
+		</div>
+
+		// Date
+		<div>
+			<label for="date" class="label">Date</label>
+			@input.Input(input.Props{
+				Name: "date",
+				ID: "date",
+				Type: "date",
+				Value: time.Now().Format("2006-01-02"),
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+
+		// Tags
+		if len(tags) > 0 {
+			<div>
+				<label class="label">Tags</label>
+				<select name="tags" multiple class="select select-bordered w-full h-32">
+					for _, tag := range tags {
+						<option value={ tag.ID }>{ tag.Name }</option>
+					}
+				</select>
+			</div>
+		}
+
+		// TODO: Shopping list items selector
+
+		<div class="flex justify-end">
+			@button.Button(button.Props{ Type: button.TypeSubmit }) {
+				Save Transaction
+			}
+		</div>
+	</form>
+}
+
+templ BalanceCard(balance int, oob bool) {
+	<div id="balance-card" class="border rounded-lg p-4 bg-card text-card-foreground" hx-swap-oob?={ oob }>
+		<h2 class="text-lg font-semibold">Current Balance</h2>
+		<p class={ "text-3xl font-bold", templ.KV("text-destructive", balance < 0) }>
+			{ fmt.Sprintf("$%.2f", float64(balance)/100.0) }
+		</p>
+	</div>
+}

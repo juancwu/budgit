@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ErrTagNotFound        = errors.New("tag not found")
-	ErrDuplicateTagName   = errors.New("tag with that name already exists in this space")
+	ErrTagNotFound      = errors.New("tag not found")
+	ErrDuplicateTagName = errors.New("tag with that name already exists in this space")
 )
 
 type TagRepository interface {
