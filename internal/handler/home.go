@@ -4,6 +4,8 @@ import (
 	"net/http"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/ui"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
 )
 
 type homeHandler struct{}
@@ -23,6 +25,5 @@ func (h *homeHandler) HomePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (home *homeHandler) NotFoundPage(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotFound)
-	w.Write([]byte("404 Page Not Found"))
+	ui.Render(w, r, pages.NotFound())
 }
