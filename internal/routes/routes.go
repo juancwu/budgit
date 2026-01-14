@@ -14,6 +14,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService)
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler()
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService)
 
 	mux := http.NewServeMux()
 
@@ -50,6 +51,48 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("POST /auth/onboarding", authRateLimiter(middleware.RequireAuth(auth.CompleteOnboarding)))
 
 	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
+
+	// Space routes
+	spaceDashboardHandler := middleware.RequireAuth(space.DashboardPage)
+	spaceDashboardWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(spaceDashboardHandler)
+	mux.Handle("GET /app/spaces/{spaceID}", spaceDashboardWithAccess)
+
+	listsPageHandler := middleware.RequireAuth(space.ListsPage)
+	listsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/lists", listsPageWithAccess)
+
+	createListHandler := middleware.RequireAuth(space.CreateList)
+	createListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createListHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/lists", createListWithAccess)
+
+	listPageHandler := middleware.RequireAuth(space.ListPage)
+	listPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/lists/{listID}", listPageWithAccess)
+
+	addItemHandler := middleware.RequireAuth(space.AddItemToList)
+	addItemWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(addItemHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/lists/{listID}/items", addItemWithAccess)
+
+	toggleItemHandler := middleware.RequireAuth(space.ToggleItem)
+	toggleItemWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(toggleItemHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", toggleItemWithAccess)
+
+	deleteItemHandler := middleware.RequireAuth(space.DeleteItem)
+	deleteItemWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteItemHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", deleteItemWithAccess)
+
+	// Tag routes
+	tagsPageHandler := middleware.RequireAuth(space.TagsPage)
+	tagsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(tagsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/tags", tagsPageWithAccess)
+
+	createTagHandler := middleware.RequireAuth(space.CreateTag)
+	createTagWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createTagHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/tags", createTagWithAccess)
+
+	deleteTagHandler := middleware.RequireAuth(space.DeleteTag)
+	deleteTagWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteTagHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/tags/{tagID}", deleteTagWithAccess)
 
 	// 404
 	mux.HandleFunc("/{path...}", home.NotFoundPage)

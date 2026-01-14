@@ -1,0 +1,43 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+templ SpaceListsPage(space *model.Space, lists []*model.ShoppingList) {
+	@layouts.Space("Shopping Lists", space) {
+		<div class="space-y-4">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold">Shopping Lists</h1>
+			</div>
+			<form
+				hx-post={ "/app/spaces/" + space.ID + "/lists" }
+				hx-target="#lists-container"
+				hx-swap="beforeend"
+				_="on htmx:afterRequest reset() me"
+				class="flex gap-2 items-start"
+			>
+				@csrf.Token()
+				@input.Input(input.Props{
+					Name:        "name",
+					Placeholder: "New list name...",
+				})
+				@button.Button(button.Props{
+					Type: button.TypeSubmit,
+				}) {
+					Create
+				}
+			</form>
+			<div id="lists-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+				for _, list := range lists {
+					@shoppinglist.ListItem(list)
+				}
+			</div>
+		</div>
+	}
+}

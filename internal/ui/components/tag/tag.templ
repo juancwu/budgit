@@ -1,0 +1,23 @@
+package tag
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+
+templ Tag(tag *model.Tag) {
+	<div
+		id={ "tag-" + tag.ID }
+		class="flex items-center gap-2 rounded-full border px-3 py-1 text-sm"
+	>
+		if tag.Color != nil {
+			<span class="size-3 rounded-full" style={ "background-color: " + *tag.Color }></span>
+		}
+		<span>{ tag.Name }</span>
+		<button
+			hx-delete={ "/app/spaces/" + tag.SpaceID + "/tags/" + tag.ID }
+			hx-target={ "#tag-" + tag.ID }
+			hx-swap="outerHTML"
+			class="ml-auto text-muted-foreground hover:text-destructive"
+		>
+			&times;
+		</button>
+	</div>
+}

@@ -1,0 +1,48 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tag"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+templ SpaceTagsPage(space *model.Space, tags []*model.Tag) {
+	@layouts.Space("Tags", space) {
+		<div class="space-y-4">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold">Tags</h1>
+			</div>
+			<form
+				hx-post={ "/app/spaces/" + space.ID + "/tags" }
+				hx-target="#tags-container"
+				hx-swap="beforeend"
+				_="on htmx:afterRequest reset() me"
+				class="flex gap-2 items-start"
+			>
+				@csrf.Token()
+				@input.Input(input.Props{
+					Name:        "name",
+					Placeholder: "New tag name...",
+				})
+				@input.Input(input.Props{
+					Type:  "color",
+					Name:  "color",
+					Class: "w-14",
+				})
+				@button.Button(button.Props{
+					Type: button.TypeSubmit,
+				}) {
+					Create
+				}
+			</form>
+			<div id="tags-container" class="flex flex-wrap gap-2">
+				for _, t := range tags {
+					@tag.Tag(t)
+				}
+			</div>
+		</div>
+	}
+}

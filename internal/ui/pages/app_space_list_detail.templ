@@ -1,0 +1,45 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+templ SpaceListDetailPage(space *model.Space, list *model.ShoppingList, items []*model.ListItem) {
+	@layouts.Space(list.Name, space) {
+		<div class="space-y-4">
+			<h1 class="text-2xl font-bold">{ list.Name }</h1>
+			<form
+				hx-post={ "/app/spaces/" + space.ID + "/lists/" + list.ID + "/items" }
+				hx-target="#items-container"
+				hx-swap="beforeend"
+				_="on htmx:afterRequest reset() me"
+				class="flex gap-2 items-start"
+			>
+				@csrf.Token()
+				@input.Input(input.Props{
+					Name:        "name",
+					Placeholder: "New item...",
+				})
+				@button.Button(button.Props{
+					Type: button.TypeSubmit,
+				}) {
+					Add Item
+				}
+			</form>
+			<div id="items-container" class="border rounded-lg">
+				if len(items) == 0 {
+					<p class="text-center text-muted-foreground p-8">This list is empty.</p>
+				} else {
+					for _, item := range items {
+						@shoppinglist.ItemDetail(space.ID, item)
+					}
+				}
+			</div>
+		</div>
+	}
+}

@@ -1,0 +1,38 @@
+package shoppinglist
+
+import (
+	"fmt"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+)
+
+templ ListItem(list *model.ShoppingList) {
+	<a href={ templ.URL(fmt.Sprintf("/app/spaces/%s/lists/%s", list.SpaceID, list.ID)) } class="block p-4 border rounded-lg hover:bg-muted transition-colors">
+		<div class="flex justify-between items-center">
+			<span class="font-medium">{ list.Name }</span>
+			// TODO: Add item count or other info
+		</div>
+	</a>
+}
+
+templ ItemDetail(spaceID string, item *model.ListItem) {
+	<div id={ "item-" + item.ID } class="flex items-center gap-2 p-2 border-b">
+		<input
+			type="checkbox"
+			name="is_checked"
+			checked?={ item.IsChecked }
+			hx-patch={ fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID) }
+			hx-target={ "#item-" + item.ID }
+			hx-swap="outerHTML"
+			class="checkbox"
+		/>
+		<span class={ templ.KV("line-through text-muted-foreground", item.IsChecked) }>{ item.Name }</span>
+		<button
+			hx-delete={ fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID) }
+			hx-target={ "#item-" + item.ID }
+			hx-swap="outerHTML"
+			class="ml-auto btn btn-xs btn-ghost"
+		>
+			&times;
+		</button>
+	</div>
+}

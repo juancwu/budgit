@@ -71,6 +71,15 @@ func (s *SpaceService) GetSpacesForUser(userID string) ([]*model.Space, error) {
 	return spaces, nil
 }
 
+// GetSpace retrieves a single space by its ID.
+func (s *SpaceService) GetSpace(spaceID string) (*model.Space, error) {
+	space, err := s.spaceRepo.ByID(spaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get space: %w", err)
+	}
+	return space, nil
+}
+
 // IsMember checks if a user is a member of a given space.
 func (s *SpaceService) IsMember(userID, spaceID string) (bool, error) {
 	isMember, err := s.spaceRepo.IsMember(spaceID, userID)

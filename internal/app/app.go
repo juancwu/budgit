@@ -14,10 +14,12 @@ type App struct {
 	Cfg            *config.Config
 	DB             *sqlx.DB
 	UserService    *service.UserService
-	AuthService    *service.AuthService
-	EmailService   *service.EmailService
-	ProfileService *service.ProfileService
-	SpaceService   *service.SpaceService
+	AuthService         *service.AuthService
+	EmailService        *service.EmailService
+	ProfileService      *service.ProfileService
+	SpaceService        *service.SpaceService
+	TagService          *service.TagService
+	ShoppingListService *service.ShoppingListService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -33,11 +35,16 @@ func New(cfg *config.Config) (*App, error) {
 
 	emailClient := service.NewEmailClient(cfg.MailerSMTPHost, cfg.MailerSMTPPort, cfg.MailerIMAPHost, cfg.MailerIMAPPort, cfg.MailerUsername, cfg.MailerPassword)
 
+	// Repositories
 	userRepository := repository.NewUserRepository(database)
 	profileRepository := repository.NewProfileRepository(database)
 	tokenRepository := repository.NewTokenRepository(database)
 	spaceRepository := repository.NewSpaceRepository(database)
+	tagRepository := repository.NewTagRepository(database)
+	shoppingListRepository := repository.NewShoppingListRepository(database)
+	listItemRepository := repository.NewListItemRepository(database)
 
+	// Services
 	userService := service.NewUserService(userRepository)
 	spaceService := service.NewSpaceService(spaceRepository)
 	emailService := service.NewEmailService(
@@ -59,15 +66,19 @@ func New(cfg *config.Config) (*App, error) {
 		cfg.IsProduction(),
 	)
 	profileService := service.NewProfileService(profileRepository)
+	tagService := service.NewTagService(tagRepository)
+	shoppingListService := service.NewShoppingListService(shoppingListRepository, listItemRepository)
 
 	return &App{
-		Cfg:            cfg,
-		DB:             database,
-		UserService:    userService,
-		AuthService:    authService,
-		EmailService:   emailService,
-		ProfileService: profileService,
-		SpaceService:   spaceService,
+		Cfg:                 cfg,
+		DB:                  database,
+		UserService:         userService,
+		AuthService:         authService,
+		EmailService:        emailService,
+		ProfileService:      profileService,
+		SpaceService:        spaceService,
+		TagService:          tagService,
+		ShoppingListService: shoppingListService,
 	}, nil
 }
 
