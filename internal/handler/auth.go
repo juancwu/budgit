@@ -30,6 +30,11 @@ func (h *authHandler) PasswordPage(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, pages.AuthPassword(""))
 }
 
+func (h *authHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	h.authService.ClearJWTCookie(w)
+	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
 func (h *authHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	email := strings.TrimSpace(r.FormValue("email"))
 

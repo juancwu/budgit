@@ -39,6 +39,7 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	// Auth Actions
 	mux.HandleFunc("POST /auth/magic-link", authRateLimiter(middleware.RequireGuest(auth.SendMagicLink)))
+	mux.HandleFunc("POST /auth/logout", authRateLimiter(auth.Logout))
 
 	// ====================================================================================
 	// PRIVATE ROUTES
