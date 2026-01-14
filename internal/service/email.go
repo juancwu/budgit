@@ -173,6 +173,34 @@ func (s *EmailService) SendMagicLinkEmail(email, token, name string) error {
 	return err
 }
 
+func (s *EmailService) SendWelcomeEmail(email, name string) error {
+	dashboardURL := fmt.Sprintf("%s/app/dashboard", s.appURL)
+	subject, body := welcomeEmailTemplate(name, dashboardURL, s.appName)
+
+	if !s.isProd {
+		slog.Info("email sent (dev mode)", "type", "welcome", "to", email, "subject", subject, "url", dashboardURL)
+		return nil
+	}
+
+	if s.client == nil {
+		return fmt.Errorf("email service not configured")
+	}
+
+	params := &EmailParams{
+		From:    s.fromEmail,
+		To:      []string{email},
+		Subject: subject,
+		Text:    body,
+	}
+
+	_, err := s.client.SendWithContext(context.Background(), params)
+	if err == nil {
+		slog.Info("email sent", "type", "welcome", "to", email)
+	}
+
+	return err
+}
+
 func magicLinkEmailTemplate(magicURL, appName string) (string, string) {
 	subject := fmt.Sprintf("Sign in to %s", appName)
 	body := fmt.Sprintf(`Click this link to sign in to your account:
@@ -184,6 +212,22 @@ If you didn't request this, ignore this email.
 
 Best,
 The %s Team`, magicURL, appName)
+
+	return subject, body
+}
+
+func welcomeEmailTemplate(name, dashboardURL, appName string) (string, string) {
+	subject := fmt.Sprintf("Welcome to %s!", appName)
+	body := fmt.Sprintf(`Hi %s,
+
+Your email is verified and your account is active!
+
+Get started: %s
+
+If you have questions, reach out to our support team.
+
+Best,
+The %s Team`, name, dashboardURL, appName)
 
 	return subject, body
 }

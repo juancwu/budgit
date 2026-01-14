@@ -327,7 +327,10 @@ func (s *AuthService) CompleteOnboarding(userID, name string) error {
 
 	user, err := s.userRepository.ByID(userID)
 	if err == nil {
-		// TODO: send welcome email
+		err = s.emailService.SendWelcomeEmail(user.Email, name)
+		if err != nil {
+			slog.Warn("failed to send welcome email", "error", err, "email", user.Email)
+		}
 	}
 
 	slog.Info("onboarding completed", "user_id", user.ID, "name", name)
