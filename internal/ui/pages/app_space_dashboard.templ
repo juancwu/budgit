@@ -2,13 +2,56 @@ package pages
 
 import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
 templ SpaceDashboardPage(space *model.Space, lists []*model.ShoppingList, tags []*model.Tag) {
 	@layouts.Space("Dashboard", space) {
 		<div class="space-y-4">
-			<h1 class="text-2xl font-bold">Welcome to { space.Name }!</h1>
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold">Welcome to { space.Name }!</h1>
+				@dialog.Dialog(dialog.Props{ ID: "invite-member-dialog" }) {
+					@dialog.Trigger() {
+						@button.Button() {
+							Invite Member
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() { Invite Member }
+							@dialog.Description() {
+								Send an invitation email to add a new member to this space.
+							}
+						}
+						<form
+							hx-post={ "/app/spaces/" + space.ID + "/invites" }
+							hx-swap="innerHTML"
+							class="space-y-4"
+						>
+							@csrf.Token()
+							<div>
+								<label for="email" class="label">Email Address</label>
+								@input.Input(input.Props{
+									Name: "email",
+									ID: "email",
+									Type: "email",
+									Attributes: templ.Attributes{"required": "true"},
+								})
+							</div>
+							<div class="flex justify-end">
+								@button.Button(button.Props{ Type: button.TypeSubmit }) {
+									Send Invitation
+								}
+							</div>
+						</form>
+					}
+				}
+			</div>
+
 			<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 				// Shopping Lists section
 				<div class="border rounded-lg p-4">

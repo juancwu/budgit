@@ -15,11 +15,12 @@ import (
 )
 
 type authHandler struct {
-	authService *service.AuthService
+	authService   *service.AuthService
+	inviteService *service.InviteService
 }
 
-func NewAuthHandler(authService *service.AuthService) *authHandler {
-	return &authHandler{authService: authService}
+func NewAuthHandler(authService *service.AuthService, inviteService *service.InviteService) *authHandler {
+	return &authHandler{authService: authService, inviteService: inviteService}
 }
 
 func (h *authHandler) AuthPage(w http.ResponseWriter, r *http.Request) {
@@ -87,6 +88,28 @@ func (h *authHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.authService.SetJWTCookie(w, jwtToken, time.Now().Add(7*24*time.Hour))
+
+	// Check for pending invite
+	inviteCookie, err := r.Cookie("pending_invite")
+	if err == nil && inviteCookie.Value != "" {
+		spaceID, err := h.inviteService.AcceptInvite(inviteCookie.Value, user.ID)
+		if err != nil {
+			slog.Error("failed to process pending invite", "error", err, "token", inviteCookie.Value)
+			// Don't fail the login, just maybe notify user?
+		} else {
+			slog.Info("accepted pending invite", "user_id", user.ID, "space_id", spaceID)
+			// Clear cookie
+			http.SetCookie(w, &http.Cookie{
+				Name:     "pending_invite",
+				Value:    "",
+				Path:     "/",
+				MaxAge:   -1,
+				HttpOnly: true,
+			})
+			// If we want to redirect to the space immediately, we can.
+			// But check onboarding first.
+		}
+	}
 
 	needsOnboarding, err := h.authService.NeedsOnboarding(user.ID)
 	if err != nil {

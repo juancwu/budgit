@@ -201,6 +201,29 @@ func (s *EmailService) SendWelcomeEmail(email, name string) error {
 	return err
 }
 
+func (s *EmailService) SendInvitationEmail(email, spaceName, inviterName, token string) error {
+	inviteURL := fmt.Sprintf("%s/join/%s", s.appURL, token)
+	subject, body := invitationEmailTemplate(spaceName, inviterName, inviteURL, s.appName)
+
+	if !s.isProd {
+		slog.Info("email sent (dev mode)", "type", "invitation", "to", email, "subject", subject, "url", inviteURL)
+		return nil
+	}
+
+	params := &EmailParams{
+		From:    s.fromEmail,
+		To:      []string{email},
+		Subject: subject,
+		Text:    body,
+	}
+
+	_, err := s.client.SendWithContext(context.Background(), params)
+	if err == nil {
+		slog.Info("email sent", "type", "invitation", "to", email)
+	}
+	return err
+}
+
 func magicLinkEmailTemplate(magicURL, appName string) (string, string) {
 	subject := fmt.Sprintf("Sign in to %s", appName)
 	body := fmt.Sprintf(`Click this link to sign in to your account:
@@ -228,6 +251,23 @@ If you have questions, reach out to our support team.
 
 Best,
 The %s Team`, name, dashboardURL, appName)
+
+	return subject, body
+}
+
+func invitationEmailTemplate(spaceName, inviterName, inviteURL, appName string) (string, string) {
+	subject := fmt.Sprintf("%s invited you to join %s on %s", inviterName, spaceName, appName)
+	body := fmt.Sprintf(`Hi,
+
+%s has invited you to join the space "%s" on %s.
+
+Click the link below to accept the invitation:
+%s
+
+If you don't have an account, you will be asked to create one.
+
+Best,
+The %s Team`, inviterName, spaceName, appName, inviteURL, appName)
 
 	return subject, body
 }

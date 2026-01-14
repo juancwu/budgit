@@ -11,10 +11,10 @@ import (
 )
 
 func SetupRoutes(a *app.App) http.Handler {
-	auth := handler.NewAuthHandler(a.AuthService)
+	auth := handler.NewAuthHandler(a.AuthService, a.InviteService)
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler()
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService)
 
 	mux := http.NewServeMux()
 
@@ -102,6 +102,13 @@ func SetupRoutes(a *app.App) http.Handler {
 	createExpenseHandler := middleware.RequireAuth(space.CreateExpense)
 	createExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createExpenseHandler)
 	mux.Handle("POST /app/spaces/{spaceID}/expenses", createExpenseWithAccess)
+
+	// Invite routes
+	createInviteHandler := middleware.RequireAuth(space.CreateInvite)
+	createInviteWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createInviteHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/invites", createInviteWithAccess)
+
+	mux.HandleFunc("GET /join/{token}", space.JoinSpace)
 
 	// 404
 	mux.HandleFunc("/{path...}", home.NotFoundPage)

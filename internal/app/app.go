@@ -21,6 +21,7 @@ type App struct {
 	TagService          *service.TagService
 	ShoppingListService *service.ShoppingListService
 	ExpenseService      *service.ExpenseService
+	InviteService       *service.InviteService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -45,6 +46,7 @@ func New(cfg *config.Config) (*App, error) {
 	shoppingListRepository := repository.NewShoppingListRepository(database)
 	listItemRepository := repository.NewListItemRepository(database)
 	expenseRepository := repository.NewExpenseRepository(database)
+	invitationRepository := repository.NewInvitationRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
@@ -71,6 +73,7 @@ func New(cfg *config.Config) (*App, error) {
 	tagService := service.NewTagService(tagRepository)
 	shoppingListService := service.NewShoppingListService(shoppingListRepository, listItemRepository)
 	expenseService := service.NewExpenseService(expenseRepository)
+	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
 
 	return &App{
 		Cfg:                 cfg,
@@ -83,6 +86,7 @@ func New(cfg *config.Config) (*App, error) {
 		TagService:          tagService,
 		ShoppingListService: shoppingListService,
 		ExpenseService:      expenseService,
+		InviteService:       inviteService,
 	}, nil
 }
 func (a *App) Close() error {
