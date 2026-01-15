@@ -13,7 +13,7 @@ import (
 func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService)
 	home := handler.NewHomeHandler()
-	dashboard := handler.NewDashboardHandler()
+	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
 	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.EventBus)
 
 	mux := http.NewServeMux()

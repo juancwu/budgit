@@ -32,7 +32,6 @@ templ App(title string) {
 								@icon.LayoutDashboard()
 								<div class="flex flex-col">
 									<span class="text-sm font-bold">{ cfg.AppName }</span>
-									<span class="text-xs text-muted-foreground">Workspace</span>
 								</div>
 							}
 						}
@@ -54,34 +53,11 @@ templ App(title string) {
 									<span>Dashboard</span>
 								}
 							}
-							@sidebar.MenuItem() {
-								@sidebar.MenuButton(sidebar.MenuButtonProps{
-									Href:     "/app/goals",
-									IsActive: ctxkeys.URLPath(ctx) == "/app/goals",
-									Tooltip:  "Goals",
-								}) {
-									@icon.FolderOpen(icon.Props{Class: "size-4"})
-									<span>Goals</span>
-								}
-							}
 						}
 					}
 				}
 				@sidebar.Footer() {
 					@sidebar.Menu() {
-						@sidebar.MenuItem() {
-							@sidebar.MenuButton(sidebar.MenuButtonProps{
-								Href: "/docs",
-								Size: sidebar.MenuButtonSizeSm,
-								Attributes: templ.Attributes{
-									"target": "_blank",
-									"rel":    "noopener noreferrer",
-								},
-							}) {
-								@icon.BookOpen(icon.Props{Class: "size-4"})
-								<span>Documentation</span>
-							}
-						}
 						@sidebar.MenuItem() {
 							@sidebar.MenuButton(sidebar.MenuButtonProps{
 								Href: "mailto:" + cfg.SupportEmail,
@@ -170,23 +146,14 @@ templ AppSidebarDropdown(user *model.User, profile *model.Profile) {
 				}
 			</div>
 			@dropdown.Separator()
-			@dropdown.Item(dropdown.ItemProps{
-				Href: "/app/settings",
-			}) {
-				<span class="flex items-center">
-					@icon.Settings(icon.Props{Size: 16, Class: "mr-2"})
-					Settings
-				</span>
-			}
-			@dropdown.Item(dropdown.ItemProps{
-				Href: "/app/billing",
-			}) {
-				<span class="flex items-center">
-					@icon.CreditCard(icon.Props{Size: 16, Class: "mr-2"})
-					Billing
-				</span>
-			}
-			@dropdown.Separator()
+			<!-- @dropdown.Item(dropdown.ItemProps{ -->
+			<!-- 	Href: "/app/settings", -->
+			<!-- }) { -->
+			<!-- 	<span class="flex items-center"> -->
+			<!-- 		@icon.Settings(icon.Props{Size: 16, Class: "mr-2"}) -->
+			<!-- 		Settings -->
+			<!-- 	</span> -->
+			<!-- } -->
 			<form action="/auth/logout" method="POST" class="contents">
 				@csrf.Token()
 				@dropdown.Item(dropdown.ItemProps{
