@@ -11,6 +11,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/calendar"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/progress"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
 import "fmt"
 import "time"
 
@@ -36,6 +37,7 @@ templ Base(props ...SEOProps) {
 			<link rel="icon" type="image/x-icon" href="/assets/favicon/favicon.ico"/>
 			<link href={ "/assets/css/output.css?v=" + templ.EscapeString(fmt.Sprintf("%d", time.Now().Unix())) } rel="stylesheet"/>
 			<script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.7/dist/htmx.min.js" integrity="sha384-ZBXiYtYQ6hJ2Y0ZNoYuI+Nq5MqWBr+chMrS/RkXpNzQCApHEhOt2aY8EJgqwHLkJ" crossorigin="anonymous"></script>
+			<script src="https://unpkg.com/hyperscript.org@0.9.14"></script>
 			// Component scripts
 			@input.Script()
 			@sidebar.Script()
@@ -47,6 +49,7 @@ templ Base(props ...SEOProps) {
 			@calendar.Script()
 			@datepicker.Script()
 			@progress.Script()
+			@tagsinput.Script()
 			// Site-wide enhancements
 			@themeScript()
 			// Must run before body to prevent flash

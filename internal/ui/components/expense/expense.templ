@@ -6,6 +6,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
 	"time"
 )
 
@@ -28,56 +29,53 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 				<span class="label-text ml-2">Top-up</span>
 			</label>
 		</div>
-
 		// Description
 		<div>
 			<label for="description" class="label">Description</label>
 			@input.Input(input.Props{
-				Name: "description",
-				ID: "description",
+				Name:       "description",
+				ID:         "description",
 				Attributes: templ.Attributes{"required": "true"},
 			})
 		</div>
-
 		// Amount
 		<div>
 			<label for="amount" class="label">Amount</label>
 			@input.Input(input.Props{
-				Name: "amount",
-				ID: "amount",
-				Type: "number",
+				Name:       "amount",
+				ID:         "amount",
+				Type:       "number",
 				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
 			})
 		</div>
-
 		// Date
 		<div>
 			<label for="date" class="label">Date</label>
 			@input.Input(input.Props{
-				Name: "date",
-				ID: "date",
-				Type: "date",
-				Value: time.Now().Format("2006-01-02"),
+				Name:       "date",
+				ID:         "date",
+				Type:       "date",
+				Value:      time.Now().Format("2006-01-02"),
 				Attributes: templ.Attributes{"required": "true"},
 			})
 		</div>
-
 		// Tags
-		if len(tags) > 0 {
-			<div>
-				<label class="label">Tags</label>
-				<select name="tags" multiple class="select select-bordered w-full h-32">
-					for _, tag := range tags {
-						<option value={ tag.ID }>{ tag.Name }</option>
-					}
-				</select>
-			</div>
-		}
-
+		<div>
+			<label class="label">Tags</label>
+			<datalist id="available-tags">
+				for _, tag := range tags {
+					<option value={ tag.Name }></option>
+				}
+			</datalist>
+			@tagsinput.TagsInput(tagsinput.Props{
+				Name:        "tags",
+				Placeholder: "Add tags (press enter)",
+				Attributes:  templ.Attributes{"list": "available-tags"},
+			})
+		</div>
 		// TODO: Shopping list items selector
-
 		<div class="flex justify-end">
-			@button.Button(button.Props{ Type: button.TypeSubmit }) {
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
 				Save Transaction
 			}
 		</div>

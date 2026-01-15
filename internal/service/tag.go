@@ -18,8 +18,12 @@ func NewTagService(tagRepo repository.TagRepository) *TagService {
 	return &TagService{tagRepo: tagRepo}
 }
 
+func NormalizeTagName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
 func (s *TagService) CreateTag(spaceID, name string, color *string) (*model.Tag, error) {
-	name = strings.TrimSpace(name)
+	name = NormalizeTagName(name)
 	if name == "" {
 		return nil, fmt.Errorf("tag name cannot be empty")
 	}
@@ -51,7 +55,7 @@ func (s *TagService) GetTagByID(id string) (*model.Tag, error) {
 }
 
 func (s *TagService) UpdateTag(id, name string, color *string) (*model.Tag, error) {
-	name = strings.TrimSpace(name)
+	name = NormalizeTagName(name)
 	if name == "" {
 		return nil, fmt.Errorf("tag name cannot be empty")
 	}

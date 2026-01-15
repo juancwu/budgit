@@ -342,7 +342,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	amountStr := r.FormValue("amount")
 	typeStr := r.FormValue("type")
 	dateStr := r.FormValue("date")
-	tagIDs := r.Form["tags"] // For multi-select
+	tagNames := r.Form["tags"] // Contains tag names
 
 	// --- Validation & Conversion ---
 	if description == "" || amountStr == "" || typeStr == "" || dateStr == "" {
@@ -369,6 +369,49 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// --- Tag Processing ---
+	existingTags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	existingTagsMap := make(map[string]string)
+	for _, t := range existingTags {
+		existingTagsMap[t.Name] = t.ID
+	}
+
+	var finalTagIDs []string
+	processedTags := make(map[string]bool)
+
+	for _, rawTagName := range tagNames {
+		tagName := service.NormalizeTagName(rawTagName)
+		if tagName == "" {
+			continue
+		}
+		if processedTags[tagName] {
+			continue
+		}
+
+		if id, exists := existingTagsMap[tagName]; exists {
+			finalTagIDs = append(finalTagIDs, id)
+		} else {
+			// Create new tag
+			newTag, err := h.tagService.CreateTag(spaceID, tagName, nil)
+			if err != nil {
+				slog.Error("failed to create new tag from expense form", "error", err, "tag_name", tagName)
+				// Continue processing other tags? Or fail?
+				// Let's continue, maybe the tag was invalid or duplicate race condition.
+				// If duplicate race condition, we could try fetching it again, but for now simple log.
+				continue
+			}
+			finalTagIDs = append(finalTagIDs, newTag.ID)
+			existingTagsMap[tagName] = newTag.ID // Update map in case repeated in this request (though processedTags handles that)
+		}
+		processedTags[tagName] = true
+	}
+
 	// --- DTO Creation & Service Call ---
 	dto := service.CreateExpenseDTO{
 		SpaceID:     spaceID,
@@ -377,7 +420,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		Amount:      amountCents,
 		Type:        expenseType,
 		Date:        date,
-		TagIDs:      tagIDs,
+		TagIDs:      finalTagIDs,
 		ItemIDs:     []string{}, // TODO: Add item IDs from form
 	}
 

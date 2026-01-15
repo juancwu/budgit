@@ -26,6 +26,9 @@ templ TagsInput(props ...Props) {
 	if len(props) > 0 {
 		{{ p = props[0] }}
 	}
+	if p.ID == "" {
+		{{ p.ID = utils.RandomID() }}
+	}
 	<div
 		id={ p.ID + "-container" }
 		class={

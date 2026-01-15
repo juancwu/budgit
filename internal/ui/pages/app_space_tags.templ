@@ -19,18 +19,13 @@ templ SpaceTagsPage(space *model.Space, tags []*model.Tag) {
 				hx-post={ "/app/spaces/" + space.ID + "/tags" }
 				hx-target="#tags-container"
 				hx-swap="beforeend"
-				_="on htmx:afterRequest reset() me"
+				_="on htmx:afterOnLoad if event.detail.xhr.status == 200 reset() me"
 				class="flex gap-2 items-start"
 			>
 				@csrf.Token()
 				@input.Input(input.Props{
 					Name:        "name",
 					Placeholder: "New tag name...",
-				})
-				@input.Input(input.Props{
-					Type:  "color",
-					Name:  "color",
-					Class: "w-14",
 				})
 				@button.Button(button.Props{
 					Type: button.TypeSubmit,
