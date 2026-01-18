@@ -26,6 +26,9 @@ templ SpaceTagsPage(space *model.Space, tags []*model.Tag) {
 				@input.Input(input.Props{
 					Name:        "name",
 					Placeholder: "New tag name...",
+					Attributes: templ.Attributes{
+						"autocomplete": "off",
+					},
 				})
 				@button.Button(button.Props{
 					Type: button.TypeSubmit,
