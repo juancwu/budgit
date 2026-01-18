@@ -1,4 +1,4 @@
-// templui component tagsinput - version: v0.101.0 installed by templui v0.101.0
+// templui component tagsinput - version: v1.2.0 installed by templui v1.2.0
 // 📚 Documentation: https://templui.io/docs/components/tags-input
 package tagsinput
 
@@ -25,9 +25,6 @@ templ TagsInput(props ...Props) {
 	{{ var p Props }}
 	if len(props) > 0 {
 		{{ p = props[0] }}
-	}
-	if p.ID == "" {
-		{{ p.ID = utils.RandomID() }}
 	}
 	<div
 		id={ p.ID + "-container" }
@@ -93,5 +90,5 @@ templ TagsInput(props ...Props) {
 }
 
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ "/assets/js/tagsinput.min.js?v=" + utils.ScriptVersion }></script>
+	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/tagsinput.min.js") }></script>
 }

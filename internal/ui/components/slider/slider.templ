@@ -1,4 +1,4 @@
-// templui component slider - version: v0.101.0 installed by templui v0.101.0
+// templui component slider - version: v1.2.0 installed by templui v1.2.0
 // 📚 Documentation: https://templui.io/docs/components/slider
 package slider
 
@@ -117,5 +117,5 @@ templ Value(props ...ValueProps) {
 }
 
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ "/assets/js/slider.min.js?v=" + utils.ScriptVersion }></script>
+	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/slider.min.js") }></script>
 }

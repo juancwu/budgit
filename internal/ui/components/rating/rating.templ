@@ -1,4 +1,4 @@
-// templui component rating - version: v0.101.0 installed by templui v0.101.0
+// templui component rating - version: v1.2.0 installed by templui v1.2.0
 // 📚 Documentation: https://templui.io/docs/components/rating
 package rating
 
@@ -78,7 +78,7 @@ templ Rating(props ...Props) {
 				if p.Form != "" {
 					form={ p.Form }
 				}
-				data-tui-rating-input
+				data-tui-rating-hidden-input
 			/>
 		}
 	</div>
@@ -189,5 +189,5 @@ func (p *Props) setDefaults() {
 }
 
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ "/assets/js/rating.min.js?v=" + utils.ScriptVersion }></script>
+	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/rating.min.js") }></script>
 }

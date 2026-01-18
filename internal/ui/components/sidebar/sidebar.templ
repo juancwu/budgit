@@ -1,4 +1,4 @@
-// templui component sidebar - version: v0.101.0 installed by templui v0.101.0
+// templui component sidebar - version: v1.2.0 installed by templui v1.2.0
 // 📚 Documentation: https://templui.io/docs/components/sidebar
 package sidebar
 
@@ -749,5 +749,5 @@ templ Separator(props ...SeparatorProps) {
 }
 
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ "/assets/js/sidebar.min.js?v=" + utils.ScriptVersion }></script>
+	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/sidebar.min.js") }></script>
 }

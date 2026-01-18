@@ -1,4 +1,4 @@
-// templui component copybutton - version: v0.101.0 installed by templui v0.101.0
+// templui component copybutton - version: v1.2.0 installed by templui v1.2.0
 // 📚 Documentation: https://templui.io/docs/components/copy-button
 package copybutton
 
@@ -44,5 +44,5 @@ templ CopyButton(props Props) {
 }
 
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ "/assets/js/copybutton.min.js?v=" + utils.ScriptVersion }></script>
+	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/copybutton.min.js") }></script>
 }
