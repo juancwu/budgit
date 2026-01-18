@@ -14,7 +14,7 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance i
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
 				<h1 class="text-2xl font-bold">Expenses</h1>
-				@dialog.Dialog(dialog.Props{ ID: "add-expense-dialog" }) {
+				@dialog.Dialog(dialog.Props{ID: "add-expense-dialog"}) {
 					@dialog.Trigger() {
 						@button.Button() {
 							Add Expense
@@ -22,7 +22,9 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance i
 					}
 					@dialog.Content() {
 						@dialog.Header() {
-							@dialog.Title() { Add Transaction }
+							@dialog.Title() {
+								Add Transaction
+							}
 							@dialog.Description() {
 								Add a new expense or top-up to your space.
 							}
@@ -31,10 +33,8 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance i
 					}
 				}
 			</div>
-
 			// Balance Card
 			@expense.BalanceCard(space.ID, balance, false)
-
 			// List of expenses
 			<div
 				id="expenses-list"

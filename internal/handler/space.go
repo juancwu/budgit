@@ -401,18 +401,14 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 			newTag, err := h.tagService.CreateTag(spaceID, tagName, nil)
 			if err != nil {
 				slog.Error("failed to create new tag from expense form", "error", err, "tag_name", tagName)
-				// Continue processing other tags? Or fail?
-				// Let's continue, maybe the tag was invalid or duplicate race condition.
-				// If duplicate race condition, we could try fetching it again, but for now simple log.
 				continue
 			}
 			finalTagIDs = append(finalTagIDs, newTag.ID)
-			existingTagsMap[tagName] = newTag.ID // Update map in case repeated in this request (though processedTags handles that)
+			existingTagsMap[tagName] = newTag.ID
 		}
 		processedTags[tagName] = true
 	}
 
-	// --- DTO Creation & Service Call ---
 	dto := service.CreateExpenseDTO{
 		SpaceID:     spaceID,
 		UserID:      user.ID,
@@ -434,8 +430,6 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
-		// Fallback: return just the item if balance fails, but ideally we want both.
-		// For now we will just log and continue, potentially showing stale balance.
 	}
 
 	ui.Render(w, r, pages.ExpenseCreatedResponse(newExpense, balance))
