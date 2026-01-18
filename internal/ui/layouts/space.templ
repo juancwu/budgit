@@ -52,6 +52,16 @@ templ Space(title string, space *model.Space) {
 							}
 							@sidebar.MenuItem() {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/expenses",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/expenses",
+									Tooltip:  "Expenses",
+								}) {
+									@icon.DollarSign(icon.Props{Class: "size-4"})
+									<span>Expenses</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
 									Href:     "/app/spaces/" + space.ID + "/lists",
 									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/lists",
 									Tooltip:  "Shopping Lists",
@@ -68,16 +78,6 @@ templ Space(title string, space *model.Space) {
 								}) {
 									@icon.Tag(icon.Props{Class: "size-4"})
 									<span>Tags</span>
-								}
-							}
-							@sidebar.MenuItem() {
-								@sidebar.MenuButton(sidebar.MenuButtonProps{
-									Href:     "/app/spaces/" + space.ID + "/expenses",
-									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/expenses",
-									Tooltip:  "Expenses",
-								}) {
-									@icon.DollarSign(icon.Props{Class: "size-4"})
-									<span>Expenses</span>
 								}
 							}
 						}
