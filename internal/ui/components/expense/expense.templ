@@ -15,6 +15,7 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 		hx-post={ "/app/spaces/" + space.ID + "/expenses" }
 		hx-target="#expenses-list"
 		hx-swap="afterbegin"
+		_="on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('add-expense-dialog') reset() me end"
 		class="space-y-4"
 	>
 		@csrf.Token()
