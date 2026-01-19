@@ -7,7 +7,6 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
-	"time"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
@@ -56,7 +55,11 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 		</div>
 		// Description
 		<div>
-			<label for="description" class="label">Description</label>
+			@label.Label(label.Props{
+				For: "description",
+			}) {
+				Description
+			}
 			@input.Input(input.Props{
 				Name:       "description",
 				ID:         "description",
@@ -65,7 +68,11 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 		</div>
 		// Amount
 		<div>
-			<label for="amount" class="label">Amount</label>
+			@label.Label(label.Props{
+				For: "amount",
+			}) {
+				Amount
+			}
 			@input.Input(input.Props{
 				Name:       "amount",
 				ID:         "amount",
@@ -75,23 +82,29 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 		</div>
 		// Date
 		<div>
-			<label for="date" class="label">Date</label>
+			@label.Label(label.Props{
+				For: "date",
+			}) {
+				Date
+			}
 			@datepicker.DatePicker(datepicker.Props{
 				ID:         "date",
 				Name:       "date",
-				Value:      time.Now(),
 				Attributes: templ.Attributes{"required": "true"},
 			})
 		</div>
 		// Tags
 		<div>
-			<label class="label">Tags</label>
+			@label.Label(label.Props{For: "new-expense-tags"}) {
+				Tags
+			}
 			<datalist id="available-tags">
 				for _, tag := range tags {
 					<option value={ tag.Name }></option>
 				}
 			</datalist>
 			@tagsinput.TagsInput(tagsinput.Props{
+				ID:          "new-expense-tags",
 				Name:        "tags",
 				Placeholder: "Add tags (press enter)",
 				Attributes:  templ.Attributes{"list": "available-tags"},
@@ -100,7 +113,7 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 		// TODO: Shopping list items selector
 		<div class="flex justify-end">
 			@button.Button(button.Props{Type: button.TypeSubmit}) {
-				Save Transaction
+				Save
 			}
 		</div>
 	</form>
