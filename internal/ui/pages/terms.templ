@@ -1,0 +1,97 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+)
+
+templ Terms() {
+	{{ cfg := ctxkeys.Config(ctx) }}
+	@layouts.Auth(layouts.SEOProps{
+		Title:       "Terms and Conditions",
+		Description: "Terms and Conditions for " + cfg.AppName,
+		Path:        "/terms",
+	}) {
+		<div class="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+			<div class="mb-8">
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Href:    "/",
+					Class:   "mb-4",
+				}) {
+					@icon.ArrowLeft()
+					Back to Home
+				}
+				<h1 class="text-3xl font-bold tracking-tight sm:text-4xl mb-2">Terms and Conditions</h1>
+				<p class="text-muted-foreground">Last updated: January 30, 2026</p>
+			</div>
+			<div class="prose dark:prose-invert max-w-none space-y-8">
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">1. Agreement to Terms</h2>
+					<p class="text-muted-foreground">
+						By accessing or using { cfg.AppName } (the "Service"), you agree to be bound by these Terms and Conditions.
+						If you disagree with any part of the terms, you may not access the Service.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">2. Description of Service</h2>
+					<p class="text-muted-foreground mb-4">
+						{ cfg.AppName } is a personal budgeting and expense tracking tool provided as a hobby project.
+						It allows users to manually input and track financial data, shopping lists, and related information.
+					</p>
+					<div class="bg-muted p-4 rounded-lg border border-border">
+						<p class="font-medium text-foreground">Disclaimer: Not Financial Advice</p>
+						<p class="text-sm text-muted-foreground mt-1">
+							The Service is for informational and organizational purposes only. It is not intended to provide legal, tax, or financial advice.
+							We are not responsible for any financial decisions you make based on the information you track within the Service.
+						</p>
+					</div>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">3. Accounts</h2>
+					<p class="text-muted-foreground mb-4">
+						When you create an account with us, you must provide accurate and complete information.
+						You are responsible for safeguarding the password or magic link used to access the Service and for any activities or actions under your account.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">4. "As Is" and "As Available" Disclaimer</h2>
+					<p class="text-muted-foreground mb-4">
+						The Service is provided on an "AS IS" and "AS AVAILABLE" basis. The Service is provided without warranties of any kind, whether express or implied, including, but not limited to, implied warranties of merchantability, fitness for a particular purpose, non-infringement, or course of performance.
+					</p>
+					<p class="text-muted-foreground">
+						As a hobby project, we do not warrant that the Service will function uninterrupted, secure, or available at any particular time or location, or that any errors or defects will be corrected.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">5. Limitation of Liability</h2>
+					<p class="text-muted-foreground">
+						In no event shall the operator, nor any partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your access to or use of or inability to access or use the Service.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">6. User Conduct</h2>
+					<p class="text-muted-foreground">
+						You agree not to use the Service for any unlawful purpose or in any way that interrupts, damages, or impairs the service.
+						We reserve the right to terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">7. Governing Law</h2>
+					<p class="text-muted-foreground">
+						These Terms shall be governed and construed in accordance with the laws of Canada, without regard to its conflict of law provisions.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">8. Changes to Terms</h2>
+					<p class="text-muted-foreground">
+						We reserve the right, at our sole discretion, to modify or replace these Terms at any time. By continuing to access or use our Service after those revisions become effective, you agree to be bound by the revised terms.
+					</p>
+				</section>
+			</div>
+		</div>
+	}
+}

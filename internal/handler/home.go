@@ -24,6 +24,14 @@ func (h *homeHandler) HomePage(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
 }
 
+func (h *homeHandler) PrivacyPage(w http.ResponseWriter, r *http.Request) {
+	ui.Render(w, r, pages.Privacy())
+}
+
+func (h *homeHandler) TermsPage(w http.ResponseWriter, r *http.Request) {
+	ui.Render(w, r, pages.Terms())
+}
+
 func (home *homeHandler) NotFoundPage(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, pages.NotFound())
 }

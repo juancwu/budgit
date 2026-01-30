@@ -1,6 +1,7 @@
 package pages
 
 import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 
 templ NotFound() {
 	@layouts.Base() {
@@ -12,6 +13,12 @@ templ NotFound() {
 				<a href="/" class="text-primary hover:underline">
 					← Back to Home
 				</a>
+				{{ cfg := ctxkeys.Config(ctx) }}
+				if cfg.SupportEmail != "" {
+					<p class="mt-8 text-sm text-muted-foreground">
+						Need help? Contact <a href={ templ.SafeURL("mailto:" + cfg.SupportEmail) } class="hover:underline text-foreground">{ cfg.SupportEmail }</a>
+					</p>
+				}
 			</div>
 		</div>
 	}

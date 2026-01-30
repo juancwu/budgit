@@ -1,0 +1,103 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+)
+
+templ Privacy() {
+	{{ cfg := ctxkeys.Config(ctx) }}
+	@layouts.Auth(layouts.SEOProps{
+		Title:       "Privacy Policy",
+		Description: "Privacy Policy for " + cfg.AppName,
+		Path:        "/privacy",
+	}) {
+		<div class="max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+			<div class="mb-8">
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Href:    "/",
+					Class:   "mb-4",
+				}) {
+					@icon.ArrowLeft()
+					Back to Home
+				}
+				<h1 class="text-3xl font-bold tracking-tight sm:text-4xl mb-2">Privacy Policy</h1>
+				<p class="text-muted-foreground">Last updated: January 30, 2026</p>
+			</div>
+			<div class="prose dark:prose-invert max-w-none space-y-8">
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">1. Introduction</h2>
+					<p class="text-muted-foreground mb-4">
+						Welcome to { cfg.AppName } ("we," "our," or "us"). We are committed to protecting your personal information and your right to privacy.
+						This Privacy Policy applies to our website and any related services (collectively, the "Service").
+					</p>
+					<p class="text-muted-foreground">
+						{ cfg.AppName } is operated by an individual developer based in Canada as a hobby project.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">2. Information We Collect</h2>
+					<p class="text-muted-foreground mb-4">We collect information that you provide directly to us when you use the Service:</p>
+					<ul class="list-disc pl-6 space-y-2 text-muted-foreground">
+						<li><strong>Account Information:</strong> When you register, we collect your email address and name (if provided).</li>
+						<li>
+							<strong>User Content:</strong> We store the financial data, shopping lists, and other content you manually enter into the Service.
+							<span class="block mt-1 italic text-sm">Note: We do not connect to your bank accounts or financial institutions. The "financial" data stored is purely what you choose to type in, similar to a spreadsheet.</span>
+						</li>
+						<li><strong>Usage Data:</strong> We may collect anonymous, aggregated information about how the Service is accessed and used (e.g., pages viewed, time spent) to help us improve the product.</li>
+					</ul>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">3. How We Use Your Information</h2>
+					<p class="text-muted-foreground mb-4">We use the information we collect to:</p>
+					<ul class="list-disc pl-6 space-y-2 text-muted-foreground">
+						<li>Provide, maintain, and improve the Service.</li>
+						<li>Authenticate your identity (via Magic Links or password).</li>
+						<li>Send you administrative emails (e.g., login links, space invitations, welcome emails).</li>
+						<li>Respond to your comments or questions.</li>
+					</ul>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">4. Cookies and Tracking</h2>
+					<p class="text-muted-foreground">
+						We use cookies and similar technologies primarily for essential functions, such as keeping you logged in.
+						By using the Service, you consent to the use of these essential cookies.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">5. Data Storage and Third Parties</h2>
+					<p class="text-muted-foreground mb-4">
+						Our Service is hosted on virtual private servers provided by <strong>Hostinger</strong> located in the <strong>United States</strong>.
+						While we are based in Canada, your data may be processed and stored in the United States and subject to its laws.
+					</p>
+					<p class="text-muted-foreground">
+						We self-host our email delivery system. We do not sell, trade, or otherwise transfer your personally identifiable information to outside parties for marketing purposes.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">6. Children's Privacy</h2>
+					<p class="text-muted-foreground">
+						Our Service is not directed to anyone under the age of 13. We do not knowingly collect personal information from children under 13.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">7. Your Rights</h2>
+					<p class="text-muted-foreground mb-4">
+						Depending on your location, you may have rights regarding your personal data, including the right to access, correct, or delete your data.
+						You can delete your data by deleting your account within the application or by contacting us.
+					</p>
+				</section>
+				<section>
+					<h2 class="text-2xl font-semibold mb-4">8. Contact Us</h2>
+					<p class="text-muted-foreground">
+						If you have any questions about this Privacy Policy, please contact us at <a href={ templ.SafeURL("mailto:" + cfg.SupportEmail) } class="text-primary hover:underline">{ cfg.SupportEmail }</a>.
+					</p>
+				</section>
+			</div>
+		</div>
+	}
+}
