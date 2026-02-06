@@ -58,9 +58,16 @@ templ SpaceDashboardPage(space *model.Space, lists []*model.ShoppingList, tags [
 				<div class="border rounded-lg p-4">
 					<h2 class="text-lg font-semibold mb-2">Shopping Lists</h2>
 					if len(lists) > 0 {
-						<ul>
+						<ul class="space-y-1">
 							for _, list := range lists {
-								<li>{ list.Name }</li>
+								<li>
+									<a
+										href={ templ.URL("/app/spaces/" + space.ID + "/lists/" + list.ID) }
+										class="block px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm"
+									>
+										{ list.Name }
+									</a>
+								</li>
 							}
 						</ul>
 					} else {
