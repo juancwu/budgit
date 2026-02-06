@@ -24,6 +24,9 @@ templ SpaceListDetailPage(space *model.Space, list *model.ShoppingList, items []
 				@input.Input(input.Props{
 					Name:        "name",
 					Placeholder: "New item...",
+					Attributes: templ.Attributes{
+						"autocomplete": "off",
+					},
 				})
 				@button.Button(button.Props{
 					Type: button.TypeSubmit,
