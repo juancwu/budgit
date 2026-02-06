@@ -3,6 +3,7 @@ package shoppinglist
 import (
 	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/checkbox"
 )
 
 templ ListItem(list *model.ShoppingList) {
@@ -16,15 +17,16 @@ templ ListItem(list *model.ShoppingList) {
 
 templ ItemDetail(spaceID string, item *model.ListItem) {
 	<div id={ "item-" + item.ID } class="flex items-center gap-2 p-2 border-b">
-		<input
-			type="checkbox"
-			name="is_checked"
-			checked?={ item.IsChecked }
-			hx-patch={ fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID) }
-			hx-target={ "#item-" + item.ID }
-			hx-swap="outerHTML"
-			class="checkbox"
-		/>
+		@checkbox.Checkbox(checkbox.Props{
+			ID:      "item-" + item.ID + "-checkbox",
+			Name:    "is_checked",
+			Checked: item.IsChecked,
+			Attributes: templ.Attributes{
+				"hx-patch":  fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID),
+				"hx-target": "#item-" + item.ID,
+				"hx-swap":   "outerHTML",
+			},
+		})
 		<span class={ templ.KV("line-through text-muted-foreground", item.IsChecked) }>{ item.Name }</span>
 		<button
 			hx-delete={ fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID) }
