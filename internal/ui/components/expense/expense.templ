@@ -24,7 +24,7 @@ type AddExpenseFormProps struct {
 }
 
 func (p AddExpenseFormProps) formAttrs() templ.Attributes {
-	closeScript := "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') then reset() me end"
+	closeScript := "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') then reset() me then show #item-selector-section end"
 	if p.FromOverview {
 		return templ.Attributes{
 			"hx-post":  "/app/spaces/" + p.Space.ID + "/expenses?from=overview",
