@@ -3,13 +3,15 @@ package pages
 import (
 	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
+templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, balance int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
 	@layouts.Space("Expenses", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -47,45 +49,113 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance i
 				hx-trigger="sse:expenses_updated"
 				hx-swap="innerHTML"
 			>
-				@ExpensesListContent(expenses)
+				@ExpensesListContent(space.ID, expenses)
 			</div>
 		</div>
 	}
 }
 
-templ ExpensesListContent(expenses []*model.Expense) {
+templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTags) {
 	<h2 class="text-lg font-semibold p-4">History</h2>
 	<div id="expenses-list" class="divide-y">
 		if len(expenses) == 0 {
 			<p class="p-4 text-sm text-muted-foreground">No expenses recorded yet.</p>
 		}
-		for _, expense := range expenses {
-			@ExpenseListItem(expense)
+		for _, exp := range expenses {
+			@ExpenseListItem(spaceID, exp)
 		}
 	</div>
 }
 
-templ ExpenseListItem(expense *model.Expense) {
-	<div class="p-4 flex justify-between items-center">
-		<div>
-			<p class="font-medium">{ expense.Description }</p>
-			<p class="text-sm text-muted-foreground">{ expense.Date.Format("Jan 02, 2006") }</p>
+templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTags) {
+	<div id={ "expense-" + exp.ID } class="p-4 flex justify-between items-start gap-2">
+		<div class="min-w-0 flex-1">
+			<p class="font-medium">{ exp.Description }</p>
+			<p class="text-sm text-muted-foreground">{ exp.Date.Format("Jan 02, 2006") }</p>
+			if len(exp.Tags) > 0 {
+				<div class="flex flex-wrap gap-1 mt-1">
+					for _, t := range exp.Tags {
+						@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+							{ t.Name }
+						}
+					}
+				</div>
+			}
 		</div>
-		<div>
-			if expense.Type == model.ExpenseTypeExpense {
+		<div class="flex items-center gap-1 shrink-0">
+			if exp.Type == model.ExpenseTypeExpense {
 				<p class="font-bold text-destructive">
-					- { fmt.Sprintf("$%.2f", float64(expense.AmountCents)/100.0) }
+					- { fmt.Sprintf("$%.2f", float64(exp.AmountCents)/100.0) }
 				</p>
 			} else {
 				<p class="font-bold text-green-500">
-					+ { fmt.Sprintf("$%.2f", float64(expense.AmountCents)/100.0) }
+					+ { fmt.Sprintf("$%.2f", float64(exp.AmountCents)/100.0) }
 				</p>
+			}
+			// Edit button
+			@dialog.Dialog(dialog.Props{ID: "edit-expense-" + exp.ID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+						@icon.Pencil(icon.Props{Size: 14})
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Edit Transaction
+						}
+						@dialog.Description() {
+							Update the details of this transaction.
+						}
+					}
+					@expense.EditExpenseForm(spaceID, exp)
+				}
+			}
+			// Delete button
+			@dialog.Dialog(dialog.Props{ID: "del-expense-" + exp.ID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+						@icon.Trash2(icon.Props{Size: 14})
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Delete Transaction
+						}
+						@dialog.Description() {
+							Are you sure you want to delete "{ exp.Description }"? This action cannot be undone.
+						}
+					}
+					@dialog.Footer() {
+						@dialog.Close() {
+							@button.Button(button.Props{Variant: button.VariantOutline}) {
+								Cancel
+							}
+						}
+						@button.Button(button.Props{
+							Variant: button.VariantDestructive,
+							Attributes: templ.Attributes{
+								"hx-delete": fmt.Sprintf("/app/spaces/%s/expenses/%s", spaceID, exp.ID),
+								"hx-target": "#expense-" + exp.ID,
+								"hx-swap":   "outerHTML",
+							},
+						}) {
+							Delete
+						}
+					}
+				}
 			}
 		</div>
 	</div>
 }
 
-templ ExpenseCreatedResponse(newExpense *model.Expense, balance int) {
-	@ExpenseListItem(newExpense)
+templ ExpenseCreatedResponse(spaceID string, newExpense *model.ExpenseWithTags, balance int) {
+	@ExpenseListItem(spaceID, newExpense)
 	@expense.BalanceCard(newExpense.SpaceID, balance, true)
+}
+
+templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTags, balance int) {
+	@ExpenseListItem(spaceID, exp)
+	@expense.BalanceCard(exp.SpaceID, balance, true)
 }

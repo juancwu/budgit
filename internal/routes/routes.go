@@ -122,6 +122,14 @@ func SetupRoutes(a *app.App) http.Handler {
 	createExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createExpenseHandler)
 	mux.Handle("POST /app/spaces/{spaceID}/expenses", createExpenseWithAccess)
 
+	updateExpenseHandler := middleware.RequireAuth(space.UpdateExpense)
+	updateExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateExpenseHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/expenses/{expenseID}", updateExpenseWithAccess)
+
+	deleteExpenseHandler := middleware.RequireAuth(space.DeleteExpense)
+	deleteExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteExpenseHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/expenses/{expenseID}", deleteExpenseWithAccess)
+
 	// Component routes (HTMX updates)
 	balanceCardHandler := middleware.RequireAuth(space.GetBalanceCard)
 	balanceCardWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(balanceCardHandler)
