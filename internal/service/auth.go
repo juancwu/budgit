@@ -84,6 +84,11 @@ func (s *AuthService) LoginWithPassword(email, password string) (*model.User, er
 		return nil, e.WithError(ErrNoPassword)
 	}
 
+	err = s.ComparePassword(password, *user.PasswordHash)
+	if err != nil {
+		return nil, e.WithError(ErrInvalidCredentials)
+	}
+
 	return user, nil
 }
 
@@ -106,6 +111,45 @@ func (s *AuthService) ComparePassword(password, hash string) error {
 	if !match {
 		return e.WithError(ErrPasswordsDoNotMatch)
 	}
+	return nil
+}
+
+func (s *AuthService) SetPassword(userID, currentPassword, newPassword, confirmPassword string) error {
+	e := exception.New("AuthService.SetPassword")
+
+	user, err := s.userRepository.ByID(userID)
+	if err != nil {
+		return e.WithError(err)
+	}
+
+	// If user already has a password, verify current password
+	if user.HasPassword() {
+		err = s.ComparePassword(currentPassword, *user.PasswordHash)
+		if err != nil {
+			return e.WithError(ErrInvalidCredentials)
+		}
+	}
+
+	if newPassword != confirmPassword {
+		return e.WithError(ErrPasswordsDoNotMatch)
+	}
+
+	err = validation.ValidatePassword(newPassword)
+	if err != nil {
+		return e.WithError(ErrWeakPassword)
+	}
+
+	hashed, err := s.HashPassword(newPassword)
+	if err != nil {
+		return e.WithError(err)
+	}
+
+	user.PasswordHash = &hashed
+	err = s.userRepository.Update(user)
+	if err != nil {
+		return e.WithError(err)
+	}
+
 	return nil
 }
 

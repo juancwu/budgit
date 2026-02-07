@@ -1,0 +1,106 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+)
+
+templ AppSettings(hasPassword bool, errorMsg string) {
+	@layouts.App("Settings") {
+		<div class="container max-w-2xl px-6 py-8">
+			<div class="mb-8">
+				<h1 class="text-3xl font-bold">Settings</h1>
+				<p class="text-muted-foreground mt-2">Manage your account settings</p>
+			</div>
+			@card.Card() {
+				@card.Header() {
+					@card.Title() {
+						if hasPassword {
+							Change Password
+						} else {
+							Set Password
+						}
+					}
+					@card.Description() {
+						if hasPassword {
+							Update your existing password
+						} else {
+							Set a password to sign in without a magic link
+						}
+					}
+				}
+				@card.Content() {
+					<form action="/app/settings/password" method="POST" class="space-y-4">
+						@csrf.Token()
+						if hasPassword {
+							@form.Item() {
+								@label.Label(label.Props{
+									For:   "current_password",
+									Class: "block mb-2",
+								}) {
+									Current Password
+								}
+								@input.Input(input.Props{
+									ID:          "current_password",
+									Name:        "current_password",
+									Type:        input.TypePassword,
+									Placeholder: "••••••••",
+									HasError:    errorMsg != "",
+								})
+							}
+						}
+						@form.Item() {
+							@label.Label(label.Props{
+								For:   "new_password",
+								Class: "block mb-2",
+							}) {
+								New Password
+							}
+							@input.Input(input.Props{
+								ID:          "new_password",
+								Name:        "new_password",
+								Type:        input.TypePassword,
+								Placeholder: "••••••••",
+								HasError:    errorMsg != "",
+							})
+						}
+						@form.Item() {
+							@label.Label(label.Props{
+								For:   "confirm_password",
+								Class: "block mb-2",
+							}) {
+								Confirm Password
+							}
+							@input.Input(input.Props{
+								ID:          "confirm_password",
+								Name:        "confirm_password",
+								Type:        input.TypePassword,
+								Placeholder: "••••••••",
+								HasError:    errorMsg != "",
+							})
+							if errorMsg != "" {
+								@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+									{ errorMsg }
+								}
+							}
+						}
+						@button.Button(button.Props{
+							Type: button.TypeSubmit,
+						}) {
+							if hasPassword {
+								Change Password
+							} else {
+								Set Password
+							}
+						}
+					</form>
+				}
+			}
+		</div>
+	}
+}

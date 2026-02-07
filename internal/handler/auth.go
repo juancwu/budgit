@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -29,6 +30,70 @@ func (h *authHandler) AuthPage(w http.ResponseWriter, r *http.Request) {
 
 func (h *authHandler) PasswordPage(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, pages.AuthPassword(""))
+}
+
+func (h *authHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) {
+	email := strings.TrimSpace(r.FormValue("email"))
+	password := r.FormValue("password")
+
+	if email == "" || password == "" {
+		ui.Render(w, r, pages.AuthPassword("Email and password are required"))
+		return
+	}
+
+	user, err := h.authService.LoginWithPassword(email, password)
+	if err != nil {
+		slog.Warn("password login failed", "error", err, "email", email)
+
+		msg := "An error occurred. Please try again."
+		if errors.Is(err, service.ErrInvalidCredentials) {
+			msg = "Invalid email or password"
+		} else if errors.Is(err, service.ErrNoPassword) {
+			msg = "This account uses passwordless login. Please use a magic link."
+		}
+
+		ui.Render(w, r, pages.AuthPassword(msg))
+		return
+	}
+
+	jwtToken, err := h.authService.GenerateJWT(user)
+	if err != nil {
+		slog.Error("failed to generate JWT", "error", err, "user_id", user.ID)
+		ui.Render(w, r, pages.AuthPassword("An error occurred. Please try again."))
+		return
+	}
+
+	h.authService.SetJWTCookie(w, jwtToken, time.Now().Add(7*24*time.Hour))
+
+	// Check for pending invite
+	inviteCookie, err := r.Cookie("pending_invite")
+	if err == nil && inviteCookie.Value != "" {
+		spaceID, err := h.inviteService.AcceptInvite(inviteCookie.Value, user.ID)
+		if err != nil {
+			slog.Error("failed to process pending invite", "error", err, "token", inviteCookie.Value)
+		} else {
+			slog.Info("accepted pending invite", "user_id", user.ID, "space_id", spaceID)
+			http.SetCookie(w, &http.Cookie{
+				Name:     "pending_invite",
+				Value:    "",
+				Path:     "/",
+				MaxAge:   -1,
+				HttpOnly: true,
+			})
+		}
+	}
+
+	needsOnboarding, err := h.authService.NeedsOnboarding(user.ID)
+	if err != nil {
+		slog.Warn("failed to check onboarding status", "error", err, "user_id", user.ID)
+	}
+
+	if needsOnboarding {
+		http.Redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
+		return
+	}
+
+	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
 }
 
 func (h *authHandler) Logout(w http.ResponseWriter, r *http.Request) {

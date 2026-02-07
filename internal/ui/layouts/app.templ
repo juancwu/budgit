@@ -146,14 +146,14 @@ templ AppSidebarDropdown(user *model.User, profile *model.Profile) {
 				}
 			</div>
 			@dropdown.Separator()
-			<!-- @dropdown.Item(dropdown.ItemProps{ -->
-			<!-- 	Href: "/app/settings", -->
-			<!-- }) { -->
-			<!-- 	<span class="flex items-center"> -->
-			<!-- 		@icon.Settings(icon.Props{Size: 16, Class: "mr-2"}) -->
-			<!-- 		Settings -->
-			<!-- 	</span> -->
-			<!-- } -->
+			@dropdown.Item(dropdown.ItemProps{
+				Href: "/app/settings",
+			}) {
+				<span class="flex items-center">
+					@icon.Settings(icon.Props{Size: 16, Class: "mr-2"})
+					Settings
+				</span>
+			}
 			<form action="/auth/logout" method="POST" class="contents">
 				@csrf.Token()
 				@dropdown.Item(dropdown.ItemProps{
