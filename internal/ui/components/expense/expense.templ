@@ -20,7 +20,7 @@ type AddExpenseFormProps struct {
 	Tags           []*model.Tag
 	ListsWithItems []model.ListWithUncheckedItems
 	DialogID       string // which dialog to close on success
-	FromOverview   bool   // if true, POSTs with ?from=overview for toast response
+	FromOverview   bool   // if true, POSTs with ?from=overview; server redirects to expenses page
 }
 
 func (p AddExpenseFormProps) formAttrs() templ.Attributes {

@@ -566,14 +566,8 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Get("from") == "overview" {
-		ui.Render(w, r, toast.Toast(toast.Props{
-			Title:       "Expense created",
-			Description: "Your transaction has been recorded.",
-			Variant:     toast.VariantSuccess,
-			Icon:        true,
-			Dismissible: true,
-			Duration:    5000,
-		}))
+		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/expenses")
+		w.WriteHeader(http.StatusOK)
 		return
 	}
 
