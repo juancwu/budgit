@@ -146,6 +146,31 @@ func (h *SpaceHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, shoppinglist.ListItem(newList))
 }
 
+func (h *SpaceHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	listID := r.PathValue("listID")
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "List name is required", http.StatusBadRequest)
+		return
+	}
+
+	updatedList, err := h.listService.UpdateList(listID, name)
+	if err != nil {
+		slog.Error("failed to update list", "error", err, "list_id", listID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, shoppinglist.ListNameHeader(spaceID, updatedList))
+}
+
 func (h *SpaceHandler) ListPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	listID := r.PathValue("listID")

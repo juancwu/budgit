@@ -76,6 +76,10 @@ func SetupRoutes(a *app.App) http.Handler {
 	listPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listPageHandler)
 	mux.Handle("GET /app/spaces/{spaceID}/lists/{listID}", listPageWithAccess)
 
+	updateListHandler := middleware.RequireAuth(space.UpdateList)
+	updateListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateListHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}", updateListWithAccess)
+
 	addItemHandler := middleware.RequireAuth(space.AddItemToList)
 	addItemWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(addItemHandler)
 	mux.Handle("POST /app/spaces/{spaceID}/lists/{listID}/items", addItemWithAccess)

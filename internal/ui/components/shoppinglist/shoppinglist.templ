@@ -4,7 +4,49 @@ import (
 	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/checkbox"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 )
+
+templ ListNameHeader(spaceID string, list *model.ShoppingList) {
+	<div id="list-name-header" class="flex items-center gap-2 group">
+		<h1 class="text-2xl font-bold">{ list.Name }</h1>
+		<button
+			class="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+			_="on click toggle .hidden on #list-name-header then toggle .hidden on #list-name-edit then focus() the first <input/> in #list-name-edit"
+		>
+			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>
+		</button>
+	</div>
+	<form
+		id="list-name-edit"
+		class="hidden flex items-center gap-2"
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/lists/%s", spaceID, list.ID) }
+		hx-target="#list-name-header"
+		hx-swap="outerHTML"
+		_="on htmx:afterRequest toggle .hidden on me then toggle .hidden on #list-name-header"
+	>
+		@csrf.Token()
+		@input.Input(input.Props{
+			Name:  "name",
+			Value: list.Name,
+			Class: "max-w-xs",
+			Attributes: templ.Attributes{
+				"required": "true",
+			},
+		})
+		<button type="submit" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-3 bg-primary text-primary-foreground hover:bg-primary/90">
+			Save
+		</button>
+		<button
+			type="button"
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-3 border hover:bg-muted"
+			_="on click toggle .hidden on #list-name-edit then toggle .hidden on #list-name-header"
+		>
+			Cancel
+		</button>
+	</form>
+}
 
 templ ListItem(list *model.ShoppingList) {
 	<a href={ templ.URL(fmt.Sprintf("/app/spaces/%s/lists/%s", list.SpaceID, list.ID)) } class="block p-4 border rounded-lg hover:bg-muted transition-colors">
