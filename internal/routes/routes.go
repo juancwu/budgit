@@ -14,6 +14,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService)
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
+	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
 	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.EventBus)
 
 	mux := http.NewServeMux()
@@ -43,7 +44,8 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	// Auth Actions
 	mux.HandleFunc("POST /auth/magic-link", authRateLimiter(middleware.RequireGuest(auth.SendMagicLink)))
-	mux.HandleFunc("POST /auth/logout", authRateLimiter(auth.Logout))
+	mux.HandleFunc("POST /auth/password", authRateLimiter(middleware.RequireGuest(auth.LoginWithPassword)))
+	mux.HandleFunc("POST /auth/logout", auth.Logout)
 
 	// ====================================================================================
 	// PRIVATE ROUTES
@@ -53,6 +55,8 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("POST /auth/onboarding", authRateLimiter(middleware.RequireAuth(auth.CompleteOnboarding)))
 
 	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
+	mux.HandleFunc("GET /app/settings", middleware.RequireAuth(settings.SettingsPage))
+	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
 
 	// Space routes
 	spaceDashboardHandler := middleware.RequireAuth(space.DashboardPage)
