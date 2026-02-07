@@ -3,53 +3,38 @@ package pages
 import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []*model.Tag) {
+templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
 	@layouts.Space("Overview", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
 				<h1 class="text-2xl font-bold">Welcome to { space.Name }!</h1>
-				@dialog.Dialog(dialog.Props{ID: "invite-member-dialog"}) {
+				@dialog.Dialog(dialog.Props{ID: "add-expense-overview-dialog"}) {
 					@dialog.Trigger() {
 						@button.Button() {
-							Invite Member
+							Add Expense
 						}
 					}
 					@dialog.Content() {
 						@dialog.Header() {
 							@dialog.Title() {
-								Invite Member 
+								Add Transaction
 							}
 							@dialog.Description() {
-								Send an invitation email to add a new member to this space.
+								Add a new expense or top-up to your space.
 							}
 						}
-						<form
-							hx-post={ "/app/spaces/" + space.ID + "/invites" }
-							hx-swap="innerHTML"
-							class="space-y-4"
-						>
-							@csrf.Token()
-							<div>
-								<label for="email" class="label">Email Address</label>
-								@input.Input(input.Props{
-									Name:       "email",
-									ID:         "email",
-									Type:       "email",
-									Attributes: templ.Attributes{"required": "true"},
-								})
-							</div>
-							<div class="flex justify-end">
-								@button.Button(button.Props{Type: button.TypeSubmit}) {
-									Send Invitation
-								}
-							</div>
-						</form>
+						@expense.AddExpenseForm(expense.AddExpenseFormProps{
+							Space:          space,
+							Tags:           tags,
+							ListsWithItems: listsWithItems,
+							DialogID:       "add-expense-overview-dialog",
+							FromOverview:   true,
+						})
 					}
 				}
 			</div>

@@ -114,7 +114,14 @@ func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceOverviewPage(space, lists, tags))
+	listsWithItems, err := h.listService.GetListsWithUncheckedItems(spaceID)
+	if err != nil {
+		slog.Error("failed to get lists with unchecked items", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceOverviewPage(space, lists, tags, listsWithItems))
 }
 
 func (h *SpaceHandler) ListsPage(w http.ResponseWriter, r *http.Request) {
@@ -430,6 +437,17 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, listsWithItems))
+
+	if r.URL.Query().Get("created") == "true" {
+		ui.Render(w, r, toast.Toast(toast.Props{
+			Title:       "Expense created",
+			Description: "Your transaction has been recorded.",
+			Variant:     toast.VariantSuccess,
+			Icon:        true,
+			Dismissible: true,
+			Duration:    5000,
+		}))
+	}
 }
 
 func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
@@ -556,6 +574,12 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
+	}
+
+	if r.URL.Query().Get("from") == "overview" {
+		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/expenses?created=true")
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
 	ui.Render(w, r, pages.ExpenseCreatedResponse(newExpense, balance))
