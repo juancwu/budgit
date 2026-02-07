@@ -20,6 +20,11 @@ type ListItem struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+type ListWithUncheckedItems struct {
+	List  *ShoppingList
+	Items []*ListItem
+}
+
 type ListCardData struct {
 	List        *ShoppingList
 	Items       []*ListItem

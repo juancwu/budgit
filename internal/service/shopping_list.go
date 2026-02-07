@@ -196,6 +196,58 @@ func (s *ShoppingListService) UpdateItem(itemID, name string, isChecked bool) (*
 	return item, nil
 }
 
+func (s *ShoppingListService) CheckItem(itemID string) error {
+	item, err := s.itemRepo.GetByID(itemID)
+	if err != nil {
+		return err
+	}
+
+	item.IsChecked = true
+
+	err = s.itemRepo.Update(item)
+	if err != nil {
+		return err
+	}
+
+	list, err := s.listRepo.GetByID(item.ListID)
+	if err == nil {
+		s.eventBus.Publish(list.SpaceID, "item_updated", nil)
+	}
+
+	return nil
+}
+
+func (s *ShoppingListService) GetListsWithUncheckedItems(spaceID string) ([]model.ListWithUncheckedItems, error) {
+	lists, err := s.listRepo.GetBySpaceID(spaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []model.ListWithUncheckedItems
+	for _, list := range lists {
+		items, err := s.itemRepo.GetByListID(list.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		var unchecked []*model.ListItem
+		for _, item := range items {
+			if !item.IsChecked {
+				unchecked = append(unchecked, item)
+			}
+		}
+
+		if len(unchecked) > 0 {
+			result = append(result, model.ListWithUncheckedItems{
+				List:  list,
+				Items: unchecked,
+			})
+		}
+	}
+
+	return result, nil
+}
+
 func (s *ShoppingListService) DeleteItem(itemID string) error {
 	item, err := s.itemRepo.GetByID(itemID)
 	if err != nil {

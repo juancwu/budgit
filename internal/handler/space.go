@@ -422,14 +422,14 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lists, err := h.listService.GetListsForSpace(spaceID)
+	listsWithItems, err := h.listService.GetListsWithUncheckedItems(spaceID)
 	if err != nil {
-		slog.Error("failed to get lists for space", "error", err, "space_id", spaceID)
+		slog.Error("failed to get lists with unchecked items", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, lists))
+	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, listsWithItems))
 }
 
 func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
@@ -513,6 +513,15 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		processedTags[tagName] = true
 	}
 
+	// Parse linked shopping list items
+	itemIDs := r.Form["item_ids"]
+	itemAction := r.FormValue("item_action")
+
+	// Only link items for expense type, not topup
+	if expenseType != model.ExpenseTypeExpense {
+		itemIDs = nil
+	}
+
 	dto := service.CreateExpenseDTO{
 		SpaceID:     spaceID,
 		UserID:      user.ID,
@@ -521,7 +530,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		Type:        expenseType,
 		Date:        date,
 		TagIDs:      finalTagIDs,
-		ItemIDs:     []string{}, // TODO: Add item IDs from form
+		ItemIDs:     itemIDs,
 	}
 
 	newExpense, err := h.expenseService.CreateExpense(dto)
@@ -529,6 +538,19 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to create expense", "error", err)
 		http.Error(w, "Failed to create expense.", http.StatusInternalServerError)
 		return
+	}
+
+	// Process linked items post-creation
+	for _, itemID := range itemIDs {
+		if itemAction == "delete" {
+			if err := h.listService.DeleteItem(itemID); err != nil {
+				slog.Error("failed to delete linked item", "error", err, "item_id", itemID)
+			}
+		} else {
+			if err := h.listService.CheckItem(itemID); err != nil {
+				slog.Error("failed to check linked item", "error", err, "item_id", itemID)
+			}
+		}
 	}
 
 	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
