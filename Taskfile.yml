@@ -1,13 +1,14 @@
 version: "3"
 vars:
   TEMPL_PROXYBIND: '{{.TEMPL_PROXYBIND | default "127.0.0.1"}}'
+  TEMPL_PROXYPORT: '{{.TEMPL_PROXYPORT | default "7331"}}'
   TEMPL_PROXY: '{{.TEMPL_PROXY | default "http://127.0.0.1:9000"}}'
 tasks:
   # Development Tools
   templ:
     desc: Run templ with integrated server and hot reload
     cmds:
-      - go tool templ generate --watch --cmd="go run ./cmd/server/main.go" --proxybind="{{.TEMPL_PROXYBIND}}" --proxy="{{.TEMPL_PROXY}}" --open-browser=false
+      - go tool templ generate --watch --cmd="go run ./cmd/server/main.go" --proxybind="{{.TEMPL_PROXYBIND}}" --proxyport="{{.TEMPL_PROXYPORT}}" --proxy="{{.TEMPL_PROXY}}" --open-browser=false
   tailwind-clean:
     desc: Clean tailwind output
     cmds:
