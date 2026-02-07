@@ -437,6 +437,17 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, listsWithItems))
+
+	if r.URL.Query().Get("created") == "true" {
+		ui.Render(w, r, toast.Toast(toast.Props{
+			Title:       "Expense created",
+			Description: "Your transaction has been recorded.",
+			Variant:     toast.VariantSuccess,
+			Icon:        true,
+			Dismissible: true,
+			Duration:    5000,
+		}))
+	}
 }
 
 func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
@@ -566,7 +577,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Get("from") == "overview" {
-		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/expenses")
+		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/expenses?created=true")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
