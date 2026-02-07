@@ -99,7 +99,7 @@ func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceDashboardPage(space, lists, tags))
+	ui.Render(w, r, pages.SpaceOverviewPage(space, lists, tags))
 }
 
 func (h *SpaceHandler) ListsPage(w http.ResponseWriter, r *http.Request) {

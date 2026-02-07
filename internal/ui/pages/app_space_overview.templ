@@ -9,7 +9,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceDashboardPage(space *model.Space, lists []*model.ShoppingList, tags []*model.Tag) {
+templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []*model.Tag) {
 	@layouts.Space("Overview", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -91,4 +91,3 @@ templ SpaceDashboardPage(space *model.Space, lists []*model.ShoppingList, tags [
 		</div>
 	}
 }
-
