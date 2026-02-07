@@ -684,7 +684,12 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		Tags:    tagsMap[updatedExpense.ID],
 	}
 
-	ui.Render(w, r, pages.ExpenseListItem(spaceID, expWithTags))
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance after update", "error", err, "space_id", spaceID)
+	}
+
+	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTags, balance))
 }
 
 func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
@@ -701,7 +706,12 @@ func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance after delete", "error", err, "space_id", spaceID)
+	}
+
+	ui.Render(w, r, expense.BalanceCard(spaceID, balance, true))
 }
 
 func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {

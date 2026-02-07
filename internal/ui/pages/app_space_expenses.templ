@@ -149,3 +149,8 @@ templ ExpenseCreatedResponse(spaceID string, newExpense *model.ExpenseWithTags, 
 	@ExpenseListItem(spaceID, newExpense)
 	@expense.BalanceCard(newExpense.SpaceID, balance, true)
 }
+
+templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTags, balance int) {
+	@ExpenseListItem(spaceID, exp)
+	@expense.BalanceCard(exp.SpaceID, balance, true)
+}
