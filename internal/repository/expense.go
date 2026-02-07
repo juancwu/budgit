@@ -18,6 +18,9 @@ type ExpenseRepository interface {
 	GetByID(id string) (*model.Expense, error)
 	GetBySpaceID(spaceID string) ([]*model.Expense, error)
 	GetExpensesByTag(spaceID string, fromDate, toDate time.Time) ([]*model.TagExpenseSummary, error)
+	GetTagsByExpenseIDs(expenseIDs []string) (map[string][]*model.Tag, error)
+	Update(expense *model.Expense, tagIDs []string) error
+	Delete(id string) error
 }
 
 type expenseRepository struct {
@@ -91,10 +94,10 @@ func (r *expenseRepository) GetBySpaceID(spaceID string) ([]*model.Expense, erro
 func (r *expenseRepository) GetExpensesByTag(spaceID string, fromDate, toDate time.Time) ([]*model.TagExpenseSummary, error) {
 	var summaries []*model.TagExpenseSummary
 	query := `
-		SELECT 
-			t.id as tag_id, 
-			t.name as tag_name, 
-			t.color as tag_color, 
+		SELECT
+			t.id as tag_id,
+			t.name as tag_name,
+			t.color as tag_color,
 			SUM(e.amount_cents) as total_amount
 		FROM expenses e
 		JOIN expense_tags et ON e.id = et.expense_id
@@ -108,4 +111,82 @@ func (r *expenseRepository) GetExpensesByTag(spaceID string, fromDate, toDate ti
 		return nil, err
 	}
 	return summaries, nil
+}
+
+func (r *expenseRepository) GetTagsByExpenseIDs(expenseIDs []string) (map[string][]*model.Tag, error) {
+	if len(expenseIDs) == 0 {
+		return make(map[string][]*model.Tag), nil
+	}
+
+	type row struct {
+		ExpenseID string  `db:"expense_id"`
+		ID        string  `db:"id"`
+		SpaceID   string  `db:"space_id"`
+		Name      string  `db:"name"`
+		Color     *string `db:"color"`
+	}
+
+	query, args, err := sqlx.In(`
+		SELECT et.expense_id, t.id, t.space_id, t.name, t.color
+		FROM expense_tags et
+		JOIN tags t ON et.tag_id = t.id
+		WHERE et.expense_id IN (?)
+		ORDER BY t.name;
+	`, expenseIDs)
+	if err != nil {
+		return nil, err
+	}
+	query = r.db.Rebind(query)
+
+	var rows []row
+	if err := r.db.Select(&rows, query, args...); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string][]*model.Tag)
+	for _, rw := range rows {
+		result[rw.ExpenseID] = append(result[rw.ExpenseID], &model.Tag{
+			ID:      rw.ID,
+			SpaceID: rw.SpaceID,
+			Name:    rw.Name,
+			Color:   rw.Color,
+		})
+	}
+	return result, nil
+}
+
+func (r *expenseRepository) Update(expense *model.Expense, tagIDs []string) error {
+	tx, err := r.db.Beginx()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	query := `UPDATE expenses SET description = $1, amount_cents = $2, type = $3, date = $4, updated_at = $5 WHERE id = $6;`
+	_, err = tx.Exec(query, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.UpdatedAt, expense.ID)
+	if err != nil {
+		return err
+	}
+
+	// Replace tags: delete all existing, re-insert
+	_, err = tx.Exec(`DELETE FROM expense_tags WHERE expense_id = $1;`, expense.ID)
+	if err != nil {
+		return err
+	}
+
+	if len(tagIDs) > 0 {
+		insertTag := `INSERT INTO expense_tags (expense_id, tag_id) VALUES ($1, $2);`
+		for _, tagID := range tagIDs {
+			if _, err := tx.Exec(insertTag, expense.ID, tagID); err != nil {
+				return err
+			}
+		}
+	}
+
+	return tx.Commit()
+}
+
+func (r *expenseRepository) Delete(id string) error {
+	_, err := r.db.Exec(`DELETE FROM expenses WHERE id = $1;`, id)
+	return err
 }

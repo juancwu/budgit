@@ -209,6 +209,106 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, listsWithItems []mod
 	</form>
 }
 
+templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTags) {
+	{{ editDialogID := "edit-expense-" + exp.ID }}
+	{{ tagValues := make([]string, len(exp.Tags)) }}
+	for i, t := range exp.Tags {
+		{{ tagValues[i] = t.Name }}
+	}
+	<form
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/expenses/%s", spaceID, exp.ID) }
+		hx-target={ "#expense-" + exp.ID }
+		hx-swap="outerHTML"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + editDialogID + "') end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Type
+		<div class="flex gap-4">
+			<div class="flex items-start gap-3">
+				@radio.Radio(radio.Props{
+					ID:      "edit-type-expense-" + exp.ID,
+					Name:    "type",
+					Value:   "expense",
+					Checked: exp.Type == model.ExpenseTypeExpense,
+				})
+				<div class="grid gap-2">
+					@label.Label(label.Props{For: "edit-type-expense-" + exp.ID}) {
+						Expense
+					}
+				</div>
+			</div>
+			<div class="flex items-start gap-3">
+				@radio.Radio(radio.Props{
+					ID:      "edit-type-topup-" + exp.ID,
+					Name:    "type",
+					Value:   "topup",
+					Checked: exp.Type == model.ExpenseTypeTopup,
+				})
+				<div class="grid gap-2">
+					@label.Label(label.Props{For: "edit-type-topup-" + exp.ID}) {
+						Top-up
+					}
+				</div>
+			</div>
+		</div>
+		// Description
+		<div>
+			@label.Label(label.Props{For: "edit-description-" + exp.ID}) {
+				Description
+			}
+			@input.Input(input.Props{
+				Name:       "description",
+				ID:         "edit-description-" + exp.ID,
+				Value:      exp.Description,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// Amount
+		<div>
+			@label.Label(label.Props{For: "edit-amount-" + exp.ID}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				Name:  "amount",
+				ID:    "edit-amount-" + exp.ID,
+				Type:  "number",
+				Value: fmt.Sprintf("%.2f", float64(exp.AmountCents)/100.0),
+				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
+			})
+		</div>
+		// Date
+		<div>
+			@label.Label(label.Props{For: "edit-date-" + exp.ID}) {
+				Date
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:         "edit-date-" + exp.ID,
+				Name:       "date",
+				Value:      exp.Date,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// Tags
+		<div>
+			@label.Label(label.Props{For: "edit-tags-" + exp.ID}) {
+				Tags
+			}
+			@tagsinput.TagsInput(tagsinput.Props{
+				ID:          "edit-tags-" + exp.ID,
+				Name:        "tags",
+				Value:       tagValues,
+				Placeholder: "Add tags (press enter)",
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}
+
 templ BalanceCard(spaceID string, balance int, oob bool) {
 	<div
 		id="balance-card"

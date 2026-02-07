@@ -21,6 +21,16 @@ type CreateExpenseDTO struct {
 	ItemIDs     []string
 }
 
+type UpdateExpenseDTO struct {
+	ID          string
+	SpaceID     string
+	Description string
+	Amount      int
+	Type        model.ExpenseType
+	Date        time.Time
+	TagIDs      []string
+}
+
 type ExpenseService struct {
 	expenseRepo repository.ExpenseRepository
 	eventBus    *event.Broker
@@ -94,4 +104,84 @@ func (s *ExpenseService) GetBalanceForSpace(spaceID string) (int, error) {
 
 func (s *ExpenseService) GetExpensesByTag(spaceID string, fromDate, toDate time.Time) ([]*model.TagExpenseSummary, error) {
 	return s.expenseRepo.GetExpensesByTag(spaceID, fromDate, toDate)
+}
+
+func (s *ExpenseService) GetExpensesWithTagsForSpace(spaceID string) ([]*model.ExpenseWithTags, error) {
+	expenses, err := s.expenseRepo.GetBySpaceID(spaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]string, len(expenses))
+	for i, e := range expenses {
+		ids[i] = e.ID
+	}
+
+	tagsMap, err := s.expenseRepo.GetTagsByExpenseIDs(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]*model.ExpenseWithTags, len(expenses))
+	for i, e := range expenses {
+		result[i] = &model.ExpenseWithTags{
+			Expense: *e,
+			Tags:    tagsMap[e.ID],
+		}
+	}
+	return result, nil
+}
+
+func (s *ExpenseService) GetExpense(id string) (*model.Expense, error) {
+	return s.expenseRepo.GetByID(id)
+}
+
+func (s *ExpenseService) GetTagsByExpenseIDs(expenseIDs []string) (map[string][]*model.Tag, error) {
+	return s.expenseRepo.GetTagsByExpenseIDs(expenseIDs)
+}
+
+func (s *ExpenseService) UpdateExpense(dto UpdateExpenseDTO) (*model.Expense, error) {
+	if dto.Description == "" {
+		return nil, fmt.Errorf("expense description cannot be empty")
+	}
+	if dto.Amount <= 0 {
+		return nil, fmt.Errorf("amount must be positive")
+	}
+
+	existing, err := s.expenseRepo.GetByID(dto.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	existing.Description = dto.Description
+	existing.AmountCents = dto.Amount
+	existing.Type = dto.Type
+	existing.Date = dto.Date
+	existing.UpdatedAt = time.Now()
+
+	if err := s.expenseRepo.Update(existing, dto.TagIDs); err != nil {
+		return nil, err
+	}
+
+	balance, _ := s.GetBalanceForSpace(dto.SpaceID)
+	s.eventBus.Publish(dto.SpaceID, "balance_changed", map[string]interface{}{
+		"balance": balance,
+	})
+	s.eventBus.Publish(dto.SpaceID, "expenses_updated", nil)
+
+	return existing, nil
+}
+
+func (s *ExpenseService) DeleteExpense(id string, spaceID string) error {
+	if err := s.expenseRepo.Delete(id); err != nil {
+		return err
+	}
+
+	balance, _ := s.GetBalanceForSpace(spaceID)
+	s.eventBus.Publish(spaceID, "balance_changed", map[string]interface{}{
+		"balance": balance,
+	})
+	s.eventBus.Publish(spaceID, "expenses_updated", nil)
+
+	return nil
 }
