@@ -24,8 +24,3 @@ tasks:
     cmds:
       - echo "Starting app..."
       - task --parallel tailwind-watch templ
-  # Stop all services
-  down:
-    desc: Stop all services
-    cmds:
-      - docker compose down
