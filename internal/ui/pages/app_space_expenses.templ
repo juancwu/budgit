@@ -9,7 +9,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance int, tags []*model.Tag, lists []*model.ShoppingList) {
+templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
 	@layouts.Space("Expenses", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -29,7 +29,7 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance i
 								Add a new expense or top-up to your space.
 							}
 						}
-						@expense.AddExpenseForm(space, tags, lists)
+						@expense.AddExpenseForm(space, tags, listsWithItems)
 					}
 				}
 			</div>

@@ -2,17 +2,20 @@ package expense
 
 import (
 	"fmt"
+	"strconv"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/checkbox"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
 )
 
-templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.ShoppingList) {
+templ AddExpenseForm(space *model.Space, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
 	<form
 		hx-post={ "/app/spaces/" + space.ID + "/expenses" }
 		hx-target="#expenses-list"
@@ -29,6 +32,9 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 					Name:    "type",
 					Value:   "expense",
 					Checked: true,
+					Attributes: templ.Attributes{
+						"_": "on click show #item-selector-section",
+					},
 				})
 				<div class="grid gap-2">
 					@label.Label(label.Props{
@@ -43,6 +49,9 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 					ID:    "expense-type-topup",
 					Name:  "type",
 					Value: "topup",
+					Attributes: templ.Attributes{
+						"_": "on click hide #item-selector-section",
+					},
 				})
 				<div class="grid gap-2">
 					@label.Label(label.Props{
@@ -110,7 +119,88 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, lists []*model.Shopp
 				Attributes:  templ.Attributes{"list": "available-tags"},
 			})
 		</div>
-		// TODO: Shopping list items selector
+		// Shopping list items selector
+		<div id="item-selector-section">
+			@label.Label(label.Props{}) {
+				Link Shopping List Items
+			}
+			if len(listsWithItems) == 0 {
+				<p class="text-sm text-muted-foreground">No unchecked items available.</p>
+			} else {
+				<div class="max-h-48 overflow-y-auto border rounded-md p-2 space-y-2">
+					for i, lwi := range listsWithItems {
+						{{ toggleID := "toggle-list-" + lwi.List.ID }}
+						{{ itemsID := "items-" + lwi.List.ID }}
+						<div class="space-y-1">
+							<div class="flex items-center gap-2">
+								@checkbox.Checkbox(checkbox.Props{
+									ID: "select-all-" + lwi.List.ID,
+									Attributes: templ.Attributes{
+										"_": "on change repeat for cb in <input[name='item_ids']/> in #" + itemsID + " set cb.checked to my.checked end",
+									},
+								})
+								<button
+									type="button"
+									id={ toggleID }
+									class="flex-1 flex items-center gap-1 text-sm font-medium cursor-pointer select-none"
+									_={ "on click toggle .hidden on #" + itemsID + " then toggle .rotate-90 on <svg/> in me" }
+								>
+									@icon.ChevronRight(icon.Props{Size: 14})
+									{ lwi.List.Name }
+									<span class="text-muted-foreground">
+										({ strconv.Itoa(len(lwi.Items)) })
+									</span>
+								</button>
+							</div>
+							<div id={ itemsID } class="hidden pl-6 space-y-1">
+								for _, item := range lwi.Items {
+									<div class="flex items-center gap-2">
+										@checkbox.Checkbox(checkbox.Props{
+											ID:    "item-cb-" + item.ID,
+											Name:  "item_ids",
+											Value: item.ID,
+										})
+										<label for={ "item-cb-" + item.ID } class="text-sm cursor-pointer select-none">
+											{ item.Name }
+										</label>
+									</div>
+								}
+							</div>
+						</div>
+						if i < len(listsWithItems) - 1 {
+							<hr class="border-border"/>
+						}
+					}
+				</div>
+				// Post-action radio group
+				<div class="mt-2 space-y-1">
+					<p class="text-sm text-muted-foreground">After linking items:</p>
+					<div class="flex gap-4">
+						<div class="flex items-center gap-2">
+							@radio.Radio(radio.Props{
+								ID:      "item-action-check",
+								Name:    "item_action",
+								Value:   "check",
+								Checked: true,
+							})
+							@label.Label(label.Props{For: "item-action-check"}) {
+								Mark as checked
+							}
+						</div>
+						<div class="flex items-center gap-2">
+							@radio.Radio(radio.Props{
+								ID:    "item-action-delete",
+								Name:  "item_action",
+								Value: "delete",
+							})
+							@label.Label(label.Props{For: "item-action-delete"}) {
+								Delete from list
+							}
+						</div>
+					</div>
+				</div>
+			}
+		</div>
 		<div class="flex justify-end">
 			@button.Button(button.Props{Type: button.TypeSubmit}) {
 				Save
