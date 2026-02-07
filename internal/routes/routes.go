@@ -22,9 +22,9 @@ func SetupRoutes(a *app.App) http.Handler {
 	// PUBLIC ROUTES
 	// ====================================================================================
 
-	// Static
+	// Static assets with long-lived cache (cache-busted via ?v=<timestamp>)
 	sub, _ := fs.Sub(assets.AssetsFS, ".")
-	mux.Handle("GET /assets/", http.StripPrefix("/assets/", http.FileServer(http.FS(sub))))
+	mux.Handle("GET /assets/", middleware.CacheStatic(http.StripPrefix("/assets/", http.FileServer(http.FS(sub)))))
 
 	// Home
 	mux.HandleFunc("GET /{$}", home.HomePage)
@@ -142,6 +142,7 @@ func SetupRoutes(a *app.App) http.Handler {
 		mux,
 		middleware.Config(a.Cfg),
 		middleware.RequestLogging,
+		middleware.NoCacheDynamic,
 		middleware.CSRFProtection,
 		middleware.AuthMiddleware(a.AuthService, a.UserService, a.ProfileService),
 		middleware.WithURLPath,
