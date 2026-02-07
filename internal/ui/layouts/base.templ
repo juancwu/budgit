@@ -34,7 +34,7 @@ templ Base(props ...SEOProps) {
 				{{ cfg := ctxkeys.Config(ctx) }}
 				<title>{ cfg.AppName }</title>
 			}
-			<link rel="icon" type="image/x-icon" href="/assets/favicon/favicon.ico"/>
+			<link rel="icon" type="image/svg+xml" href="/assets/favicon/favicon.svg"/>
 			<link href={ "/assets/css/output.css?v=" + templ.EscapeString(fmt.Sprintf("%d", time.Now().Unix())) } rel="stylesheet"/>
 			<script src="/assets/js/htmx@2.0.7.min.js"></script>
 			<script src="/assets/js/hyperscript@0.9.14.min.js"></script>
