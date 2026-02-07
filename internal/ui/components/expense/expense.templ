@@ -15,13 +15,36 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
 )
 
-templ AddExpenseForm(space *model.Space, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
+type AddExpenseFormProps struct {
+	Space          *model.Space
+	Tags           []*model.Tag
+	ListsWithItems []model.ListWithUncheckedItems
+	DialogID       string // which dialog to close on success
+	FromOverview   bool   // if true, POSTs with ?from=overview for toast response
+}
+
+func (p AddExpenseFormProps) formAttrs() templ.Attributes {
+	closeScript := "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') then reset() me end"
+	if p.FromOverview {
+		return templ.Attributes{
+			"hx-post":  "/app/spaces/" + p.Space.ID + "/expenses?from=overview",
+			"hx-target": "body",
+			"hx-swap":   "beforeend",
+			"_":         closeScript,
+		}
+	}
+	return templ.Attributes{
+		"hx-post":  "/app/spaces/" + p.Space.ID + "/expenses",
+		"hx-target": "#expenses-list",
+		"hx-swap":   "afterbegin",
+		"_":         closeScript,
+	}
+}
+
+templ AddExpenseForm(props AddExpenseFormProps) {
 	<form
-		hx-post={ "/app/spaces/" + space.ID + "/expenses" }
-		hx-target="#expenses-list"
-		hx-swap="afterbegin"
-		_="on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('add-expense-dialog') reset() me end"
 		class="space-y-4"
+		{ props.formAttrs()... }
 	>
 		@csrf.Token()
 		// Type
@@ -108,7 +131,7 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, listsWithItems []mod
 				Tags
 			}
 			<datalist id="available-tags">
-				for _, tag := range tags {
+				for _, tag := range props.Tags {
 					<option value={ tag.Name }></option>
 				}
 			</datalist>
@@ -124,11 +147,11 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, listsWithItems []mod
 			@label.Label(label.Props{}) {
 				Link Shopping List Items
 			}
-			if len(listsWithItems) == 0 {
+			if len(props.ListsWithItems) == 0 {
 				<p class="text-sm text-muted-foreground">No unchecked items available.</p>
 			} else {
 				<div class="max-h-48 overflow-y-auto border rounded-md p-2 space-y-2">
-					for i, lwi := range listsWithItems {
+					for i, lwi := range props.ListsWithItems {
 						{{ toggleID := "toggle-list-" + lwi.List.ID }}
 						{{ itemsID := "items-" + lwi.List.ID }}
 						<div class="space-y-1">
@@ -167,7 +190,7 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, listsWithItems []mod
 								}
 							</div>
 						</div>
-						if i < len(listsWithItems) - 1 {
+						if i < len(props.ListsWithItems) - 1 {
 							<hr class="border-border"/>
 						}
 					}
