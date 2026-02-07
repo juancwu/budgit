@@ -72,9 +72,6 @@ templ SpaceListDetailPage(space *model.Space, list *model.ShoppingList, items []
 			<div
 				id="items-container"
 				class="border rounded-lg"
-				hx-get={ "/app/spaces/" + space.ID + "/lists/" + list.ID + "/items" }
-				hx-trigger="sse:item_added, sse:item_updated, sse:item_deleted"
-				hx-swap="innerHTML"
 			>
 				@ShoppingListItems(space.ID, items)
 			</div>

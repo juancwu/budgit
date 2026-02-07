@@ -36,7 +36,10 @@ templ SpaceTagsPage(space *model.Space, tags []*model.Tag) {
 					Create
 				}
 			</form>
-			<div id="tags-container" class="flex flex-wrap gap-2">
+			<div
+				id="tags-container"
+				class="flex flex-wrap gap-2"
+			>
 				for _, t := range tags {
 					@tag.Tag(t)
 				}

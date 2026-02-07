@@ -5,7 +5,6 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/config"
 	"git.juancwu.dev/juancwu/budgit/internal/db"
-	"git.juancwu.dev/juancwu/budgit/internal/event"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"github.com/jmoiron/sqlx"
@@ -14,7 +13,6 @@ import (
 type App struct {
 	Cfg                 *config.Config
 	DB                  *sqlx.DB
-	EventBus            *event.Broker
 	UserService         *service.UserService
 	AuthService         *service.AuthService
 	EmailService        *service.EmailService
@@ -36,8 +34,6 @@ func New(cfg *config.Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
-
-	eventBus := event.NewBroker()
 
 	emailClient := service.NewEmailClient(cfg.MailerSMTPHost, cfg.MailerSMTPPort, cfg.MailerIMAPHost, cfg.MailerIMAPPort, cfg.MailerUsername, cfg.MailerPassword)
 
@@ -75,14 +71,13 @@ func New(cfg *config.Config) (*App, error) {
 	)
 	profileService := service.NewProfileService(profileRepository)
 	tagService := service.NewTagService(tagRepository)
-	shoppingListService := service.NewShoppingListService(shoppingListRepository, listItemRepository, eventBus)
-	expenseService := service.NewExpenseService(expenseRepository, eventBus)
+	shoppingListService := service.NewShoppingListService(shoppingListRepository, listItemRepository)
+	expenseService := service.NewExpenseService(expenseRepository)
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
 
 	return &App{
 		Cfg:                 cfg,
 		DB:                  database,
-		EventBus:            eventBus,
 		UserService:         userService,
 		AuthService:         authService,
 		EmailService:        emailService,

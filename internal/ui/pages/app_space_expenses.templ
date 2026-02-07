@@ -41,12 +41,7 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.Expense, balance i
 			// Balance Card
 			@expense.BalanceCard(space.ID, balance, false)
 			// List of expenses
-			<div
-				class="border rounded-lg"
-				hx-get={ "/app/spaces/" + space.ID + "/components/expenses" }
-				hx-trigger="sse:expenses_updated"
-				hx-swap="innerHTML"
-			>
+			<div class="border rounded-lg">
 				@ExpensesListContent(expenses)
 			</div>
 		</div>

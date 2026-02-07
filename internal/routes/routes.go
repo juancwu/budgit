@@ -15,7 +15,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.EventBus)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService)
 
 	mux := http.NewServeMux()
 
@@ -62,11 +62,6 @@ func SetupRoutes(a *app.App) http.Handler {
 	spaceDashboardHandler := middleware.RequireAuth(space.DashboardPage)
 	spaceDashboardWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(spaceDashboardHandler)
 	mux.Handle("GET /app/spaces/{spaceID}", spaceDashboardWithAccess)
-
-	// SSE
-	streamHandler := middleware.RequireAuth(space.StreamEvents)
-	streamWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(streamHandler)
-	mux.Handle("GET /app/spaces/{spaceID}/stream", streamWithAccess)
 
 	listsPageHandler := middleware.RequireAuth(space.ListsPage)
 	listsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsPageHandler)

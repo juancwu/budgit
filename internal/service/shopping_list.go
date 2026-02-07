@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"git.juancwu.dev/juancwu/budgit/internal/event"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
@@ -14,14 +13,12 @@ import (
 type ShoppingListService struct {
 	listRepo repository.ShoppingListRepository
 	itemRepo repository.ListItemRepository
-	eventBus *event.Broker
 }
 
-func NewShoppingListService(listRepo repository.ShoppingListRepository, itemRepo repository.ListItemRepository, eventBus *event.Broker) *ShoppingListService {
+func NewShoppingListService(listRepo repository.ShoppingListRepository, itemRepo repository.ListItemRepository) *ShoppingListService {
 	return &ShoppingListService{
 		listRepo: listRepo,
 		itemRepo: itemRepo,
-		eventBus: eventBus,
 	}
 }
 
@@ -45,8 +42,6 @@ func (s *ShoppingListService) CreateList(spaceID, name string) (*model.ShoppingL
 	if err != nil {
 		return nil, err
 	}
-
-	s.eventBus.Publish(spaceID, "list_created", nil)
 
 	return list, nil
 }
@@ -81,23 +76,13 @@ func (s *ShoppingListService) UpdateList(listID, name string) (*model.ShoppingLi
 }
 
 func (s *ShoppingListService) DeleteList(listID string) error {
-	// Need spaceID to publish event
-	list, err := s.listRepo.GetByID(listID)
-	if err != nil {
-		return err
-	}
-
 	// First delete all items in the list
-	err = s.itemRepo.DeleteByListID(listID)
+	err := s.itemRepo.DeleteByListID(listID)
 	if err != nil {
 		return fmt.Errorf("failed to delete items in list: %w", err)
 	}
 	// Then delete the list itself
-	err = s.listRepo.Delete(listID)
-	if err == nil {
-		s.eventBus.Publish(list.SpaceID, "list_deleted", nil)
-	}
-	return err
+	return s.listRepo.Delete(listID)
 }
 
 // Item methods
@@ -121,12 +106,6 @@ func (s *ShoppingListService) AddItemToList(listID, name, createdBy string) (*mo
 	err := s.itemRepo.Create(item)
 	if err != nil {
 		return nil, err
-	}
-
-	// Get Space ID
-	list, err := s.listRepo.GetByID(listID)
-	if err == nil {
-		s.eventBus.Publish(list.SpaceID, "item_added", nil)
 	}
 
 	return item, nil
@@ -187,12 +166,6 @@ func (s *ShoppingListService) UpdateItem(itemID, name string, isChecked bool) (*
 		return nil, err
 	}
 
-	// Get Space ID via List
-	list, err := s.listRepo.GetByID(item.ListID)
-	if err == nil {
-		s.eventBus.Publish(list.SpaceID, "item_updated", nil)
-	}
-
 	return item, nil
 }
 
@@ -204,17 +177,7 @@ func (s *ShoppingListService) CheckItem(itemID string) error {
 
 	item.IsChecked = true
 
-	err = s.itemRepo.Update(item)
-	if err != nil {
-		return err
-	}
-
-	list, err := s.listRepo.GetByID(item.ListID)
-	if err == nil {
-		s.eventBus.Publish(list.SpaceID, "item_updated", nil)
-	}
-
-	return nil
+	return s.itemRepo.Update(item)
 }
 
 func (s *ShoppingListService) GetListsWithUncheckedItems(spaceID string) ([]model.ListWithUncheckedItems, error) {
@@ -249,17 +212,5 @@ func (s *ShoppingListService) GetListsWithUncheckedItems(spaceID string) ([]mode
 }
 
 func (s *ShoppingListService) DeleteItem(itemID string) error {
-	item, err := s.itemRepo.GetByID(itemID)
-	if err != nil {
-		return err
-	}
-
-	err = s.itemRepo.Delete(itemID)
-	if err == nil {
-		list, err := s.listRepo.GetByID(item.ListID)
-		if err == nil {
-			s.eventBus.Publish(list.SpaceID, "item_deleted", nil)
-		}
-	}
-	return err
+	return s.itemRepo.Delete(itemID)
 }

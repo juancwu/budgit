@@ -36,9 +36,6 @@ templ SpaceListsPage(space *model.Space, cards []model.ListCardData) {
 			<div
 				id="lists-container"
 				class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-				hx-get={ "/app/spaces/" + space.ID + "/components/lists" }
-				hx-trigger="sse:list_created, sse:list_deleted"
-				hx-swap="innerHTML"
 			>
 				@ListsContainer(space.ID, cards)
 			</div>
