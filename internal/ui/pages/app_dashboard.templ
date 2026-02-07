@@ -4,7 +4,13 @@ import (
 	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 )
 
 templ Dashboard(spaces []*model.Space, totalBalance int) {
@@ -43,11 +49,48 @@ templ Dashboard(spaces []*model.Space, totalBalance int) {
 				}
 
 				// Option to create a new space
-				@card.Card(card.Props{ Class: "h-full border-dashed" }) {
-					@card.Content(card.ContentProps{ Class: "h-full flex flex-col items-center justify-center py-12" }) {
-						<p class="text-muted-foreground mb-4">Need another space?</p>
-						// TODO: Add a button or link to create a new space
-						<span class="text-sm font-medium opacity-50">Create Space (Coming Soon)</span>
+				@dialog.Dialog(dialog.Props{ID: "create-space-dialog"}) {
+					@dialog.Trigger() {
+						@card.Card(card.Props{ Class: "h-full border-dashed cursor-pointer transition-colors hover:border-primary" }) {
+							@card.Content(card.ContentProps{ Class: "h-full flex flex-col items-center justify-center py-12" }) {
+								@icon.Plus(icon.Props{Class: "h-8 w-8 text-muted-foreground mb-2"})
+								<p class="text-muted-foreground">Create a new space</p>
+							}
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create Space
+							}
+							@dialog.Description() {
+								Create a new space to organize expenses and shopping lists.
+							}
+						}
+						<form hx-post="/app/spaces" hx-swap="none" class="space-y-4">
+							@csrf.Token()
+							<div class="space-y-2">
+								@label.Label(label.Props{For: "space-name"}) {
+									Name
+								}
+								@input.Input(input.Props{
+									ID:          "space-name",
+									Name:        "name",
+									Type:        input.TypeText,
+									Placeholder: "e.g. Household, Trip, Roommates",
+								})
+							</div>
+							@dialog.Footer() {
+								@dialog.Close(dialog.CloseProps{For: "create-space-dialog"}) {
+									@button.Button(button.Props{Variant: button.VariantOutline, Type: button.TypeButton}) {
+										Cancel
+									}
+								}
+								@button.Button(button.Props{Type: button.TypeSubmit}) {
+									Create
+								}
+							}
+						</form>
 					}
 				}
 			</div>
