@@ -38,6 +38,21 @@ func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *serv
 	}
 }
 
+// getListForSpace fetches a shopping list and verifies it belongs to the given space.
+// Returns the list on success, or writes an error response and returns nil.
+func (h *SpaceHandler) getListForSpace(w http.ResponseWriter, spaceID, listID string) *model.ShoppingList {
+	list, err := h.listService.GetList(listID)
+	if err != nil {
+		http.Error(w, "List not found", http.StatusNotFound)
+		return nil
+	}
+	if list.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return list
+}
+
 func (h *SpaceHandler) StreamEvents(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 
@@ -150,6 +165,10 @@ func (h *SpaceHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	listID := r.PathValue("listID")
 
+	if h.getListForSpace(w, spaceID, listID) == nil {
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -171,6 +190,25 @@ func (h *SpaceHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 	ui.Render(w, r, shoppinglist.ListNameHeader(spaceID, updatedList))
 }
 
+func (h *SpaceHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	listID := r.PathValue("listID")
+
+	if h.getListForSpace(w, spaceID, listID) == nil {
+		return
+	}
+
+	err := h.listService.DeleteList(listID)
+	if err != nil {
+		slog.Error("failed to delete list", "error", err, "list_id", listID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/lists")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *SpaceHandler) ListPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	listID := r.PathValue("listID")
@@ -181,10 +219,8 @@ func (h *SpaceHandler) ListPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	list, err := h.listService.GetList(listID)
-	if err != nil {
-		slog.Error("failed to get list", "error", err, "list_id", listID)
-		http.Error(w, "List not found", http.StatusNotFound)
+	list := h.getListForSpace(w, spaceID, listID)
+	if list == nil {
 		return
 	}
 
@@ -201,6 +237,11 @@ func (h *SpaceHandler) ListPage(w http.ResponseWriter, r *http.Request) {
 func (h *SpaceHandler) AddItemToList(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	listID := r.PathValue("listID")
+
+	if h.getListForSpace(w, spaceID, listID) == nil {
+		return
+	}
+
 	user := ctxkeys.User(r.Context())
 
 	if err := r.ParseForm(); err != nil {
@@ -226,12 +267,22 @@ func (h *SpaceHandler) AddItemToList(w http.ResponseWriter, r *http.Request) {
 
 func (h *SpaceHandler) ToggleItem(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
+	listID := r.PathValue("listID")
 	itemID := r.PathValue("itemID")
+
+	if h.getListForSpace(w, spaceID, listID) == nil {
+		return
+	}
 
 	item, err := h.listService.GetItem(itemID)
 	if err != nil {
 		slog.Error("failed to get item", "error", err, "item_id", itemID)
 		http.Error(w, "Item not found", http.StatusNotFound)
+		return
+	}
+
+	if item.ListID != listID {
+		http.Error(w, "Not Found", http.StatusNotFound)
 		return
 	}
 
@@ -246,9 +297,27 @@ func (h *SpaceHandler) ToggleItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SpaceHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	listID := r.PathValue("listID")
 	itemID := r.PathValue("itemID")
 
-	err := h.listService.DeleteItem(itemID)
+	if h.getListForSpace(w, spaceID, listID) == nil {
+		return
+	}
+
+	item, err := h.listService.GetItem(itemID)
+	if err != nil {
+		slog.Error("failed to get item", "error", err, "item_id", itemID)
+		http.Error(w, "Item not found", http.StatusNotFound)
+		return
+	}
+
+	if item.ListID != listID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	err = h.listService.DeleteItem(itemID)
 	if err != nil {
 		slog.Error("failed to delete item", "error", err, "item_id", itemID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -549,6 +618,10 @@ func (h *SpaceHandler) GetExpensesList(w http.ResponseWriter, r *http.Request) {
 func (h *SpaceHandler) GetShoppingListItems(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	listID := r.PathValue("listID")
+
+	if h.getListForSpace(w, spaceID, listID) == nil {
+		return
+	}
 
 	items, err := h.listService.GetItemsForList(listID)
 	if err != nil {

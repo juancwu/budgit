@@ -4,6 +4,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
@@ -12,7 +13,41 @@ import (
 templ SpaceListDetailPage(space *model.Space, list *model.ShoppingList, items []*model.ListItem) {
 	@layouts.Space(list.Name, space) {
 		<div class="space-y-4">
-			@shoppinglist.ListNameHeader(space.ID, list)
+			<div class="flex items-center justify-between">
+				@shoppinglist.ListNameHeader(space.ID, list)
+				@dialog.Dialog(dialog.Props{ID: "delete-list-dialog"}) {
+					@dialog.Trigger() {
+						@button.Button(button.Props{Variant: button.VariantGhost}) {
+							Delete List
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Shopping List
+							}
+							@dialog.Description() {
+								Are you sure you want to delete "{ list.Name }"? This will permanently remove the list and all its items. This action cannot be undone.
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							@button.Button(button.Props{
+								Variant: button.VariantDestructive,
+								Attributes: templ.Attributes{
+									"hx-delete": "/app/spaces/" + space.ID + "/lists/" + list.ID,
+								},
+							}) {
+								Delete
+							}
+						}
+					}
+				}
+			</div>
 			<form
 				hx-post={ "/app/spaces/" + space.ID + "/lists/" + list.ID + "/items" }
 				hx-target="#items-container"
