@@ -140,6 +140,34 @@ func (s *ShoppingListService) GetItemsForList(listID string) ([]*model.ListItem,
 	return s.itemRepo.GetByListID(listID)
 }
 
+const ItemsPerCardPage = 5
+
+func (s *ShoppingListService) GetItemsForListPaginated(listID string, page int) ([]*model.ListItem, int, error) {
+	total, err := s.itemRepo.CountByListID(listID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	totalPages := (total + ItemsPerCardPage - 1) / ItemsPerCardPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * ItemsPerCardPage
+	items, err := s.itemRepo.GetByListIDPaginated(listID, ItemsPerCardPage, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return items, totalPages, nil
+}
+
 func (s *ShoppingListService) UpdateItem(itemID, name string, isChecked bool) (*model.ListItem, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {

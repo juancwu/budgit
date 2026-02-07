@@ -72,14 +72,12 @@ templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []
 								}
 							}
 						</ul>
-						if len(lists) > 5 {
-							<a
-								href={ templ.URL("/app/spaces/" + space.ID + "/lists") }
-								class="block text-sm text-muted-foreground hover:text-foreground transition-colors mt-2 px-3"
-							>
-								View all shopping lists
-							</a>
-						}
+						<a
+							href={ templ.URL("/app/spaces/" + space.ID + "/lists") }
+							class="block text-sm text-muted-foreground hover:text-foreground transition-colors mt-2 px-3"
+						>
+							View all shopping lists
+						</a>
 					} else {
 						<p class="text-sm text-muted-foreground">No shopping lists yet.</p>
 					}

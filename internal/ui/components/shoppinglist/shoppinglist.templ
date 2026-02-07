@@ -2,12 +2,221 @@ package shoppinglist
 
 import (
 	"fmt"
+	"strconv"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/checkbox"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
 )
 
+// ListCard renders a full shopping list card with inline items, add form, and pagination.
+templ ListCard(spaceID string, list *model.ShoppingList, items []*model.ListItem, currentPage, totalPages int) {
+	<div id={ "list-card-" + list.ID } class="border rounded-lg overflow-hidden flex flex-col">
+		<div class="p-4 border-b bg-muted/30">
+			@ListCardHeader(spaceID, list)
+		</div>
+		<div class="p-3 border-b">
+			<form
+				hx-post={ fmt.Sprintf("/app/spaces/%s/lists/%s/items", spaceID, list.ID) }
+				hx-swap="none"
+				_={ fmt.Sprintf("on htmx:afterRequest if event.detail.successful reset() me then send refreshItems to #list-items-%s", list.ID) }
+				class="flex gap-2 items-start"
+			>
+				@csrf.Token()
+				@input.Input(input.Props{
+					Name:        "name",
+					Placeholder: "Add item...",
+					Class:       "h-8 text-sm",
+					Attributes: templ.Attributes{
+						"autocomplete": "off",
+					},
+				})
+				@button.Button(button.Props{
+					Type: button.TypeSubmit,
+					Size: button.SizeSm,
+				}) {
+					@icon.Plus(icon.Props{Size: 16})
+				}
+			</form>
+		</div>
+		<div
+			id={ "list-items-" + list.ID }
+			hx-get={ fmt.Sprintf("/app/spaces/%s/lists/%s/card-items?page=1", spaceID, list.ID) }
+			hx-trigger="refreshItems"
+			hx-swap="innerHTML"
+		>
+			@ListCardItems(spaceID, list.ID, items, currentPage, totalPages)
+		</div>
+	</div>
+}
+
+// ListCardHeader renders the card header with name display, edit form, and delete button.
+templ ListCardHeader(spaceID string, list *model.ShoppingList) {
+	<div id={ "lch-" + list.ID } class="flex items-center justify-between gap-2">
+		<h3 class="font-semibold truncate">{ list.Name }</h3>
+		<div class="flex items-center gap-1 shrink-0">
+			<button
+				type="button"
+				class="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted transition-colors"
+				_={ fmt.Sprintf("on click toggle .hidden on #lch-%s then toggle .hidden on #lche-%s then focus() the first <input/> in #lche-%s", list.ID, list.ID, list.ID) }
+			>
+				@icon.Pencil(icon.Props{Size: 14})
+			</button>
+			@dialog.Dialog(dialog.Props{ID: "del-list-" + list.ID}) {
+				@dialog.Trigger() {
+					<button
+						type="button"
+						class="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-muted transition-colors"
+					>
+						@icon.Trash2(icon.Props{Size: 14})
+					</button>
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Delete Shopping List
+						}
+						@dialog.Description() {
+							Are you sure you want to delete "{ list.Name }"? This will permanently remove the list and all its items.
+						}
+					}
+					@dialog.Footer() {
+						@dialog.Close() {
+							@button.Button(button.Props{Variant: button.VariantOutline}) {
+								Cancel
+							}
+						}
+						@button.Button(button.Props{
+							Variant: button.VariantDestructive,
+							Attributes: templ.Attributes{
+								"hx-delete": fmt.Sprintf("/app/spaces/%s/lists/%s?from=card", spaceID, list.ID),
+								"hx-target": "#list-card-" + list.ID,
+								"hx-swap":   "outerHTML",
+							},
+						}) {
+							Delete
+						}
+					}
+				}
+			}
+		</div>
+	</div>
+	<form
+		id={ "lche-" + list.ID }
+		class="hidden flex items-center gap-2"
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/lists/%s?from=card", spaceID, list.ID) }
+		hx-target={ "#lch-" + list.ID }
+		hx-swap="outerHTML"
+		_={ fmt.Sprintf("on htmx:afterRequest toggle .hidden on me then toggle .hidden on #lch-%s", list.ID) }
+	>
+		@csrf.Token()
+		@input.Input(input.Props{
+			Name:  "name",
+			Value: list.Name,
+			Class: "h-8 text-sm",
+			Attributes: templ.Attributes{
+				"required": "true",
+			},
+		})
+		<button type="submit" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90">
+			Save
+		</button>
+		<button
+			type="button"
+			class="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 px-3 border hover:bg-muted"
+			_={ fmt.Sprintf("on click toggle .hidden on #lche-%s then toggle .hidden on #lch-%s", list.ID, list.ID) }
+		>
+			Cancel
+		</button>
+	</form>
+}
+
+// ListCardItems renders the paginated items section within a card.
+templ ListCardItems(spaceID string, listID string, items []*model.ListItem, currentPage, totalPages int) {
+	if len(items) == 0 {
+		<p class="text-center text-muted-foreground p-6 text-sm">No items yet</p>
+	} else {
+		<div class="divide-y">
+			for _, item := range items {
+				@CardItemDetail(spaceID, item)
+			}
+		</div>
+	}
+	if totalPages > 1 {
+		<div class="border-t p-2">
+			@pagination.Pagination(pagination.Props{Class: "justify-center"}) {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: currentPage <= 1,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/app/spaces/%s/lists/%s/card-items?page=%d", spaceID, listID, currentPage-1),
+								"hx-target": "#list-items-" + listID,
+								"hx-swap":   "innerHTML",
+							},
+						})
+					}
+					for _, pg := range pagination.CreatePagination(currentPage, totalPages, 3).Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: pg == currentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/app/spaces/%s/lists/%s/card-items?page=%d", spaceID, listID, pg),
+									"hx-target": "#list-items-" + listID,
+									"hx-swap":   "innerHTML",
+								},
+							}) {
+								{ strconv.Itoa(pg) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: currentPage >= totalPages,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/app/spaces/%s/lists/%s/card-items?page=%d", spaceID, listID, currentPage+1),
+								"hx-target": "#list-items-" + listID,
+								"hx-swap":   "innerHTML",
+							},
+						})
+					}
+				}
+			}
+		</div>
+	}
+}
+
+// CardItemDetail renders an item within a card. Toggle is in-place, delete triggers a refresh.
+templ CardItemDetail(spaceID string, item *model.ListItem) {
+	<div id={ "item-" + item.ID } class="flex items-center gap-2 px-4 py-2">
+		@checkbox.Checkbox(checkbox.Props{
+			ID:      "item-" + item.ID + "-checkbox",
+			Name:    "is_checked",
+			Checked: item.IsChecked,
+			Attributes: templ.Attributes{
+				"hx-patch":  fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s?from=card", spaceID, item.ListID, item.ID),
+				"hx-target": "#item-" + item.ID,
+				"hx-swap":   "outerHTML",
+			},
+		})
+		<span class={ "text-sm flex-1", templ.KV("line-through text-muted-foreground", item.IsChecked) }>{ item.Name }</span>
+		<button
+			type="button"
+			class="text-muted-foreground hover:text-destructive p-1 rounded shrink-0"
+			hx-delete={ fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID) }
+			hx-swap="none"
+			_={ fmt.Sprintf("on htmx:afterRequest send refreshItems to #list-items-%s", item.ListID) }
+		>
+			@icon.X(icon.Props{Size: 14})
+		</button>
+	</div>
+}
+
+// ListNameHeader is used on the detail page for editing list name inline.
 templ ListNameHeader(spaceID string, list *model.ShoppingList) {
 	<div id="list-name-header" class="flex items-center gap-2 group">
 		<h1 class="text-2xl font-bold">{ list.Name }</h1>
@@ -15,7 +224,7 @@ templ ListNameHeader(spaceID string, list *model.ShoppingList) {
 			class="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
 			_="on click toggle .hidden on #list-name-header then toggle .hidden on #list-name-edit then focus() the first <input/> in #list-name-edit"
 		>
-			<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"></path><path d="m15 5 4 4"></path></svg>
+			@icon.Pencil(icon.Props{Size: 16})
 		</button>
 	</div>
 	<form
@@ -48,15 +257,7 @@ templ ListNameHeader(spaceID string, list *model.ShoppingList) {
 	</form>
 }
 
-templ ListItem(list *model.ShoppingList) {
-	<a href={ templ.URL(fmt.Sprintf("/app/spaces/%s/lists/%s", list.SpaceID, list.ID)) } class="block p-4 border rounded-lg hover:bg-muted transition-colors">
-		<div class="flex justify-between items-center">
-			<span class="font-medium">{ list.Name }</span>
-			// TODO: Add item count or other info
-		</div>
-	</a>
-}
-
+// ItemDetail renders an individual item row (used by the detail page and toggle responses).
 templ ItemDetail(spaceID string, item *model.ListItem) {
 	<div id={ "item-" + item.ID } class="flex items-center gap-2 p-2 border-b">
 		@checkbox.Checkbox(checkbox.Props{

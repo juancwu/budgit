@@ -125,14 +125,14 @@ func (h *SpaceHandler) ListsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	lists, err := h.listService.GetListsForSpace(spaceID)
+	cards, err := h.buildListCards(spaceID)
 	if err != nil {
-		slog.Error("failed to get lists for space", "error", err, "space_id", spaceID)
+		slog.Error("failed to build list cards", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceListsPage(space, lists))
+	ui.Render(w, r, pages.SpaceListsPage(space, cards))
 }
 
 func (h *SpaceHandler) CreateList(w http.ResponseWriter, r *http.Request) {
@@ -158,7 +158,7 @@ func (h *SpaceHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, shoppinglist.ListItem(newList))
+	ui.Render(w, r, shoppinglist.ListCard(spaceID, newList, nil, 1, 1))
 }
 
 func (h *SpaceHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
@@ -187,7 +187,11 @@ func (h *SpaceHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, shoppinglist.ListNameHeader(spaceID, updatedList))
+	if r.URL.Query().Get("from") == "card" {
+		ui.Render(w, r, shoppinglist.ListCardHeader(spaceID, updatedList))
+	} else {
+		ui.Render(w, r, shoppinglist.ListNameHeader(spaceID, updatedList))
+	}
 }
 
 func (h *SpaceHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
@@ -205,7 +209,9 @@ func (h *SpaceHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/lists")
+	if r.URL.Query().Get("from") != "card" {
+		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/lists")
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -293,7 +299,11 @@ func (h *SpaceHandler) ToggleItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, shoppinglist.ItemDetail(spaceID, updatedItem))
+	if r.URL.Query().Get("from") == "card" {
+		ui.Render(w, r, shoppinglist.CardItemDetail(spaceID, updatedItem))
+	} else {
+		ui.Render(w, r, shoppinglist.ItemDetail(spaceID, updatedItem))
+	}
 }
 
 func (h *SpaceHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
@@ -636,12 +646,58 @@ func (h *SpaceHandler) GetShoppingListItems(w http.ResponseWriter, r *http.Reque
 func (h *SpaceHandler) GetLists(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 
-	lists, err := h.listService.GetListsForSpace(spaceID)
+	cards, err := h.buildListCards(spaceID)
 	if err != nil {
-		slog.Error("failed to get lists", "error", err, "space_id", spaceID)
+		slog.Error("failed to build list cards", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	ui.Render(w, r, pages.ListsContainer(lists))
+	ui.Render(w, r, pages.ListsContainer(spaceID, cards))
+}
+
+func (h *SpaceHandler) GetListCardItems(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	listID := r.PathValue("listID")
+
+	if h.getListForSpace(w, spaceID, listID) == nil {
+		return
+	}
+
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+
+	items, totalPages, err := h.listService.GetItemsForListPaginated(listID, page)
+	if err != nil {
+		slog.Error("failed to get paginated items", "error", err, "list_id", listID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, shoppinglist.ListCardItems(spaceID, listID, items, page, totalPages))
+}
+
+func (h *SpaceHandler) buildListCards(spaceID string) ([]model.ListCardData, error) {
+	lists, err := h.listService.GetListsForSpace(spaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	cards := make([]model.ListCardData, len(lists))
+	for i, list := range lists {
+		items, totalPages, err := h.listService.GetItemsForListPaginated(list.ID, 1)
+		if err != nil {
+			return nil, err
+		}
+		cards[i] = model.ListCardData{
+			List:        list,
+			Items:       items,
+			CurrentPage: 1,
+			TotalPages:  totalPages,
+		}
+	}
+
+	return cards, nil
 }

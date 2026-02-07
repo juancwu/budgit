@@ -9,7 +9,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceListsPage(space *model.Space, lists []*model.ShoppingList) {
+templ SpaceListsPage(space *model.Space, cards []model.ListCardData) {
 	@layouts.Space("Shopping Lists", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -40,14 +40,14 @@ templ SpaceListsPage(space *model.Space, lists []*model.ShoppingList) {
 				hx-trigger="sse:list_created, sse:list_deleted"
 				hx-swap="innerHTML"
 			>
-				@ListsContainer(lists)
+				@ListsContainer(space.ID, cards)
 			</div>
 		</div>
 	}
 }
 
-templ ListsContainer(lists []*model.ShoppingList) {
-	for _, list := range lists {
-		@shoppinglist.ListItem(list)
+templ ListsContainer(spaceID string, cards []model.ListCardData) {
+	for _, card := range cards {
+		@shoppinglist.ListCard(spaceID, card.List, card.Items, card.CurrentPage, card.TotalPages)
 	}
 }

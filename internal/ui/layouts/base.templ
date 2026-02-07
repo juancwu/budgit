@@ -103,60 +103,13 @@ templ seo(props SEOProps) {
 }
 
 templ themeScript() {
-	<script nonce={ templ.GetNonce(ctx) }>
-		// Apply saved theme or system preference on load
-		if (localStorage.theme === 'dark' || (!localStorage.theme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-			document.documentElement.classList.add('dark');
-		}
-		
-		// Theme toggle handler
-		document.addEventListener('click', (e) => {
-			if (e.target.closest('[data-theme-switcher]')) {
-				e.preventDefault();
-				const isDark = document.documentElement.classList.toggle('dark');
-				localStorage.theme = isDark ? 'dark' : 'light';
-			}
-		});
-	</script>
+	<script src="/assets/js/theme.js"></script>
 }
 
 templ smoothScrollScript() {
-	// Smooth scrolling for anchor links - works site-wide
-	<script nonce={ templ.GetNonce(ctx) }>
-		document.addEventListener('DOMContentLoaded', function() {
-			document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-				anchor.addEventListener('click', function (e) {
-					// Only prevent default for same-page anchors
-					const href = this.getAttribute('href');
-					if (href && href !== '#' && href.startsWith('#')) {
-						const target = document.querySelector(href);
-						if (target) {
-							e.preventDefault();
-							target.scrollIntoView({
-								behavior: 'smooth',
-								block: 'start'
-							});
-						}
-					}
-				});
-			});
-		});
-	</script>
+	<script src="/assets/js/smooth-scroll.js"></script>
 }
 
 templ htmxCSRFScript() {
-	// Configure HTMX to automatically send CSRF token with all requests
-	<script nonce={ templ.GetNonce(ctx) }>
-		document.addEventListener('DOMContentLoaded', function() {
-			// Listen for htmx requests and add CSRF token header
-			document.body.addEventListener('htmx:configRequest', function(event) {
-				// Get CSRF token from meta tag
-				const meta = document.querySelector('meta[name="csrf-token"]');
-				if (meta) {
-					// Add token as X-CSRF-Token header to all HTMX requests
-					event.detail.headers['X-CSRF-Token'] = meta.getAttribute('content');
-				}
-			});
-		});
-	</script>
+	<script src="/assets/js/htmx-csrf.js"></script>
 }

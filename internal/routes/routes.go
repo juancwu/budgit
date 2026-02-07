@@ -131,6 +131,10 @@ func SetupRoutes(a *app.App) http.Handler {
 	shoppingListItemsWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(shoppingListItemsHandler)
 	mux.Handle("GET /app/spaces/{spaceID}/lists/{listID}/items", shoppingListItemsWithAccess)
 
+	cardItemsHandler := middleware.RequireAuth(space.GetListCardItems)
+	cardItemsWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(cardItemsHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/lists/{listID}/card-items", cardItemsWithAccess)
+
 	listsComponentHandler := middleware.RequireAuth(space.GetLists)
 	listsComponentWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsComponentHandler)
 	mux.Handle("GET /app/spaces/{spaceID}/components/lists", listsComponentWithAccess)

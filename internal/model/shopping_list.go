@@ -19,3 +19,10 @@ type ListItem struct {
 	CreatedAt time.Time `db:"created_at"`
 	UpdatedAt time.Time `db:"updated_at"`
 }
+
+type ListCardData struct {
+	List        *ShoppingList
+	Items       []*ListItem
+	CurrentPage int
+	TotalPages  int
+}

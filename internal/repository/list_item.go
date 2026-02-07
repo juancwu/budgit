@@ -17,6 +17,8 @@ type ListItemRepository interface {
 	Create(item *model.ListItem) error
 	GetByID(id string) (*model.ListItem, error)
 	GetByListID(listID string) ([]*model.ListItem, error)
+	GetByListIDPaginated(listID string, limit, offset int) ([]*model.ListItem, error)
+	CountByListID(listID string) (int, error)
 	Update(item *model.ListItem) error
 	Delete(id string) error
 	DeleteByListID(listID string) error
@@ -54,6 +56,23 @@ func (r *listItemRepository) GetByListID(listID string) ([]*model.ListItem, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+func (r *listItemRepository) GetByListIDPaginated(listID string, limit, offset int) ([]*model.ListItem, error) {
+	var items []*model.ListItem
+	query := `SELECT * FROM list_items WHERE list_id = $1 ORDER BY created_at DESC LIMIT $2 OFFSET $3;`
+	err := r.db.Select(&items, query, listID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+func (r *listItemRepository) CountByListID(listID string) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM list_items WHERE list_id = $1;`
+	err := r.db.Get(&count, query, listID)
+	return count, err
 }
 
 func (r *listItemRepository) Update(item *model.ListItem) error {
