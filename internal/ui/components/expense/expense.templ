@@ -142,7 +142,7 @@ templ AddExpenseForm(space *model.Space, tags []*model.Tag, listsWithItems []mod
 								<button
 									type="button"
 									id={ toggleID }
-									class="flex items-center gap-1 text-sm font-medium cursor-pointer select-none"
+									class="flex-1 flex items-center gap-1 text-sm font-medium cursor-pointer select-none"
 									_={ "on click toggle .hidden on #" + itemsID + " then toggle .rotate-90 on <svg/> in me" }
 								>
 									@icon.ChevronRight(icon.Props{Size: 14})
