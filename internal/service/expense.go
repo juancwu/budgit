@@ -152,12 +152,6 @@ func (s *ExpenseService) UpdateExpense(dto UpdateExpenseDTO) (*model.Expense, er
 		return nil, err
 	}
 
-	balance, _ := s.GetBalanceForSpace(dto.SpaceID)
-	s.eventBus.Publish(dto.SpaceID, "balance_changed", map[string]interface{}{
-		"balance": balance,
-	})
-	s.eventBus.Publish(dto.SpaceID, "expenses_updated", nil)
-
 	return existing, nil
 }
 
@@ -165,12 +159,6 @@ func (s *ExpenseService) DeleteExpense(id string, spaceID string) error {
 	if err := s.expenseRepo.Delete(id); err != nil {
 		return err
 	}
-
-	balance, _ := s.GetBalanceForSpace(spaceID)
-	s.eventBus.Publish(spaceID, "balance_changed", map[string]interface{}{
-		"balance": balance,
-	})
-	s.eventBus.Publish(spaceID, "expenses_updated", nil)
 
 	return nil
 }
