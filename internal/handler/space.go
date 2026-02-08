@@ -943,14 +943,8 @@ func (h *SpaceHandler) UpdateSpaceName(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, toast.Toast(toast.Props{
-		Title:       "Space renamed",
-		Description: "Space name has been updated.",
-		Variant:     toast.VariantSuccess,
-		Icon:        true,
-		Dismissible: true,
-		Duration:    5000,
-	}))
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *SpaceHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
