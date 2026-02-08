@@ -3,6 +3,7 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
@@ -42,4 +43,24 @@ func (h *dashboardHandler) DashboardPage(w http.ResponseWriter, r *http.Request)
 	}
 
 	ui.Render(w, r, pages.Dashboard(spaces, totalBalance))
+}
+
+func (h *dashboardHandler) CreateSpace(w http.ResponseWriter, r *http.Request) {
+	user := ctxkeys.User(r.Context())
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		http.Error(w, "Space name is required", http.StatusBadRequest)
+		return
+	}
+
+	space, err := h.spaceService.CreateSpace(name, user.ID)
+	if err != nil {
+		slog.Error("failed to create space", "error", err, "user_id", user.ID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/app/spaces/"+space.ID)
+	w.WriteHeader(http.StatusOK)
 }

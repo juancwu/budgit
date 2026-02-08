@@ -55,6 +55,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("POST /auth/onboarding", authRateLimiter(middleware.RequireAuth(auth.CompleteOnboarding)))
 
 	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
+	mux.HandleFunc("POST /app/spaces", middleware.RequireAuth(dashboard.CreateSpace))
 	mux.HandleFunc("GET /app/settings", middleware.RequireAuth(settings.SettingsPage))
 	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
 
