@@ -20,6 +20,8 @@ type SpaceRepository interface {
 	AddMember(spaceID, userID string, role model.Role) error
 	RemoveMember(spaceID, userID string) error
 	IsMember(spaceID, userID string) (bool, error)
+	GetMembers(spaceID string) ([]*model.SpaceMemberWithProfile, error)
+	UpdateName(spaceID, name string) error
 }
 
 type spaceRepository struct {
@@ -105,4 +107,24 @@ func (r *spaceRepository) IsMember(spaceID, userID string) (bool, error) {
 		return false, err
 	}
 	return count > 0, nil
+}
+
+func (r *spaceRepository) GetMembers(spaceID string) ([]*model.SpaceMemberWithProfile, error) {
+	var members []*model.SpaceMemberWithProfile
+	query := `
+		SELECT sm.space_id, sm.user_id, sm.role, sm.joined_at,
+		       p.name, u.email
+		FROM space_members sm
+		JOIN users u ON sm.user_id = u.id
+		JOIN profiles p ON sm.user_id = p.user_id
+		WHERE sm.space_id = $1
+		ORDER BY sm.role DESC, sm.joined_at ASC;`
+	err := r.db.Select(&members, query, spaceID)
+	return members, err
+}
+
+func (r *spaceRepository) UpdateName(spaceID, name string) error {
+	query := `UPDATE spaces SET name = $1, updated_at = $2 WHERE id = $3;`
+	_, err := r.db.Exec(query, name, time.Now(), spaceID)
+	return err
 }
