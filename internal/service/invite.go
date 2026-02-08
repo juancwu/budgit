@@ -94,6 +94,19 @@ func (s *InviteService) AcceptInvite(token, userID string) (string, error) {
 	return invite.SpaceID, s.inviteRepo.UpdateStatus(token, model.InvitationStatusAccepted)
 }
 
+func (s *InviteService) CancelInvite(token string) error {
+	invite, err := s.inviteRepo.GetByToken(token)
+	if err != nil {
+		return err
+	}
+
+	if invite.Status != model.InvitationStatusPending {
+		return errors.New("invitation is not pending")
+	}
+
+	return s.inviteRepo.Delete(token)
+}
+
 func (s *InviteService) GetPendingInvites(spaceID string) ([]*model.SpaceInvitation, error) {
 	// Filter for pending only in memory or repo?
 	// Repo returns all.

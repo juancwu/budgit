@@ -88,3 +88,25 @@ func (s *SpaceService) IsMember(userID, spaceID string) (bool, error) {
 	}
 	return isMember, nil
 }
+
+// GetMembers returns all members of a space with their profile info.
+func (s *SpaceService) GetMembers(spaceID string) ([]*model.SpaceMemberWithProfile, error) {
+	members, err := s.spaceRepo.GetMembers(spaceID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get members: %w", err)
+	}
+	return members, nil
+}
+
+// RemoveMember removes a member from a space.
+func (s *SpaceService) RemoveMember(spaceID, userID string) error {
+	return s.spaceRepo.RemoveMember(spaceID, userID)
+}
+
+// UpdateSpaceName updates the name of a space.
+func (s *SpaceService) UpdateSpaceName(spaceID, name string) error {
+	if name == "" {
+		return fmt.Errorf("space name cannot be empty")
+	}
+	return s.spaceRepo.UpdateName(spaceID, name)
+}

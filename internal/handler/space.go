@@ -35,6 +35,20 @@ func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *serv
 	}
 }
 
+// getExpenseForSpace fetches an expense and verifies it belongs to the given space.
+func (h *SpaceHandler) getExpenseForSpace(w http.ResponseWriter, spaceID, expenseID string) *model.Expense {
+	exp, err := h.expenseService.GetExpense(expenseID)
+	if err != nil {
+		http.Error(w, "Expense not found", http.StatusNotFound)
+		return nil
+	}
+	if exp.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return exp
+}
+
 // getListForSpace fetches a shopping list and verifies it belongs to the given space.
 // Returns the list on success, or writes an error response and returns nil.
 func (h *SpaceHandler) getListForSpace(w http.ResponseWriter, spaceID, listID string) *model.ShoppingList {
@@ -368,7 +382,7 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expenses, err := h.expenseService.GetExpensesForSpace(spaceID)
+	expenses, err := h.expenseService.GetExpensesWithTagsForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get expenses for space", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -542,7 +556,146 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.ExpenseCreatedResponse(newExpense, balance))
+	// Build tags for the newly created expense
+	tagsMap, _ := h.expenseService.GetTagsByExpenseIDs([]string{newExpense.ID})
+	newExpenseWithTags := &model.ExpenseWithTags{
+		Expense: *newExpense,
+		Tags:    tagsMap[newExpense.ID],
+	}
+
+	ui.Render(w, r, pages.ExpenseCreatedResponse(spaceID, newExpenseWithTags, balance))
+}
+
+func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	expenseID := r.PathValue("expenseID")
+
+	if h.getExpenseForSpace(w, spaceID, expenseID) == nil {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	description := r.FormValue("description")
+	amountStr := r.FormValue("amount")
+	typeStr := r.FormValue("type")
+	dateStr := r.FormValue("date")
+	tagNames := r.Form["tags"]
+
+	if description == "" || amountStr == "" || typeStr == "" || dateStr == "" {
+		http.Error(w, "All fields are required.", http.StatusBadRequest)
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		http.Error(w, "Invalid amount format.", http.StatusBadRequest)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	date, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		http.Error(w, "Invalid date format.", http.StatusBadRequest)
+		return
+	}
+
+	expenseType := model.ExpenseType(typeStr)
+	if expenseType != model.ExpenseTypeExpense && expenseType != model.ExpenseTypeTopup {
+		http.Error(w, "Invalid transaction type.", http.StatusBadRequest)
+		return
+	}
+
+	// Tag processing (same as CreateExpense)
+	existingTags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	existingTagsMap := make(map[string]string)
+	for _, t := range existingTags {
+		existingTagsMap[t.Name] = t.ID
+	}
+
+	var finalTagIDs []string
+	processedTags := make(map[string]bool)
+
+	for _, rawTagName := range tagNames {
+		tagName := service.NormalizeTagName(rawTagName)
+		if tagName == "" || processedTags[tagName] {
+			continue
+		}
+
+		if id, exists := existingTagsMap[tagName]; exists {
+			finalTagIDs = append(finalTagIDs, id)
+		} else {
+			newTag, err := h.tagService.CreateTag(spaceID, tagName, nil)
+			if err != nil {
+				slog.Error("failed to create new tag from expense form", "error", err, "tag_name", tagName)
+				continue
+			}
+			finalTagIDs = append(finalTagIDs, newTag.ID)
+			existingTagsMap[tagName] = newTag.ID
+		}
+		processedTags[tagName] = true
+	}
+
+	dto := service.UpdateExpenseDTO{
+		ID:          expenseID,
+		SpaceID:     spaceID,
+		Description: description,
+		Amount:      amountCents,
+		Type:        expenseType,
+		Date:        date,
+		TagIDs:      finalTagIDs,
+	}
+
+	updatedExpense, err := h.expenseService.UpdateExpense(dto)
+	if err != nil {
+		slog.Error("failed to update expense", "error", err)
+		http.Error(w, "Failed to update expense.", http.StatusInternalServerError)
+		return
+	}
+
+	tagsMap, _ := h.expenseService.GetTagsByExpenseIDs([]string{updatedExpense.ID})
+	expWithTags := &model.ExpenseWithTags{
+		Expense: *updatedExpense,
+		Tags:    tagsMap[updatedExpense.ID],
+	}
+
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance after update", "error", err, "space_id", spaceID)
+	}
+
+	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTags, balance))
+}
+
+func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	expenseID := r.PathValue("expenseID")
+
+	if h.getExpenseForSpace(w, spaceID, expenseID) == nil {
+		return
+	}
+
+	if err := h.expenseService.DeleteExpense(expenseID, spaceID); err != nil {
+		slog.Error("failed to delete expense", "error", err, "expense_id", expenseID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance after delete", "error", err, "space_id", spaceID)
+	}
+
+	ui.Render(w, r, expense.BalanceCard(spaceID, balance, true))
 }
 
 func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
@@ -621,14 +774,14 @@ func (h *SpaceHandler) GetBalanceCard(w http.ResponseWriter, r *http.Request) {
 func (h *SpaceHandler) GetExpensesList(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 
-	expenses, err := h.expenseService.GetExpensesForSpace(spaceID)
+	expenses, err := h.expenseService.GetExpensesWithTagsForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get expenses", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	ui.Render(w, r, pages.ExpensesListContent(expenses))
+	ui.Render(w, r, pages.ExpensesListContent(spaceID, expenses))
 }
 
 func (h *SpaceHandler) GetShoppingListItems(w http.ResponseWriter, r *http.Request) {
@@ -683,6 +836,155 @@ func (h *SpaceHandler) GetListCardItems(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ui.Render(w, r, shoppinglist.ListCardItems(spaceID, listID, items, page, totalPages))
+}
+
+func (h *SpaceHandler) SettingsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get space", "error", err, "space_id", spaceID)
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	members, err := h.spaceService.GetMembers(spaceID)
+	if err != nil {
+		slog.Error("failed to get members", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	isOwner := space.OwnerID == user.ID
+
+	var pendingInvites []*model.SpaceInvitation
+	if isOwner {
+		pendingInvites, err = h.inviteService.GetPendingInvites(spaceID)
+		if err != nil {
+			slog.Error("failed to get pending invites", "error", err, "space_id", spaceID)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	ui.Render(w, r, pages.SpaceSettingsPage(space, members, pendingInvites, isOwner, user.ID))
+}
+
+func (h *SpaceHandler) UpdateSpaceName(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.spaceService.UpdateSpaceName(spaceID, name); err != nil {
+		slog.Error("failed to update space name", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	userID := r.PathValue("userID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if userID == user.ID {
+		http.Error(w, "Cannot remove yourself", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.spaceService.RemoveMember(spaceID, userID); err != nil {
+		slog.Error("failed to remove member", "error", err, "space_id", spaceID, "user_id", userID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) CancelInvite(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	token := r.PathValue("token")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := h.inviteService.CancelInvite(token); err != nil {
+		slog.Error("failed to cancel invite", "error", err, "space_id", spaceID, "token", token)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) GetPendingInvites(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	pendingInvites, err := h.inviteService.GetPendingInvites(spaceID)
+	if err != nil {
+		slog.Error("failed to get pending invites", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.PendingInvitesList(spaceID, pendingInvites))
 }
 
 func (h *SpaceHandler) buildListCards(spaceID string) ([]model.ListCardData, error) {

@@ -80,6 +80,16 @@ templ Space(title string, space *model.Space) {
 									<span>Tags</span>
 								}
 							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/settings",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/settings",
+									Tooltip:  "Settings",
+								}) {
+									@icon.Settings(icon.Props{Class: "size-4"})
+									<span>Settings</span>
+								}
+							}
 						}
 					}
 				}

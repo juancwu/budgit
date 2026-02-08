@@ -55,6 +55,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("POST /auth/onboarding", authRateLimiter(middleware.RequireAuth(auth.CompleteOnboarding)))
 
 	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
+	mux.HandleFunc("POST /app/spaces", middleware.RequireAuth(dashboard.CreateSpace))
 	mux.HandleFunc("GET /app/settings", middleware.RequireAuth(settings.SettingsPage))
 	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
 
@@ -117,6 +118,14 @@ func SetupRoutes(a *app.App) http.Handler {
 	createExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createExpenseHandler)
 	mux.Handle("POST /app/spaces/{spaceID}/expenses", createExpenseWithAccess)
 
+	updateExpenseHandler := middleware.RequireAuth(space.UpdateExpense)
+	updateExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateExpenseHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/expenses/{expenseID}", updateExpenseWithAccess)
+
+	deleteExpenseHandler := middleware.RequireAuth(space.DeleteExpense)
+	deleteExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteExpenseHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/expenses/{expenseID}", deleteExpenseWithAccess)
+
 	// Component routes (HTMX updates)
 	balanceCardHandler := middleware.RequireAuth(space.GetBalanceCard)
 	balanceCardWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(balanceCardHandler)
@@ -137,6 +146,27 @@ func SetupRoutes(a *app.App) http.Handler {
 	listsComponentHandler := middleware.RequireAuth(space.GetLists)
 	listsComponentWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsComponentHandler)
 	mux.Handle("GET /app/spaces/{spaceID}/components/lists", listsComponentWithAccess)
+
+	// Settings routes
+	settingsPageHandler := middleware.RequireAuth(space.SettingsPage)
+	settingsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(settingsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/settings", settingsPageWithAccess)
+
+	updateSpaceNameHandler := middleware.RequireAuth(space.UpdateSpaceName)
+	updateSpaceNameWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateSpaceNameHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/settings/name", updateSpaceNameWithAccess)
+
+	removeMemberHandler := middleware.RequireAuth(space.RemoveMember)
+	removeMemberWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(removeMemberHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/members/{userID}", removeMemberWithAccess)
+
+	cancelInviteHandler := middleware.RequireAuth(space.CancelInvite)
+	cancelInviteWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(cancelInviteHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/invites/{token}", cancelInviteWithAccess)
+
+	getPendingInvitesHandler := middleware.RequireAuth(space.GetPendingInvites)
+	getPendingInvitesWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(getPendingInvitesHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/settings/invites", getPendingInvitesWithAccess)
 
 	// Invite routes
 	createInviteHandler := middleware.RequireAuth(space.CreateInvite)

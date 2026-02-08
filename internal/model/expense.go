@@ -21,6 +21,11 @@ type Expense struct {
 	UpdatedAt   time.Time   `db:"updated_at"`
 }
 
+type ExpenseWithTags struct {
+	Expense
+	Tags []*Tag
+}
+
 type ExpenseTag struct {
 	ExpenseID string `db:"expense_id"`
 	TagID     string `db:"tag_id"`
