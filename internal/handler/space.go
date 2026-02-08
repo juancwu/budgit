@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
-	"git.juancwu.dev/juancwu/budgit/internal/event"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
@@ -24,17 +23,15 @@ type SpaceHandler struct {
 	listService    *service.ShoppingListService
 	expenseService *service.ExpenseService
 	inviteService  *service.InviteService
-	eventBus       *event.Broker
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, eb *event.Broker) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService) *SpaceHandler {
 	return &SpaceHandler{
 		spaceService:   ss,
 		tagService:     ts,
 		listService:    sls,
 		expenseService: es,
 		inviteService:  is,
-		eventBus:       eb,
 	}
 }
 
@@ -65,43 +62,6 @@ func (h *SpaceHandler) getListForSpace(w http.ResponseWriter, spaceID, listID st
 		return nil
 	}
 	return list
-}
-
-func (h *SpaceHandler) StreamEvents(w http.ResponseWriter, r *http.Request) {
-	spaceID := r.PathValue("spaceID")
-
-	// Set headers for SSE
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// Subscribe to events
-	eventChan := h.eventBus.Subscribe(spaceID)
-	defer h.eventBus.Unsubscribe(spaceID, eventChan)
-
-	// Listen for client disconnect
-	ctx := r.Context()
-
-	// Flush immediately to establish connection
-	if flusher, ok := w.(http.Flusher); ok {
-		flusher.Flush()
-	}
-
-	for {
-		select {
-		case event := <-eventChan:
-			// Write event to stream
-			if _, err := w.Write([]byte(event.String())); err != nil {
-				return
-			}
-			if flusher, ok := w.(http.Flusher); ok {
-				flusher.Flush()
-			}
-		case <-ctx.Done():
-			return
-		}
-	}
 }
 
 func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {

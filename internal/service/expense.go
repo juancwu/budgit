@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"time"
 
-	"git.juancwu.dev/juancwu/budgit/internal/event"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
@@ -33,13 +32,11 @@ type UpdateExpenseDTO struct {
 
 type ExpenseService struct {
 	expenseRepo repository.ExpenseRepository
-	eventBus    *event.Broker
 }
 
-func NewExpenseService(expenseRepo repository.ExpenseRepository, eventBus *event.Broker) *ExpenseService {
+func NewExpenseService(expenseRepo repository.ExpenseRepository) *ExpenseService {
 	return &ExpenseService{
 		expenseRepo: expenseRepo,
-		eventBus:    eventBus,
 	}
 }
 
@@ -68,14 +65,6 @@ func (s *ExpenseService) CreateExpense(dto CreateExpenseDTO) (*model.Expense, er
 	if err != nil {
 		return nil, err
 	}
-
-	// Calculate new balance to broadcast
-	balance, _ := s.GetBalanceForSpace(dto.SpaceID)
-
-	s.eventBus.Publish(dto.SpaceID, "balance_changed", map[string]interface{}{
-		"balance": balance,
-	})
-	s.eventBus.Publish(dto.SpaceID, "expenses_updated", nil)
 
 	return expense, nil
 }

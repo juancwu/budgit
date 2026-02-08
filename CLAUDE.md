@@ -32,14 +32,13 @@ tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --watch  # watc
 **Layered architecture**: handler → service → repository → DB
 
 - `cmd/server/main.go` — entry point, loads config, initializes app, starts server
-- `internal/app/` — dependency injection, wires all repositories/services/event broker
+- `internal/app/` — dependency injection, wires all repositories/services
 - `internal/handler/` — HTTP handlers grouped by domain (auth, space, dashboard, home)
-- `internal/service/` — business logic, event publishing
+- `internal/service/` — business logic
 - `internal/repository/` — data access with sqlx, interface-based
 - `internal/model/` — data structs with `db:` tags
 - `internal/middleware/` — ordered chain: Config → Logging → NoCache → CSRF → Auth → URLPath
 - `internal/routes/routes.go` — all route definitions with middleware wrapping
-- `internal/event/` — SSE pub/sub broker, space-scoped channels
 - `internal/ui/` — templ templates organized as pages/, components/, layouts/, blocks/
 - `assets/` — static files (CSS, JS, fonts) embedded in binary via `go:embed`
 
@@ -48,8 +47,6 @@ tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --watch  # watc
 **HTMX + hyperscript**: Server returns HTML fragments. Use `hx-*` attributes for AJAX, `_=` for client-side interactivity (toggle, events). Pattern `hx-swap="none"` + hyperscript `send <event> to #target` for fire-and-forget + refresh.
 
 **`?from=card` query param**: Handlers check this to return different component variants for card vs detail page contexts (e.g., `UpdateList`, `DeleteList`, `ToggleItem`).
-
-**SSE events**: `event.Broker` publishes space-scoped events. Templates subscribe via `hx-sse="connect:/app/spaces/{id}/stream"` and trigger refreshes with `hx-trigger="sse:event_name"`.
 
 **CSRF**: Double-submit cookie pattern. Use `@csrf.Token()` in every form.
 

@@ -103,7 +103,7 @@ templ Space(title string, space *model.Space) {
 				}
 			}
 			@sidebar.Inset() {
-				<div hx-sse={ "connect:/app/spaces/" + space.ID + "/stream" } class="flex flex-col h-full">
+				<div class="flex flex-col h-full">
 					// Top Navigation Bar
 					<header class="sticky top-0 z-10 border-b bg-background">
 						<div class="flex h-14 items-center px-6">

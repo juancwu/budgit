@@ -336,9 +336,6 @@ templ BalanceCard(spaceID string, balance int, oob bool) {
 	<div
 		id="balance-card"
 		class="border rounded-lg p-4 bg-card text-card-foreground"
-		hx-get={ "/app/spaces/" + spaceID + "/components/balance" }
-		hx-trigger="sse:balance_changed"
-		hx-swap="outerHTML"
 		if oob {
 			hx-swap-oob="true"
 		}
