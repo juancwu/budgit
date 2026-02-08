@@ -23,3 +23,12 @@ type SpaceMember struct {
 	Role     Role      `db:"role"`
 	JoinedAt time.Time `db:"joined_at"`
 }
+
+type SpaceMemberWithProfile struct {
+	SpaceID  string    `db:"space_id"`
+	UserID   string    `db:"user_id"`
+	Role     Role      `db:"role"`
+	JoinedAt time.Time `db:"joined_at"`
+	Name     string    `db:"name"`
+	Email    string    `db:"email"`
+}

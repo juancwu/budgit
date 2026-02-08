@@ -878,6 +878,155 @@ func (h *SpaceHandler) GetListCardItems(w http.ResponseWriter, r *http.Request) 
 	ui.Render(w, r, shoppinglist.ListCardItems(spaceID, listID, items, page, totalPages))
 }
 
+func (h *SpaceHandler) SettingsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get space", "error", err, "space_id", spaceID)
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	members, err := h.spaceService.GetMembers(spaceID)
+	if err != nil {
+		slog.Error("failed to get members", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	isOwner := space.OwnerID == user.ID
+
+	var pendingInvites []*model.SpaceInvitation
+	if isOwner {
+		pendingInvites, err = h.inviteService.GetPendingInvites(spaceID)
+		if err != nil {
+			slog.Error("failed to get pending invites", "error", err, "space_id", spaceID)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	ui.Render(w, r, pages.SpaceSettingsPage(space, members, pendingInvites, isOwner, user.ID))
+}
+
+func (h *SpaceHandler) UpdateSpaceName(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "Name is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.spaceService.UpdateSpaceName(spaceID, name); err != nil {
+		slog.Error("failed to update space name", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	userID := r.PathValue("userID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if userID == user.ID {
+		http.Error(w, "Cannot remove yourself", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.spaceService.RemoveMember(spaceID, userID); err != nil {
+		slog.Error("failed to remove member", "error", err, "space_id", spaceID, "user_id", userID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) CancelInvite(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	token := r.PathValue("token")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := h.inviteService.CancelInvite(token); err != nil {
+		slog.Error("failed to cancel invite", "error", err, "space_id", spaceID, "token", token)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) GetPendingInvites(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	pendingInvites, err := h.inviteService.GetPendingInvites(spaceID)
+	if err != nil {
+		slog.Error("failed to get pending invites", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.PendingInvitesList(spaceID, pendingInvites))
+}
+
 func (h *SpaceHandler) buildListCards(spaceID string) ([]model.ListCardData, error) {
 	lists, err := h.listService.GetListsForSpace(spaceID)
 	if err != nil {

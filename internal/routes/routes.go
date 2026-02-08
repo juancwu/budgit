@@ -152,6 +152,27 @@ func SetupRoutes(a *app.App) http.Handler {
 	listsComponentWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsComponentHandler)
 	mux.Handle("GET /app/spaces/{spaceID}/components/lists", listsComponentWithAccess)
 
+	// Settings routes
+	settingsPageHandler := middleware.RequireAuth(space.SettingsPage)
+	settingsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(settingsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/settings", settingsPageWithAccess)
+
+	updateSpaceNameHandler := middleware.RequireAuth(space.UpdateSpaceName)
+	updateSpaceNameWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateSpaceNameHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/settings/name", updateSpaceNameWithAccess)
+
+	removeMemberHandler := middleware.RequireAuth(space.RemoveMember)
+	removeMemberWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(removeMemberHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/members/{userID}", removeMemberWithAccess)
+
+	cancelInviteHandler := middleware.RequireAuth(space.CancelInvite)
+	cancelInviteWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(cancelInviteHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/invites/{token}", cancelInviteWithAccess)
+
+	getPendingInvitesHandler := middleware.RequireAuth(space.GetPendingInvites)
+	getPendingInvitesWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(getPendingInvitesHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/settings/invites", getPendingInvitesWithAccess)
+
 	// Invite routes
 	createInviteHandler := middleware.RequireAuth(space.CreateInvite)
 	createInviteWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createInviteHandler)
