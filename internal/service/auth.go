@@ -261,12 +261,6 @@ func (s *AuthService) SendMagicLink(email string) error {
 				return fmt.Errorf("failed to create profile: %w", err)
 			}
 
-			_, err = s.spaceService.EnsurePersonalSpace(user)
-			if err != nil {
-				// Log the error but don't fail the whole auth flow
-				slog.Error("failed to create personal space for new user", "error", err, "user_id", user.ID)
-			}
-
 			slog.Info("new passwordless user created", "email", email, "user_id", user.ID)
 		} else {
 			// user look up unexpected error

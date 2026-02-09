@@ -11,7 +11,7 @@ import (
 )
 
 func SetupRoutes(a *app.App) http.Handler {
-	auth := handler.NewAuthHandler(a.AuthService, a.InviteService)
+	auth := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
