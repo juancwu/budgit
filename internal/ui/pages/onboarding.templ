@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
@@ -11,11 +12,78 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 )
 
-templ Onboarding(errorMsg string) {
+templ stepIndicator(current int) {
+	<div class="flex items-center justify-center gap-2 mb-8">
+		for i := 1; i <= 3; i++ {
+			if i == current {
+				<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
+			} else if i < current {
+				<div class="w-2.5 h-2.5 rounded-full bg-primary/50"></div>
+			} else {
+				<div class="w-2.5 h-2.5 rounded-full bg-muted"></div>
+			}
+		}
+		<span class="text-xs text-muted-foreground ml-2">{ fmt.Sprintf("%d/3", current) }</span>
+	</div>
+}
+
+templ OnboardingWelcome() {
+	{{ cfg := ctxkeys.Config(ctx) }}
+	@layouts.Auth(layouts.SEOProps{
+		Title:       "Welcome",
+		Description: "Get started with " + cfg.AppName,
+		Path:        ctxkeys.URLPath(ctx),
+	}) {
+		<div class="min-h-screen flex items-center justify-center p-4">
+			<div class="w-full max-w-sm">
+				<div class="text-center">
+					<div class="mb-8">
+						@button.Button(button.Props{
+							Variant: button.VariantSecondary,
+							Size:    button.SizeLg,
+							Href:    "/",
+						}) {
+							@icon.Layers()
+							{ cfg.AppName }
+						}
+					</div>
+					@stepIndicator(1)
+					<h2 class="text-3xl font-bold">Welcome!</h2>
+					<p class="text-muted-foreground mt-2 mb-2">
+						{ cfg.AppName } helps you manage shared expenses and shopping lists with your household.
+					</p>
+					<p class="text-muted-foreground mb-8">
+						Let's get you set up in just a couple of steps.
+					</p>
+					@button.Button(button.Props{
+						Href:      "/auth/onboarding?step=2",
+						FullWidth: true,
+					}) {
+						Get Started
+						@icon.ArrowRight()
+					}
+				</div>
+				<form action="/auth/logout" method="POST" class="text-center mt-6">
+					@csrf.Token()
+					<span class="text-sm text-muted-foreground">Not you? </span>
+					@button.Button(button.Props{
+						Type:    button.TypeSubmit,
+						Variant: button.VariantLink,
+						Class:   "p-0 h-auto text-sm",
+					}) {
+						Sign out
+					}
+				</form>
+			</div>
+		</div>
+	}
+}
+
+templ OnboardingName(errorMsg string) {
 	{{ cfg := ctxkeys.Config(ctx) }}
 	{{ user := ctxkeys.User(ctx) }}
 	@layouts.Auth(layouts.SEOProps{
-		Title:       "Complete Your Profile",
+		Title:       "Your Name",
 		Description: "Tell us your name",
 		Path:        ctxkeys.URLPath(ctx),
 	}) {
@@ -32,15 +100,15 @@ templ Onboarding(errorMsg string) {
 							{ cfg.AppName }
 						}
 					</div>
-					<h2 class="text-3xl font-bold">Welcome!</h2>
+					@stepIndicator(2)
+					<h2 class="text-3xl font-bold">What's your name?</h2>
 					if user != nil {
 						<p class="text-muted-foreground mt-2">Continue as <strong>{ user.Email }</strong></p>
-					} else {
-						<p class="text-muted-foreground mt-2">What should we call you?</p>
 					}
 				</div>
 				<form action="/auth/onboarding" method="POST" class="space-y-6">
 					@csrf.Token()
+					<input type="hidden" name="step" value="2"/>
 					@form.Item() {
 						@label.Label(label.Props{
 							For:   "name",
@@ -62,12 +130,105 @@ templ Onboarding(errorMsg string) {
 							}
 						}
 					}
+					<div class="flex gap-3">
+						@button.Button(button.Props{
+							Variant: button.VariantOutline,
+							Href:    "/auth/onboarding",
+						}) {
+							@icon.ArrowLeft()
+							Back
+						}
+						@button.Button(button.Props{
+							Type:      button.TypeSubmit,
+							FullWidth: true,
+						}) {
+							Continue
+							@icon.ArrowRight()
+						}
+					</div>
+				</form>
+				<form action="/auth/logout" method="POST" class="text-center mt-6">
+					@csrf.Token()
+					<span class="text-sm text-muted-foreground">Not you? </span>
 					@button.Button(button.Props{
-						Type:      button.TypeSubmit,
-						FullWidth: true,
+						Type:    button.TypeSubmit,
+						Variant: button.VariantLink,
+						Class:   "p-0 h-auto text-sm",
 					}) {
-						Continue
+						Sign out
 					}
+				</form>
+			</div>
+		</div>
+	}
+}
+
+templ OnboardingSpace(name string, errorMsg string) {
+	{{ cfg := ctxkeys.Config(ctx) }}
+	@layouts.Auth(layouts.SEOProps{
+		Title:       "Create Your Space",
+		Description: "Create your first space",
+		Path:        ctxkeys.URLPath(ctx),
+	}) {
+		<div class="min-h-screen flex items-center justify-center p-4">
+			<div class="w-full max-w-sm">
+				<div class="text-center mb-8">
+					<div class="mb-8">
+						@button.Button(button.Props{
+							Variant: button.VariantSecondary,
+							Size:    button.SizeLg,
+							Href:    "/",
+						}) {
+							@icon.Layers()
+							{ cfg.AppName }
+						}
+					</div>
+					@stepIndicator(3)
+					<h2 class="text-3xl font-bold">Create your space</h2>
+					<p class="text-muted-foreground mt-2">
+						A space is where you organize expenses and lists. You can invite others later.
+					</p>
+				</div>
+				<form action="/auth/onboarding" method="POST" class="space-y-6">
+					@csrf.Token()
+					<input type="hidden" name="step" value="3"/>
+					<input type="hidden" name="name" value={ name }/>
+					@form.Item() {
+						@label.Label(label.Props{
+							For:   "space_name",
+							Class: "block mb-2",
+						}) {
+							Space Name
+						}
+						@input.Input(input.Props{
+							ID:          "space_name",
+							Name:        "space_name",
+							Type:        input.TypeText,
+							Placeholder: "My Household",
+							HasError:    errorMsg != "",
+							Attributes:  templ.Attributes{"autofocus": ""},
+						})
+						if errorMsg != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ errorMsg }
+							}
+						}
+					}
+					<div class="flex gap-3">
+						@button.Button(button.Props{
+							Variant: button.VariantOutline,
+							Href:    "/auth/onboarding?step=2",
+						}) {
+							@icon.ArrowLeft()
+							Back
+						}
+						@button.Button(button.Props{
+							Type:      button.TypeSubmit,
+							FullWidth: true,
+						}) {
+							Create Space
+						}
+					</div>
 				</form>
 				<form action="/auth/logout" method="POST" class="text-center mt-6">
 					@csrf.Token()
