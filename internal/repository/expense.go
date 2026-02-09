@@ -17,6 +17,8 @@ type ExpenseRepository interface {
 	Create(expense *model.Expense, tagIDs []string, itemIDs []string) error
 	GetByID(id string) (*model.Expense, error)
 	GetBySpaceID(spaceID string) ([]*model.Expense, error)
+	GetBySpaceIDPaginated(spaceID string, limit, offset int) ([]*model.Expense, error)
+	CountBySpaceID(spaceID string) (int, error)
 	GetExpensesByTag(spaceID string, fromDate, toDate time.Time) ([]*model.TagExpenseSummary, error)
 	GetTagsByExpenseIDs(expenseIDs []string) (map[string][]*model.Tag, error)
 	Update(expense *model.Expense, tagIDs []string) error
@@ -89,6 +91,22 @@ func (r *expenseRepository) GetBySpaceID(spaceID string) ([]*model.Expense, erro
 		return nil, err
 	}
 	return expenses, nil
+}
+
+func (r *expenseRepository) GetBySpaceIDPaginated(spaceID string, limit, offset int) ([]*model.Expense, error) {
+	var expenses []*model.Expense
+	query := `SELECT * FROM expenses WHERE space_id = $1 ORDER BY date DESC, created_at DESC LIMIT $2 OFFSET $3;`
+	err := r.db.Select(&expenses, query, spaceID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return expenses, nil
+}
+
+func (r *expenseRepository) CountBySpaceID(spaceID string) (int, error) {
+	var count int
+	err := r.db.Get(&count, `SELECT COUNT(*) FROM expenses WHERE space_id = $1;`, spaceID)
+	return count, err
 }
 
 func (r *expenseRepository) GetExpensesByTag(spaceID string, fromDate, toDate time.Time) ([]*model.TagExpenseSummary, error) {
