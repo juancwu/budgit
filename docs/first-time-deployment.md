@@ -13,54 +13,19 @@ After completing this once, all future deploys happen automatically when you pus
 
 ## Step 1: Create the system user
 
-Create a dedicated `budgit` user with no login shell and no home directory:
+Create a dedicated `budgit` user for deployment:
 
 ```bash
-sudo useradd --system --no-create-home --shell /usr/sbin/nologin budgit
-```
-
-Create a dedicated deploy user that CI will SSH into:
-
-```bash
-sudo useradd --create-home --shell /bin/bash deploy
-```
-
-Generate an SSH key pair (on your local machine or CI):
-
-```bash
-ssh-keygen -t ed25519 -f deploy_key -N "" -C "budgit-ci-deploy"
-```
-
-Install the public key on the server:
-
-```bash
-sudo mkdir -p /home/deploy/.ssh
-sudo cp deploy_key.pub /home/deploy/.ssh/authorized_keys
-sudo chown -R deploy:deploy /home/deploy/.ssh
-sudo chmod 700 /home/deploy/.ssh
-sudo chmod 600 /home/deploy/.ssh/authorized_keys
+sudo useradd --create-home --shell /bin/bash budgit
 ```
 
 Grant the deploy user the specific sudo permissions it needs (no password):
 
 ```bash
-sudo tee /etc/sudoers.d/budgit-deploy > /dev/null << 'EOF'
-deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart budgit
+sudo tee /etc/sudoers.d/budgit> /dev/null << 'EOF'
+deploy ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart budgit, /usr/bin/systemctl status budgit
 EOF
-sudo chmod 440 /etc/sudoers.d/budgit-deploy
-```
-
-The deploy user also needs write access to the deploy path:
-
-```bash
-sudo setfacl -m u:deploy:rwx /opt/budgit
-```
-
-Or alternatively, add `deploy` to the `budgit` group and ensure group write:
-
-```bash
-sudo usermod -aG budgit deploy
-sudo chmod 770 /opt/budgit
+sudo chmod 440 /etc/sudoers.d/budgit
 ```
 
 ## Step 2: Create the application directory
