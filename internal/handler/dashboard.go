@@ -32,17 +32,7 @@ func (h *dashboardHandler) DashboardPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	var totalBalance int
-	for _, space := range spaces {
-		balance, err := h.expenseService.GetBalanceForSpace(space.ID)
-		if err != nil {
-			slog.Error("failed to get balance for space", "error", err, "space_id", space.ID)
-			continue
-		}
-		totalBalance += balance
-	}
-
-	ui.Render(w, r, pages.Dashboard(spaces, totalBalance))
+	ui.Render(w, r, pages.Dashboard(spaces))
 }
 
 func (h *dashboardHandler) CreateSpace(w http.ResponseWriter, r *http.Request) {
