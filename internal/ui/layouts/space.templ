@@ -94,11 +94,26 @@ templ Space(title string, space *model.Space) {
 					}
 				}
 				@sidebar.Footer() {
-					// Re-using the same dropdown from app layout
-					{{ user := ctxkeys.User(ctx) }}
-					{{ profile := ctxkeys.Profile(ctx) }}
-					if user != nil && profile != nil {
-						@AppSidebarDropdown(user, profile)
+					@sidebar.Menu() {
+						@sidebar.MenuItem() {
+							@sidebar.MenuButton(sidebar.MenuButtonProps{
+								Href: "mailto:" + cfg.SupportEmail,
+								Size: sidebar.MenuButtonSizeSm,
+							}) {
+								@icon.MessageCircleQuestionMark(icon.Props{Class: "size-4"})
+								<span>Support</span>
+							}
+						}
+					}
+					@sidebar.Separator()
+					@sidebar.Menu() {
+						@sidebar.MenuItem() {
+							{{ user := ctxkeys.User(ctx) }}
+							{{ profile := ctxkeys.Profile(ctx) }}
+							if user != nil && profile != nil {
+								@AppSidebarDropdown(user, profile)
+							}
+						}
 					}
 				}
 			}
