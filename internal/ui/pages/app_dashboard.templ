@@ -1,7 +1,6 @@
 package pages
 
 import (
-	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
@@ -13,7 +12,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 )
 
-templ Dashboard(spaces []*model.Space, totalBalance int) {
+templ Dashboard(spaces []*model.Space) {
 	@layouts.App("Dashboard") {
 		<div class="container max-w-7xl px-6 py-8">
 			<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
@@ -23,20 +22,15 @@ templ Dashboard(spaces []*model.Space, totalBalance int) {
 						Welcome back! Here's an overview of your spaces.
 					</p>
 				</div>
-				<div class="bg-card border rounded-lg p-4 shadow-sm min-w-[200px]">
-					<p class="text-sm font-medium text-muted-foreground">Total Balance</p>
-					<p class={ "text-2xl font-bold", templ.KV("text-destructive", totalBalance < 0) }>
-						{ fmt.Sprintf("$%.2f", float64(totalBalance)/100.0) }
-					</p>
-				</div>
 			</div>
-
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 				for _, space := range spaces {
 					<a href={ templ.SafeURL("/app/spaces/" + space.ID) } class="block hover:no-underline group">
-						@card.Card(card.Props{ Class: "h-full transition-colors group-hover:border-primary" }) {
+						@card.Card(card.Props{Class: "h-full transition-colors group-hover:border-primary"}) {
 							@card.Header() {
-								@card.Title() { { space.Name } }
+								@card.Title() {
+									{ space.Name }
+								}
 								@card.Description() {
 									Manage expenses and shopping lists in this space.
 								}
@@ -47,12 +41,11 @@ templ Dashboard(spaces []*model.Space, totalBalance int) {
 						}
 					</a>
 				}
-
 				// Option to create a new space
 				@dialog.Dialog(dialog.Props{ID: "create-space-dialog"}) {
 					@dialog.Trigger() {
-						@card.Card(card.Props{ Class: "h-full border-dashed cursor-pointer transition-colors hover:border-primary" }) {
-							@card.Content(card.ContentProps{ Class: "h-full flex flex-col items-center justify-center py-12" }) {
+						@card.Card(card.Props{Class: "h-full border-dashed cursor-pointer transition-colors hover:border-primary"}) {
+							@card.Content(card.ContentProps{Class: "h-full flex flex-col items-center justify-center py-12"}) {
 								@icon.Plus(icon.Props{Class: "h-8 w-8 text-muted-foreground mb-2"})
 								<p class="text-muted-foreground">Create a new space</p>
 							}
