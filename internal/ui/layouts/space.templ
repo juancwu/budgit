@@ -105,6 +105,9 @@ templ Space(title string, space *model.Space) {
 							}
 						}
 					}
+					<div class="px-2 py-1">
+						<span class="text-xs text-muted-foreground">App version: v{ ctxkeys.AppVersion(ctx) }</span>
+					</div>
 					@sidebar.Separator()
 					@sidebar.Menu() {
 						@sidebar.MenuItem() {

@@ -181,6 +181,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	// Global middlewares
 	handler := middleware.Chain(
 		mux,
+		middleware.AppVersion(a.Cfg.Version),
 		middleware.Config(a.Cfg),
 		middleware.RequestLogging,
 		middleware.NoCacheDynamic,

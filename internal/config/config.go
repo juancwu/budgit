@@ -33,9 +33,11 @@ type Config struct {
 	MailerEmailFrom string
 
 	SupportEmail string
+
+	Version string
 }
 
-func Load() *Config {
+func Load(version string) *Config {
 
 	if err := godotenv.Load(); err != nil {
 		slog.Info("no .env file found, using environment variables")
@@ -65,6 +67,8 @@ func Load() *Config {
 		MailerEmailFrom: envString("MAILER_EMAIL_FROM", ""),
 
 		SupportEmail: envString("SUPPORT_EMAIL", ""),
+
+		Version: version,
 	}
 
 	return cfg
@@ -87,6 +91,8 @@ func (c *Config) Sanitized() *Config {
 
 		MailerEmailFrom: c.MailerEmailFrom,
 		SupportEmail:    c.SupportEmail,
+
+		Version: c.Version,
 	}
 }
 

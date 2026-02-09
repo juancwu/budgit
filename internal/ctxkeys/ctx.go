@@ -8,11 +8,12 @@ import (
 )
 
 const (
-	UserKey      string = "user"
-	ProfileKey   string = "profile"
-	URLPathKey   string = "url_path"
-	ConfigKey    string = "config"
-	CSRFTokenKey string = "csrf_token"
+	UserKey       string = "user"
+	ProfileKey    string = "profile"
+	URLPathKey    string = "url_path"
+	ConfigKey     string = "config"
+	CSRFTokenKey  string = "csrf_token"
+	AppVersionKey string = "app_version"
 )
 
 func User(ctx context.Context) *model.User {
@@ -58,4 +59,13 @@ func CSRFToken(ctx context.Context) string {
 
 func WithCSRFToken(ctx context.Context, token string) context.Context {
 	return context.WithValue(ctx, CSRFTokenKey, token)
+}
+
+func AppVersion(ctx context.Context) string {
+	version, _ := ctx.Value(AppVersionKey).(string)
+	return version
+}
+
+func WithAppVersion(ctx context.Context, version string) context.Context {
+	return context.WithValue(ctx, AppVersionKey, version)
 }

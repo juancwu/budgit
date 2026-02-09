@@ -19,7 +19,7 @@ import (
 var version = "dev"
 
 func main() {
-	cfg := config.Load()
+	cfg := config.Load(version)
 
 	a, err := app.New(cfg)
 	if err != nil {
