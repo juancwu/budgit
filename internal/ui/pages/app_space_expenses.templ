@@ -2,16 +2,18 @@ package pages
 
 import (
 	"fmt"
+	"strconv"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, balance int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
+templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, balance int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, currentPage, totalPages int) {
 	@layouts.Space("Expenses", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -44,13 +46,15 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, b
 			@expense.BalanceCard(space.ID, balance, false)
 			// List of expenses
 			<div class="border rounded-lg">
-				@ExpensesListContent(space.ID, expenses)
+				<div id="expenses-list-wrapper">
+					@ExpensesListContent(space.ID, expenses, currentPage, totalPages)
+				</div>
 			</div>
 		</div>
 	}
 }
 
-templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTags) {
+templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTags, currentPage, totalPages int) {
 	<h2 class="text-lg font-semibold p-4">History</h2>
 	<div id="expenses-list" class="divide-y">
 		if len(expenses) == 0 {
@@ -60,6 +64,48 @@ templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTags) {
 			@ExpenseListItem(spaceID, exp)
 		}
 	</div>
+	if totalPages > 1 {
+		<div class="border-t p-2">
+			@pagination.Pagination(pagination.Props{Class: "justify-center"}) {
+				@pagination.Content() {
+					@pagination.Item() {
+						@pagination.Previous(pagination.PreviousProps{
+							Disabled: currentPage <= 1,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/app/spaces/%s/components/expenses?page=%d", spaceID, currentPage-1),
+								"hx-target": "#expenses-list-wrapper",
+								"hx-swap":   "innerHTML",
+							},
+						})
+					}
+					for _, pg := range pagination.CreatePagination(currentPage, totalPages, 3).Pages {
+						@pagination.Item() {
+							@pagination.Link(pagination.LinkProps{
+								IsActive: pg == currentPage,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/app/spaces/%s/components/expenses?page=%d", spaceID, pg),
+									"hx-target": "#expenses-list-wrapper",
+									"hx-swap":   "innerHTML",
+								},
+							}) {
+								{ strconv.Itoa(pg) }
+							}
+						}
+					}
+					@pagination.Item() {
+						@pagination.Next(pagination.NextProps{
+							Disabled: currentPage >= totalPages,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/app/spaces/%s/components/expenses?page=%d", spaceID, currentPage+1),
+								"hx-target": "#expenses-list-wrapper",
+								"hx-swap":   "innerHTML",
+							},
+						})
+					}
+				}
+			}
+		</div>
+	}
 }
 
 templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTags) {
@@ -145,9 +191,9 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTags) {
 	</div>
 }
 
-templ ExpenseCreatedResponse(spaceID string, newExpense *model.ExpenseWithTags, balance int) {
-	@ExpenseListItem(spaceID, newExpense)
-	@expense.BalanceCard(newExpense.SpaceID, balance, true)
+templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTags, balance int, currentPage, totalPages int) {
+	@ExpensesListContent(spaceID, expenses, currentPage, totalPages)
+	@expense.BalanceCard(spaceID, balance, true)
 }
 
 templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTags, balance int) {

@@ -382,7 +382,12 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	expenses, err := h.expenseService.GetExpensesWithTagsForSpace(spaceID)
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+
+	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsForSpacePaginated(spaceID, page)
 	if err != nil {
 		slog.Error("failed to get expenses for space", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -410,7 +415,7 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, listsWithItems))
+	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, listsWithItems, page, totalPages))
 
 	if r.URL.Query().Get("created") == "true" {
 		ui.Render(w, r, toast.Toast(toast.Props{
@@ -525,7 +530,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		ItemIDs:     itemIDs,
 	}
 
-	newExpense, err := h.expenseService.CreateExpense(dto)
+	_, err = h.expenseService.CreateExpense(dto)
 	if err != nil {
 		slog.Error("failed to create expense", "error", err)
 		http.Error(w, "Failed to create expense.", http.StatusInternalServerError)
@@ -556,14 +561,23 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Build tags for the newly created expense
-	tagsMap, _ := h.expenseService.GetTagsByExpenseIDs([]string{newExpense.ID})
-	newExpenseWithTags := &model.ExpenseWithTags{
-		Expense: *newExpense,
-		Tags:    tagsMap[newExpense.ID],
+	// Return the full paginated list for page 1 so the new expense appears
+	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsForSpacePaginated(spaceID, 1)
+	if err != nil {
+		slog.Error("failed to get paginated expenses after create", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 
-	ui.Render(w, r, pages.ExpenseCreatedResponse(spaceID, newExpenseWithTags, balance))
+	ui.Render(w, r, pages.ExpenseCreatedResponse(spaceID, expenses, balance, 1, totalPages))
+
+	// OOB-swap the item selector with fresh data (items may have been deleted/checked)
+	listsWithItems, err := h.listService.GetListsWithUncheckedItems(spaceID)
+	if err != nil {
+		slog.Error("failed to refresh lists with items after create", "error", err, "space_id", spaceID)
+		return
+	}
+	ui.Render(w, r, expense.ItemSelectorSection(listsWithItems, true))
 }
 
 func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
@@ -774,14 +788,19 @@ func (h *SpaceHandler) GetBalanceCard(w http.ResponseWriter, r *http.Request) {
 func (h *SpaceHandler) GetExpensesList(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 
-	expenses, err := h.expenseService.GetExpensesWithTagsForSpace(spaceID)
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+
+	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsForSpacePaginated(spaceID, page)
 	if err != nil {
 		slog.Error("failed to get expenses", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	ui.Render(w, r, pages.ExpensesListContent(spaceID, expenses))
+	ui.Render(w, r, pages.ExpensesListContent(spaceID, expenses, page, totalPages))
 }
 
 func (h *SpaceHandler) GetShoppingListItems(w http.ResponseWriter, r *http.Request) {

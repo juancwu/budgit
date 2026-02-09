@@ -30,6 +30,8 @@ type UpdateExpenseDTO struct {
 	TagIDs      []string
 }
 
+const ExpensesPerPage = 25
+
 type ExpenseService struct {
 	expenseRepo repository.ExpenseRepository
 }
@@ -119,6 +121,49 @@ func (s *ExpenseService) GetExpensesWithTagsForSpace(spaceID string) ([]*model.E
 		}
 	}
 	return result, nil
+}
+
+func (s *ExpenseService) GetExpensesWithTagsForSpacePaginated(spaceID string, page int) ([]*model.ExpenseWithTags, int, error) {
+	total, err := s.expenseRepo.CountBySpaceID(spaceID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	totalPages := (total + ExpensesPerPage - 1) / ExpensesPerPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * ExpensesPerPage
+	expenses, err := s.expenseRepo.GetBySpaceIDPaginated(spaceID, ExpensesPerPage, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	ids := make([]string, len(expenses))
+	for i, e := range expenses {
+		ids[i] = e.ID
+	}
+
+	tagsMap, err := s.expenseRepo.GetTagsByExpenseIDs(ids)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	result := make([]*model.ExpenseWithTags, len(expenses))
+	for i, e := range expenses {
+		result[i] = &model.ExpenseWithTags{
+			Expense: *e,
+			Tags:    tagsMap[e.ID],
+		}
+	}
+	return result, totalPages, nil
 }
 
 func (s *ExpenseService) GetExpense(id string) (*model.Expense, error) {
