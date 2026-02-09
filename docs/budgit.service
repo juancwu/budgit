@@ -1,0 +1,27 @@
+[Unit]
+Description=Budgit web application
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=budgit
+Group=budgit
+WorkingDirectory=/opt/budgit
+ExecStart=/opt/budgit/budgit
+EnvironmentFile=/opt/budgit/.env
+Restart=on-failure
+RestartSec=5
+
+# Graceful shutdown (matches the 10s timeout in main.go)
+TimeoutStopSec=15
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/budgit
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

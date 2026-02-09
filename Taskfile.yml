@@ -25,3 +25,15 @@ tasks:
     cmds:
       - echo "Starting app..."
       - task --parallel tailwind-watch templ
+
+  # Production build
+  build:
+    desc: Build production binary
+    vars:
+      VERSION:
+        sh: git describe --tags --always
+    cmds:
+      - tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css --minify
+      - go tool templ generate
+      - mkdir -p ./dist
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version={{.VERSION}}" -o ./dist/budgit ./cmd/server/main.go

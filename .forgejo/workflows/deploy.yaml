@@ -1,0 +1,40 @@
+name: Deploy
+on:
+  push:
+    tags:
+      - 'v*'
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-full-24.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Build
+        run: task build
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy binary
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+          ${SSH_CMD} "cp ${{ secrets.DEPLOY_PATH }}/budgit ${{ secrets.DEPLOY_PATH }}/budgit.prev 2>/dev/null || true"
+          scp -i ~/.ssh/deploy_key ./dist/budgit ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/budgit.new
+          ${SSH_CMD} "mv ${{ secrets.DEPLOY_PATH }}/budgit.new ${{ secrets.DEPLOY_PATH }}/budgit && sudo systemctl restart budgit"
+      - name: Verify deployment
+        run: |
+          sleep 5
+          for i in 1 2 3 4 5; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.APP_URL }}/healthz" || true)
+            [ "$status" = "200" ] && echo "Health check passed" && exit 0
+            echo "Attempt $i: got $status, retrying in 3s..."
+            sleep 3
+          done
+          echo "Health check failed" && exit 1
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          SSH_CMD="ssh -i ~/.ssh/deploy_key ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}"
+          ${SSH_CMD} "[ -f ${{ secrets.DEPLOY_PATH }}/budgit.prev ] && mv ${{ secrets.DEPLOY_PATH }}/budgit.prev ${{ secrets.DEPLOY_PATH }}/budgit && sudo systemctl restart budgit"
