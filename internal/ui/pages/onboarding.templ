@@ -139,8 +139,8 @@ templ OnboardingName(errorMsg string) {
 							Back
 						}
 						@button.Button(button.Props{
-							Type:      button.TypeSubmit,
-							FullWidth: true,
+							Type:  button.TypeSubmit,
+							Class: "grow",
 						}) {
 							Continue
 							@icon.ArrowRight()
@@ -223,8 +223,8 @@ templ OnboardingSpace(name string, errorMsg string) {
 							Back
 						}
 						@button.Button(button.Props{
-							Type:      button.TypeSubmit,
-							FullWidth: true,
+							Type:  button.TypeSubmit,
+							Class: "grow",
 						}) {
 							Create Space
 						}
