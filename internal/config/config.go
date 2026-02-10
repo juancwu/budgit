@@ -34,6 +34,8 @@ type Config struct {
 
 	SupportEmail string
 
+	GoogleMeasuringID string
+
 	Version string
 }
 
@@ -68,6 +70,8 @@ func Load(version string) *Config {
 
 		SupportEmail: envString("SUPPORT_EMAIL", ""),
 
+		GoogleMeasuringID: envString("GOOGLE_MEASURING_ID", ""),
+
 		Version: version,
 	}
 
@@ -91,6 +95,7 @@ func (c *Config) Sanitized() *Config {
 
 		MailerEmailFrom: c.MailerEmailFrom,
 		SupportEmail:    c.SupportEmail,
+		GoogleMeasuringID: c.GoogleMeasuringID,
 
 		Version: c.Version,
 	}
