@@ -125,6 +125,22 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 				Attributes: templ.Attributes{"required": "true"},
 			})
 		</div>
+		<script nonce={ templ.GetNonce(ctx) }>
+		(function() {
+			function todayISO() {
+				var d = new Date();
+				return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+			}
+			var input = document.getElementById('date-hidden');
+			if (input && !input.value) input.value = todayISO();
+			var form = input && input.closest('form');
+			if (form) {
+				form.addEventListener('reset', function() {
+					setTimeout(function() { input.value = todayISO(); }, 0);
+				});
+			}
+		})();
+		</script>
 		// Tags
 		<div>
 			@label.Label(label.Props{For: "new-expense-tags"}) {
