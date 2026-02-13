@@ -15,7 +15,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService)
 
 	mux := http.NewServeMux()
 
@@ -125,6 +125,31 @@ func SetupRoutes(a *app.App) http.Handler {
 	deleteExpenseHandler := middleware.RequireAuth(space.DeleteExpense)
 	deleteExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteExpenseHandler)
 	mux.Handle("DELETE /app/spaces/{spaceID}/expenses/{expenseID}", deleteExpenseWithAccess)
+
+	// Money Account routes
+	accountsPageHandler := middleware.RequireAuth(space.AccountsPage)
+	accountsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(accountsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/accounts", accountsPageWithAccess)
+
+	createAccountHandler := middleware.RequireAuth(space.CreateAccount)
+	createAccountWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createAccountHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/accounts", createAccountWithAccess)
+
+	updateAccountHandler := middleware.RequireAuth(space.UpdateAccount)
+	updateAccountWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateAccountHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/accounts/{accountID}", updateAccountWithAccess)
+
+	deleteAccountHandler := middleware.RequireAuth(space.DeleteAccount)
+	deleteAccountWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteAccountHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}", deleteAccountWithAccess)
+
+	createTransferHandler := middleware.RequireAuth(space.CreateTransfer)
+	createTransferWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createTransferHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/accounts/{accountID}/transfers", createTransferWithAccess)
+
+	deleteTransferHandler := middleware.RequireAuth(space.DeleteTransfer)
+	deleteTransferWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteTransferHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}/transfers/{transferID}", deleteTransferWithAccess)
 
 	// Component routes (HTMX updates)
 	balanceCardHandler := middleware.RequireAuth(space.GetBalanceCard)

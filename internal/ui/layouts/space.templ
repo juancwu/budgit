@@ -62,6 +62,16 @@ templ Space(title string, space *model.Space) {
 							}
 							@sidebar.MenuItem() {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/accounts",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/accounts",
+									Tooltip:  "Money Accounts",
+								}) {
+									@icon.PiggyBank(icon.Props{Class: "size-4"})
+									<span>Accounts</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
 									Href:     "/app/spaces/" + space.ID + "/lists",
 									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/lists",
 									Tooltip:  "Shopping Lists",

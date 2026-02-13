@@ -22,6 +22,7 @@ type App struct {
 	ShoppingListService *service.ShoppingListService
 	ExpenseService      *service.ExpenseService
 	InviteService       *service.InviteService
+	MoneyAccountService *service.MoneyAccountService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -47,6 +48,7 @@ func New(cfg *config.Config) (*App, error) {
 	listItemRepository := repository.NewListItemRepository(database)
 	expenseRepository := repository.NewExpenseRepository(database)
 	invitationRepository := repository.NewInvitationRepository(database)
+	moneyAccountRepository := repository.NewMoneyAccountRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
@@ -74,6 +76,7 @@ func New(cfg *config.Config) (*App, error) {
 	shoppingListService := service.NewShoppingListService(shoppingListRepository, listItemRepository)
 	expenseService := service.NewExpenseService(expenseRepository)
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
+	moneyAccountService := service.NewMoneyAccountService(moneyAccountRepository)
 
 	return &App{
 		Cfg:                 cfg,
@@ -87,6 +90,7 @@ func New(cfg *config.Config) (*App, error) {
 		ShoppingListService: shoppingListService,
 		ExpenseService:      expenseService,
 		InviteService:       inviteService,
+		MoneyAccountService: moneyAccountService,
 	}, nil
 }
 func (a *App) Close() error {

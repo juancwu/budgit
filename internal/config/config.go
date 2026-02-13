@@ -93,8 +93,8 @@ func (c *Config) Sanitized() *Config {
 		Port:       c.Port,
 		AppTagline: c.AppTagline,
 
-		MailerEmailFrom: c.MailerEmailFrom,
-		SupportEmail:    c.SupportEmail,
+		MailerEmailFrom:   c.MailerEmailFrom,
+		SupportEmail:      c.SupportEmail,
 		GoogleMeasuringID: c.GoogleMeasuringID,
 
 		Version: c.Version,

@@ -1,0 +1,265 @@
+package moneyaccount
+
+import (
+	"fmt"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+)
+
+templ BalanceSummaryCard(spaceID string, totalBalance int, availableBalance int, oob bool) {
+	<div
+		id="accounts-balance-summary"
+		class="border rounded-lg p-4 bg-card text-card-foreground"
+		if oob {
+			hx-swap-oob="true"
+		}
+	>
+		<h2 class="text-lg font-semibold mb-2">Balance Summary</h2>
+		<div class="grid grid-cols-3 gap-4">
+			<div>
+				<p class="text-sm text-muted-foreground">Total Balance</p>
+				<p class={ "text-xl font-bold", templ.KV("text-destructive", totalBalance < 0) }>
+					{ fmt.Sprintf("$%.2f", float64(totalBalance)/100.0) }
+				</p>
+			</div>
+			<div>
+				<p class="text-sm text-muted-foreground">Allocated</p>
+				<p class="text-xl font-bold">
+					{ fmt.Sprintf("$%.2f", float64(totalBalance-availableBalance)/100.0) }
+				</p>
+			</div>
+			<div>
+				<p class="text-sm text-muted-foreground">Available</p>
+				<p class={ "text-xl font-bold", templ.KV("text-destructive", availableBalance < 0) }>
+					{ fmt.Sprintf("$%.2f", float64(availableBalance)/100.0) }
+				</p>
+			</div>
+		</div>
+	</div>
+}
+
+templ AccountCard(spaceID string, acct *model.MoneyAccountWithBalance, oob ...bool) {
+	{{ editDialogID := "edit-account-" + acct.ID }}
+	{{ delDialogID := "del-account-" + acct.ID }}
+	{{ depositDialogID := "deposit-" + acct.ID }}
+	{{ withdrawDialogID := "withdraw-" + acct.ID }}
+	<div
+		id={ "account-card-" + acct.ID }
+		class="border rounded-lg p-4 bg-card text-card-foreground"
+		if len(oob) > 0 && oob[0] {
+			hx-swap-oob="true"
+		}
+	>
+		<div class="flex justify-between items-start mb-3">
+			<div>
+				<h3 class="font-semibold text-lg">{ acct.Name }</h3>
+				<p class={ "text-2xl font-bold", templ.KV("text-destructive", acct.BalanceCents < 0) }>
+					{ fmt.Sprintf("$%.2f", float64(acct.BalanceCents)/100.0) }
+				</p>
+			</div>
+			<div class="flex gap-1">
+				// Edit
+				@dialog.Dialog(dialog.Props{ID: editDialogID}) {
+					@dialog.Trigger() {
+						@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+							@icon.Pencil(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit Account
+							}
+							@dialog.Description() {
+								Update the account name.
+							}
+						}
+						@EditAccountForm(spaceID, &acct.MoneyAccount, editDialogID)
+					}
+				}
+				// Delete
+				@dialog.Dialog(dialog.Props{ID: delDialogID}) {
+					@dialog.Trigger() {
+						@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+							@icon.Trash2(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Account
+							}
+							@dialog.Description() {
+								Are you sure you want to delete "{ acct.Name }"? All transfers will be removed.
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							@button.Button(button.Props{
+								Variant: button.VariantDestructive,
+								Attributes: templ.Attributes{
+									"hx-delete": fmt.Sprintf("/app/spaces/%s/accounts/%s", spaceID, acct.ID),
+									"hx-target": "#account-card-" + acct.ID,
+									"hx-swap":   "delete",
+								},
+							}) {
+								Delete
+							}
+						}
+					}
+				}
+			</div>
+		</div>
+		<div class="flex gap-2">
+			// Deposit
+			@dialog.Dialog(dialog.Props{ID: depositDialogID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+						@icon.ArrowDownToLine(icon.Props{Size: 14})
+						Deposit
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Deposit to { acct.Name }
+						}
+						@dialog.Description() {
+							Move money from your available balance into this account.
+						}
+					}
+					@TransferForm(spaceID, acct.ID, model.TransferDirectionDeposit, depositDialogID)
+				}
+			}
+			// Withdraw
+			@dialog.Dialog(dialog.Props{ID: withdrawDialogID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantOutline, Size: button.SizeSm}) {
+						@icon.ArrowUpFromLine(icon.Props{Size: 14})
+						Withdraw
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Withdraw from { acct.Name }
+						}
+						@dialog.Description() {
+							Move money from this account back to your available balance.
+						}
+					}
+					@TransferForm(spaceID, acct.ID, model.TransferDirectionWithdrawal, withdrawDialogID)
+				}
+			}
+		</div>
+	</div>
+}
+
+templ CreateAccountForm(spaceID string, dialogID string) {
+	<form
+		hx-post={ "/app/spaces/" + spaceID + "/accounts" }
+		hx-target="#accounts-list"
+		hx-swap="beforeend"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + dialogID + "') then reset() me end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		<div>
+			@label.Label(label.Props{For: "account-name"}) {
+				Account Name
+			}
+			@input.Input(input.Props{
+				Name:       "name",
+				ID:         "account-name",
+				Attributes: templ.Attributes{"required": "true", "placeholder": "e.g. Savings, Emergency Fund"},
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Create
+			}
+		</div>
+	</form>
+}
+
+templ EditAccountForm(spaceID string, acct *model.MoneyAccount, dialogID string) {
+	<form
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/accounts/%s", spaceID, acct.ID) }
+		hx-target={ "#account-card-" + acct.ID }
+		hx-swap="outerHTML"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + dialogID + "') end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		<div>
+			@label.Label(label.Props{For: "edit-account-name-" + acct.ID}) {
+				Account Name
+			}
+			@input.Input(input.Props{
+				Name:       "name",
+				ID:         "edit-account-name-" + acct.ID,
+				Value:      acct.Name,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}
+
+templ TransferForm(spaceID string, accountID string, direction model.TransferDirection, dialogID string) {
+	{{ errorID := "transfer-error-" + accountID + "-" + string(direction) }}
+	<form
+		hx-post={ fmt.Sprintf("/app/spaces/%s/accounts/%s/transfers", spaceID, accountID) }
+		hx-target={ "#" + errorID }
+		hx-swap="innerHTML"
+		_={ "on transferSuccess from body call window.tui.dialog.close('" + dialogID + "') then reset() me end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		<input type="hidden" name="direction" value={ string(direction) }/>
+		<div>
+			@label.Label(label.Props{For: "transfer-amount-" + accountID + "-" + string(direction)}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				Name: "amount",
+				ID:   "transfer-amount-" + accountID + "-" + string(direction),
+				Type: "number",
+				Attributes: templ.Attributes{"step": "0.01", "required": "true", "min": "0.01"},
+			})
+			<p id={ errorID } class="text-sm text-destructive mt-1"></p>
+		</div>
+		<div>
+			@label.Label(label.Props{For: "transfer-note-" + accountID + "-" + string(direction)}) {
+				Note (optional)
+			}
+			@input.Input(input.Props{
+				Name:       "note",
+				ID:         "transfer-note-" + accountID + "-" + string(direction),
+				Attributes: templ.Attributes{"placeholder": "e.g. Monthly savings"},
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				if direction == model.TransferDirectionDeposit {
+					Deposit
+				} else {
+					Withdraw
+				}
+			}
+		</div>
+	</form>
+}

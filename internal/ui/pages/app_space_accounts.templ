@@ -1,0 +1,46 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/moneyaccount"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+templ SpaceAccountsPage(space *model.Space, accounts []model.MoneyAccountWithBalance, totalBalance int, availableBalance int) {
+	@layouts.Space("Accounts", space) {
+		<div class="space-y-4">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold">Money Accounts</h1>
+				@dialog.Dialog(dialog.Props{ID: "add-account-dialog"}) {
+					@dialog.Trigger() {
+						@button.Button() {
+							New Account
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Create Account
+							}
+							@dialog.Description() {
+								Create a new money account to set aside funds.
+							}
+						}
+						@moneyaccount.CreateAccountForm(space.ID, "add-account-dialog")
+					}
+				}
+			</div>
+			@moneyaccount.BalanceSummaryCard(space.ID, totalBalance, availableBalance, false)
+			<div id="accounts-list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				if len(accounts) == 0 {
+					<p class="text-sm text-muted-foreground col-span-full">No money accounts yet. Create one to start allocating funds.</p>
+				}
+				for _, acct := range accounts {
+					@moneyaccount.AccountCard(space.ID, &acct)
+				}
+			</div>
+		</div>
+	}
+}

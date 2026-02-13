@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -11,6 +12,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/moneyaccount"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tag"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
@@ -23,15 +25,17 @@ type SpaceHandler struct {
 	listService    *service.ShoppingListService
 	expenseService *service.ExpenseService
 	inviteService  *service.InviteService
+	accountService *service.MoneyAccountService
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService) *SpaceHandler {
 	return &SpaceHandler{
 		spaceService:   ss,
 		tagService:     ts,
 		listService:    sls,
 		expenseService: es,
 		inviteService:  is,
+		accountService: mas,
 	}
 }
 
@@ -1004,6 +1008,293 @@ func (h *SpaceHandler) GetPendingInvites(w http.ResponseWriter, r *http.Request)
 	}
 
 	ui.Render(w, r, pages.PendingInvitesList(spaceID, pendingInvites))
+}
+
+// --- Money Accounts ---
+
+func (h *SpaceHandler) getAccountForSpace(w http.ResponseWriter, spaceID, accountID string) *model.MoneyAccount {
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil {
+		http.Error(w, "Account not found", http.StatusNotFound)
+		return nil
+	}
+	if account.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return account
+}
+
+func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	accounts, err := h.accountService.GetAccountsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get accounts for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	totalBalance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	availableBalance := totalBalance - totalAllocated
+
+	ui.Render(w, r, pages.SpaceAccountsPage(space, accounts, totalBalance, availableBalance))
+}
+
+func (h *SpaceHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "Account name is required", http.StatusBadRequest)
+		return
+	}
+
+	account, err := h.accountService.CreateAccount(service.CreateMoneyAccountDTO{
+		SpaceID:   spaceID,
+		Name:      name,
+		CreatedBy: user.ID,
+	})
+	if err != nil {
+		slog.Error("failed to create account", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	acctWithBalance := model.MoneyAccountWithBalance{
+		MoneyAccount: *account,
+		BalanceCents: 0,
+	}
+
+	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance))
+}
+
+func (h *SpaceHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	if h.getAccountForSpace(w, spaceID, accountID) == nil {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	if name == "" {
+		http.Error(w, "Account name is required", http.StatusBadRequest)
+		return
+	}
+
+	updatedAccount, err := h.accountService.UpdateAccount(service.UpdateMoneyAccountDTO{
+		ID:   accountID,
+		Name: name,
+	})
+	if err != nil {
+		slog.Error("failed to update account", "error", err, "account_id", accountID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	balance, err := h.accountService.GetAccountBalance(accountID)
+	if err != nil {
+		slog.Error("failed to get account balance", "error", err, "account_id", accountID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	acctWithBalance := model.MoneyAccountWithBalance{
+		MoneyAccount: *updatedAccount,
+		BalanceCents: balance,
+	}
+
+	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance))
+}
+
+func (h *SpaceHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	if h.getAccountForSpace(w, spaceID, accountID) == nil {
+		return
+	}
+
+	err := h.accountService.DeleteAccount(accountID)
+	if err != nil {
+		slog.Error("failed to delete account", "error", err, "account_id", accountID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated balance summary via OOB swap
+	totalBalance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
+	}
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+	}
+
+	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+}
+
+func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+	user := ctxkeys.User(r.Context())
+
+	if h.getAccountForSpace(w, spaceID, accountID) == nil {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	amountStr := r.FormValue("amount")
+	direction := model.TransferDirection(r.FormValue("direction"))
+	note := r.FormValue("note")
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil || amountFloat <= 0 {
+		http.Error(w, "Invalid amount", http.StatusBadRequest)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	// Calculate available space balance for deposit validation
+	totalBalance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	availableBalance := totalBalance - totalAllocated
+
+	// Validate balance limits before creating transfer
+	if direction == model.TransferDirectionDeposit && amountCents > availableBalance {
+		fmt.Fprintf(w, "Insufficient available balance. You can deposit up to $%.2f.", float64(availableBalance)/100.0)
+		return
+	}
+
+	if direction == model.TransferDirectionWithdrawal {
+		acctBalance, err := h.accountService.GetAccountBalance(accountID)
+		if err != nil {
+			slog.Error("failed to get account balance", "error", err, "account_id", accountID)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if amountCents > acctBalance {
+			fmt.Fprintf(w, "Insufficient account balance. You can withdraw up to $%.2f.", float64(acctBalance)/100.0)
+			return
+		}
+	}
+
+	_, err = h.accountService.CreateTransfer(service.CreateTransferDTO{
+		AccountID: accountID,
+		Amount:    amountCents,
+		Direction: direction,
+		Note:      note,
+		CreatedBy: user.ID,
+	}, availableBalance)
+	if err != nil {
+		slog.Error("failed to create transfer", "error", err, "account_id", accountID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated account card + OOB balance summary
+	accountBalance, err := h.accountService.GetAccountBalance(accountID)
+	if err != nil {
+		slog.Error("failed to get account balance", "error", err, "account_id", accountID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	account, _ := h.accountService.GetAccount(accountID)
+	acctWithBalance := model.MoneyAccountWithBalance{
+		MoneyAccount: *account,
+		BalanceCents: accountBalance,
+	}
+
+	// Recalculate available balance after transfer
+	totalAllocated, _ = h.accountService.GetTotalAllocatedForSpace(spaceID)
+	newAvailable := totalBalance - totalAllocated
+
+	w.Header().Set("HX-Trigger", "transferSuccess")
+	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
+	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, newAvailable, true))
+}
+
+func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	if h.getAccountForSpace(w, spaceID, accountID) == nil {
+		return
+	}
+
+	transferID := r.PathValue("transferID")
+	err := h.accountService.DeleteTransfer(transferID)
+	if err != nil {
+		slog.Error("failed to delete transfer", "error", err, "transfer_id", transferID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return updated account card + OOB balance summary
+	accountBalance, err := h.accountService.GetAccountBalance(accountID)
+	if err != nil {
+		slog.Error("failed to get account balance", "error", err, "account_id", accountID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	account, _ := h.accountService.GetAccount(accountID)
+	acctWithBalance := model.MoneyAccountWithBalance{
+		MoneyAccount: *account,
+		BalanceCents: accountBalance,
+	}
+
+	totalBalance, _ := h.expenseService.GetBalanceForSpace(spaceID)
+	totalAllocated, _ := h.accountService.GetTotalAllocatedForSpace(spaceID)
+
+	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
+	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
 }
 
 func (h *SpaceHandler) buildListCards(spaceID string) ([]model.ListCardData, error) {
