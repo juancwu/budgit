@@ -405,6 +405,13 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		totalAllocated = 0
+	}
+	balance -= totalAllocated
+
 	tags, err := h.tagService.GetTagsForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get tags for space", "error", err, "space_id", spaceID)
@@ -559,6 +566,13 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
 	}
 
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		totalAllocated = 0
+	}
+	balance -= totalAllocated
+
 	if r.URL.Query().Get("from") == "overview" {
 		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/expenses?created=true")
 		w.WriteHeader(http.StatusOK)
@@ -691,6 +705,13 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get balance after update", "error", err, "space_id", spaceID)
 	}
 
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		totalAllocated = 0
+	}
+	balance -= totalAllocated
+
 	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTags, balance))
 }
 
@@ -712,6 +733,13 @@ func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		slog.Error("failed to get balance after delete", "error", err, "space_id", spaceID)
 	}
+
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		totalAllocated = 0
+	}
+	balance -= totalAllocated
 
 	ui.Render(w, r, expense.BalanceCard(spaceID, balance, true))
 }
@@ -785,6 +813,13 @@ func (h *SpaceHandler) GetBalanceCard(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+
+	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		totalAllocated = 0
+	}
+	balance -= totalAllocated
 
 	ui.Render(w, r, expense.BalanceCard(spaceID, balance, false))
 }
