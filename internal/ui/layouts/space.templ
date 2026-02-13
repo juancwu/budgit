@@ -72,6 +72,16 @@ templ Space(title string, space *model.Space) {
 							}
 							@sidebar.MenuItem() {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/payment-methods",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/payment-methods",
+									Tooltip:  "Payment Methods",
+								}) {
+									@icon.CreditCard(icon.Props{Class: "size-4"})
+									<span>Payment Methods</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
 									Href:     "/app/spaces/" + space.ID + "/lists",
 									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/lists",
 									Tooltip:  "Shopping Lists",

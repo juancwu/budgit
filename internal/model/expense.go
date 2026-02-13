@@ -10,20 +10,27 @@ const (
 )
 
 type Expense struct {
-	ID          string      `db:"id"`
-	SpaceID     string      `db:"space_id"`
-	CreatedBy   string      `db:"created_by"`
-	Description string      `db:"description"`
-	AmountCents int         `db:"amount_cents"`
-	Type        ExpenseType `db:"type"`
-	Date        time.Time   `db:"date"`
-	CreatedAt   time.Time   `db:"created_at"`
-	UpdatedAt   time.Time   `db:"updated_at"`
+	ID              string      `db:"id"`
+	SpaceID         string      `db:"space_id"`
+	CreatedBy       string      `db:"created_by"`
+	Description     string      `db:"description"`
+	AmountCents     int         `db:"amount_cents"`
+	Type            ExpenseType `db:"type"`
+	Date            time.Time   `db:"date"`
+	PaymentMethodID *string     `db:"payment_method_id"`
+	CreatedAt       time.Time   `db:"created_at"`
+	UpdatedAt       time.Time   `db:"updated_at"`
 }
 
 type ExpenseWithTags struct {
 	Expense
 	Tags []*Tag
+}
+
+type ExpenseWithTagsAndMethod struct {
+	Expense
+	Tags          []*Tag
+	PaymentMethod *PaymentMethod
 }
 
 type ExpenseTag struct {

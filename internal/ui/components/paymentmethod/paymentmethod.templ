@@ -1,0 +1,268 @@
+package paymentmethod
+
+import (
+	"fmt"
+	"strings"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
+)
+
+func methodDisplay(m *model.PaymentMethod) string {
+	upper := strings.ToUpper(string(m.Type))
+	if m.LastFour != nil {
+		return upper + " **** " + *m.LastFour
+	}
+	return upper
+}
+
+templ MethodItem(spaceID string, method *model.PaymentMethod) {
+	{{ editDialogID := "edit-method-" + method.ID }}
+	{{ delDialogID := "del-method-" + method.ID }}
+	<div id={ "method-item-" + method.ID } class="border rounded-lg p-4 bg-card text-card-foreground">
+		<div class="flex justify-between items-start">
+			<div>
+				<h3 class="font-semibold text-lg">{ method.Name }</h3>
+				<p class="text-sm text-muted-foreground">
+					{ methodDisplay(method) }
+				</p>
+			</div>
+			<div class="flex gap-1">
+				@dialog.Dialog(dialog.Props{ID: editDialogID}) {
+					@dialog.Trigger() {
+						@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+							@icon.Pencil(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit Payment Method
+							}
+							@dialog.Description() {
+								Update the payment method details.
+							}
+						}
+						@EditMethodForm(spaceID, method, editDialogID)
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: delDialogID}) {
+					@dialog.Trigger() {
+						@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+							@icon.Trash2(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Payment Method
+							}
+							@dialog.Description() {
+								Are you sure you want to delete "{ method.Name }"? Existing expenses will keep their data but will no longer show a payment method.
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							@button.Button(button.Props{
+								Variant: button.VariantDestructive,
+								Attributes: templ.Attributes{
+									"hx-delete": fmt.Sprintf("/app/spaces/%s/payment-methods/%s", spaceID, method.ID),
+									"hx-target": "#method-item-" + method.ID,
+									"hx-swap":   "delete",
+								},
+							}) {
+								Delete
+							}
+						}
+					}
+				}
+			</div>
+		</div>
+	</div>
+}
+
+templ CreateMethodForm(spaceID string, dialogID string) {
+	<form
+		hx-post={ "/app/spaces/" + spaceID + "/payment-methods" }
+		hx-target="#methods-list"
+		hx-swap="beforeend"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + dialogID + "') then reset() me end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		<div>
+			@label.Label(label.Props{For: "method-name"}) {
+				Name
+			}
+			@input.Input(input.Props{
+				Name:       "name",
+				ID:         "method-name",
+				Attributes: templ.Attributes{"required": "true", "placeholder": "e.g. Chase Sapphire"},
+			})
+		</div>
+		<div>
+			@label.Label(label.Props{}) {
+				Type
+			}
+			<div class="flex gap-4 mt-1">
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:      "method-type-credit",
+						Name:    "type",
+						Value:   "credit",
+						Checked: true,
+					})
+					@label.Label(label.Props{For: "method-type-credit"}) {
+						Credit
+					}
+				</div>
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:    "method-type-debit",
+						Name:  "type",
+						Value: "debit",
+					})
+					@label.Label(label.Props{For: "method-type-debit"}) {
+						Debit
+					}
+				</div>
+			</div>
+		</div>
+		<div id="last-four-group">
+			@label.Label(label.Props{For: "method-last-four"}) {
+				Last 4 Digits
+			}
+			@input.Input(input.Props{
+				Name: "last_four",
+				ID:   "method-last-four",
+				Attributes: templ.Attributes{
+					"required":    "true",
+					"maxlength":   "4",
+					"minlength":   "4",
+					"pattern":     "[0-9]{4}",
+					"placeholder": "1234",
+				},
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Create
+			}
+		</div>
+	</form>
+}
+
+templ EditMethodForm(spaceID string, method *model.PaymentMethod, dialogID string) {
+	{{ lastFourVal := "" }}
+	if method.LastFour != nil {
+		{{ lastFourVal = *method.LastFour }}
+	}
+	<form
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/payment-methods/%s", spaceID, method.ID) }
+		hx-target={ "#method-item-" + method.ID }
+		hx-swap="outerHTML"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + dialogID + "') end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		<div>
+			@label.Label(label.Props{For: "edit-method-name-" + method.ID}) {
+				Name
+			}
+			@input.Input(input.Props{
+				Name:       "name",
+				ID:         "edit-method-name-" + method.ID,
+				Value:      method.Name,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		<div>
+			@label.Label(label.Props{}) {
+				Type
+			}
+			<div class="flex gap-4 mt-1">
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:      "edit-method-type-credit-" + method.ID,
+						Name:    "type",
+						Value:   "credit",
+						Checked: method.Type == model.PaymentMethodTypeCredit,
+					})
+					@label.Label(label.Props{For: "edit-method-type-credit-" + method.ID}) {
+						Credit
+					}
+				</div>
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:      "edit-method-type-debit-" + method.ID,
+						Name:    "type",
+						Value:   "debit",
+						Checked: method.Type == model.PaymentMethodTypeDebit,
+					})
+					@label.Label(label.Props{For: "edit-method-type-debit-" + method.ID}) {
+						Debit
+					}
+				</div>
+			</div>
+		</div>
+		<div id={ "edit-last-four-group-" + method.ID }>
+			@label.Label(label.Props{For: "edit-method-last-four-" + method.ID}) {
+				Last 4 Digits
+			}
+			@input.Input(input.Props{
+				Name:  "last_four",
+				ID:    "edit-method-last-four-" + method.ID,
+				Value: lastFourVal,
+				Attributes: templ.Attributes{
+					"required":  "true",
+					"maxlength": "4",
+					"minlength": "4",
+					"pattern":   "[0-9]{4}",
+				},
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}
+
+templ MethodSelector(methods []*model.PaymentMethod, selectedMethodID *string) {
+	<div>
+		@label.Label(label.Props{For: "method-select"}) {
+			Payment Method
+		}
+		<select
+			name="payment_method_id"
+			id="method-select"
+			class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+		>
+			<option value="">Cash</option>
+			for _, m := range methods {
+				<option
+					value={ m.ID }
+					if selectedMethodID != nil && *selectedMethodID == m.ID {
+						selected
+					}
+				>
+					if m.LastFour != nil {
+						{ m.Name } (*{ *m.LastFour })
+					} else {
+						{ m.Name }
+					}
+				</option>
+			}
+		</select>
+	</div>
+}

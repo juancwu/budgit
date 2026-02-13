@@ -13,7 +13,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, balance int, allocated int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, currentPage, totalPages int) {
+templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTagsAndMethod, balance int, allocated int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, methods []*model.PaymentMethod, currentPage, totalPages int) {
 	@layouts.Space("Expenses", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -37,6 +37,7 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, b
 							Space:          space,
 							Tags:           tags,
 							ListsWithItems: listsWithItems,
+							PaymentMethods: methods,
 							DialogID:       "add-expense-dialog",
 						})
 					}
@@ -47,21 +48,21 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, b
 			// List of expenses
 			<div class="border rounded-lg">
 				<div id="expenses-list-wrapper">
-					@ExpensesListContent(space.ID, expenses, currentPage, totalPages)
+					@ExpensesListContent(space.ID, expenses, methods, currentPage, totalPages)
 				</div>
 			</div>
 		</div>
 	}
 }
 
-templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTags, currentPage, totalPages int) {
+templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod, currentPage, totalPages int) {
 	<h2 class="text-lg font-semibold p-4">History</h2>
 	<div id="expenses-list" class="divide-y">
 		if len(expenses) == 0 {
 			<p class="p-4 text-sm text-muted-foreground">No expenses recorded yet.</p>
 		}
 		for _, exp := range expenses {
-			@ExpenseListItem(spaceID, exp)
+			@ExpenseListItem(spaceID, exp, methods)
 		}
 	</div>
 	if totalPages > 1 {
@@ -108,11 +109,22 @@ templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTags, cur
 	}
 }
 
-templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTags) {
+templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
 	<div id={ "expense-" + exp.ID } class="p-4 flex justify-between items-start gap-2">
 		<div class="min-w-0 flex-1">
 			<p class="font-medium">{ exp.Description }</p>
-			<p class="text-sm text-muted-foreground">{ exp.Date.Format("Jan 02, 2006") }</p>
+			<p class="text-sm text-muted-foreground">
+				{ exp.Date.Format("Jan 02, 2006") }
+				if exp.PaymentMethod != nil {
+					if exp.PaymentMethod.LastFour != nil {
+						<span> &middot; { exp.PaymentMethod.Name } (*{ *exp.PaymentMethod.LastFour })</span>
+					} else {
+						<span> &middot; { exp.PaymentMethod.Name }</span>
+					}
+				} else {
+					<span> &middot; Cash</span>
+				}
+			</p>
 			if len(exp.Tags) > 0 {
 				<div class="flex flex-wrap gap-1 mt-1">
 					for _, t := range exp.Tags {
@@ -149,7 +161,7 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTags) {
 							Update the details of this transaction.
 						}
 					}
-					@expense.EditExpenseForm(spaceID, exp)
+					@expense.EditExpenseForm(spaceID, exp, methods)
 				}
 			}
 			// Delete button
@@ -191,12 +203,12 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTags) {
 	</div>
 }
 
-templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTags, balance int, allocated int, currentPage, totalPages int) {
-	@ExpensesListContent(spaceID, expenses, currentPage, totalPages)
+templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, balance int, allocated int, currentPage, totalPages int) {
+	@ExpensesListContent(spaceID, expenses, nil, currentPage, totalPages)
 	@expense.BalanceCard(spaceID, balance, allocated, true)
 }
 
-templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTags, balance int, allocated int) {
-	@ExpenseListItem(spaceID, exp)
+templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTagsAndMethod, balance int, allocated int, methods []*model.PaymentMethod) {
+	@ExpenseListItem(spaceID, exp, methods)
 	@expense.BalanceCard(exp.SpaceID, balance, allocated, true)
 }

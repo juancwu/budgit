@@ -1,0 +1,45 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+templ SpacePaymentMethodsPage(space *model.Space, methods []*model.PaymentMethod) {
+	@layouts.Space("Payment Methods", space) {
+		<div class="space-y-4">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold">Payment Methods</h1>
+				@dialog.Dialog(dialog.Props{ID: "add-method-dialog"}) {
+					@dialog.Trigger() {
+						@button.Button() {
+							Add Method
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Add Payment Method
+							}
+							@dialog.Description() {
+								Add a credit or debit card to track how you pay for expenses.
+							}
+						}
+						@paymentmethod.CreateMethodForm(space.ID, "add-method-dialog")
+					}
+				}
+			</div>
+			<div id="methods-list" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+				if len(methods) == 0 {
+					<p class="text-sm text-muted-foreground col-span-full">No payment methods yet. Add one to start tracking how you pay for expenses.</p>
+				}
+				for _, method := range methods {
+					@paymentmethod.MethodItem(space.ID, method)
+				}
+			</div>
+		</div>
+	}
+}

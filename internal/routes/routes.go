@@ -15,7 +15,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService)
 
 	mux := http.NewServeMux()
 
@@ -150,6 +150,23 @@ func SetupRoutes(a *app.App) http.Handler {
 	deleteTransferHandler := middleware.RequireAuth(space.DeleteTransfer)
 	deleteTransferWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteTransferHandler)
 	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}/transfers/{transferID}", deleteTransferWithAccess)
+
+	// Payment Method routes
+	methodsPageHandler := middleware.RequireAuth(space.PaymentMethodsPage)
+	methodsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(methodsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/payment-methods", methodsPageWithAccess)
+
+	createMethodHandler := middleware.RequireAuth(space.CreatePaymentMethod)
+	createMethodWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createMethodHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/payment-methods", createMethodWithAccess)
+
+	updateMethodHandler := middleware.RequireAuth(space.UpdatePaymentMethod)
+	updateMethodWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateMethodHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/payment-methods/{methodID}", updateMethodWithAccess)
+
+	deleteMethodHandler := middleware.RequireAuth(space.DeletePaymentMethod)
+	deleteMethodWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteMethodHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/payment-methods/{methodID}", deleteMethodWithAccess)
 
 	// Component routes (HTMX updates)
 	balanceCardHandler := middleware.RequireAuth(space.GetBalanceCard)

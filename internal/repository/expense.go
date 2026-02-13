@@ -21,6 +21,7 @@ type ExpenseRepository interface {
 	CountBySpaceID(spaceID string) (int, error)
 	GetExpensesByTag(spaceID string, fromDate, toDate time.Time) ([]*model.TagExpenseSummary, error)
 	GetTagsByExpenseIDs(expenseIDs []string) (map[string][]*model.Tag, error)
+	GetPaymentMethodsByExpenseIDs(expenseIDs []string) (map[string]*model.PaymentMethod, error)
 	Update(expense *model.Expense, tagIDs []string) error
 	Delete(id string) error
 }
@@ -41,9 +42,9 @@ func (r *expenseRepository) Create(expense *model.Expense, tagIDs []string, item
 	defer tx.Rollback()
 
 	// Insert Expense
-	queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`
-	_, err = tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.CreatedAt, expense.UpdatedAt)
+	queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
+	_, err = tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.CreatedAt, expense.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -173,6 +174,49 @@ func (r *expenseRepository) GetTagsByExpenseIDs(expenseIDs []string) (map[string
 	return result, nil
 }
 
+func (r *expenseRepository) GetPaymentMethodsByExpenseIDs(expenseIDs []string) (map[string]*model.PaymentMethod, error) {
+	if len(expenseIDs) == 0 {
+		return make(map[string]*model.PaymentMethod), nil
+	}
+
+	type row struct {
+		ExpenseID string                  `db:"expense_id"`
+		ID        string                  `db:"id"`
+		SpaceID   string                  `db:"space_id"`
+		Name      string                  `db:"name"`
+		Type      model.PaymentMethodType `db:"type"`
+		LastFour  *string                 `db:"last_four"`
+	}
+
+	query, args, err := sqlx.In(`
+		SELECT e.id AS expense_id, pm.id, pm.space_id, pm.name, pm.type, pm.last_four
+		FROM expenses e
+		JOIN payment_methods pm ON e.payment_method_id = pm.id
+		WHERE e.id IN (?) AND e.payment_method_id IS NOT NULL;
+	`, expenseIDs)
+	if err != nil {
+		return nil, err
+	}
+	query = r.db.Rebind(query)
+
+	var rows []row
+	if err := r.db.Select(&rows, query, args...); err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]*model.PaymentMethod)
+	for _, rw := range rows {
+		result[rw.ExpenseID] = &model.PaymentMethod{
+			ID:       rw.ID,
+			SpaceID:  rw.SpaceID,
+			Name:     rw.Name,
+			Type:     rw.Type,
+			LastFour: rw.LastFour,
+		}
+	}
+	return result, nil
+}
+
 func (r *expenseRepository) Update(expense *model.Expense, tagIDs []string) error {
 	tx, err := r.db.Beginx()
 	if err != nil {
@@ -180,8 +224,8 @@ func (r *expenseRepository) Update(expense *model.Expense, tagIDs []string) erro
 	}
 	defer tx.Rollback()
 
-	query := `UPDATE expenses SET description = $1, amount_cents = $2, type = $3, date = $4, updated_at = $5 WHERE id = $6;`
-	_, err = tx.Exec(query, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.UpdatedAt, expense.ID)
+	query := `UPDATE expenses SET description = $1, amount_cents = $2, type = $3, date = $4, payment_method_id = $5, updated_at = $6 WHERE id = $7;`
+	_, err = tx.Exec(query, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.UpdatedAt, expense.ID)
 	if err != nil {
 		return err
 	}

@@ -11,6 +11,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
 )
@@ -19,6 +20,7 @@ type AddExpenseFormProps struct {
 	Space          *model.Space
 	Tags           []*model.Tag
 	ListsWithItems []model.ListWithUncheckedItems
+	PaymentMethods []*model.PaymentMethod
 	DialogID       string // which dialog to close on success
 	FromOverview   bool   // if true, POSTs with ?from=overview; server redirects to expenses page
 }
@@ -158,6 +160,8 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 				Attributes:  templ.Attributes{"list": "available-tags"},
 			})
 		</div>
+		// Payment Method
+		@paymentmethod.MethodSelector(props.PaymentMethods, nil)
 		// Shopping list items selector
 		@ItemSelectorSection(props.ListsWithItems, false)
 		<div class="flex justify-end">
@@ -168,7 +172,7 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 	</form>
 }
 
-templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTags) {
+templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
 	{{ editDialogID := "edit-expense-" + exp.ID }}
 	{{ tagValues := make([]string, len(exp.Tags)) }}
 	for i, t := range exp.Tags {
@@ -260,6 +264,8 @@ templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTags) {
 				Placeholder: "Add tags (press enter)",
 			})
 		</div>
+		// Payment Method
+		@paymentmethod.MethodSelector(methods, exp.PaymentMethodID)
 		<div class="flex justify-end">
 			@button.Button(button.Props{Type: button.TypeSubmit}) {
 				Save

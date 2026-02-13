@@ -13,6 +13,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/moneyaccount"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tag"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
@@ -26,9 +27,10 @@ type SpaceHandler struct {
 	expenseService *service.ExpenseService
 	inviteService  *service.InviteService
 	accountService *service.MoneyAccountService
+	methodService  *service.PaymentMethodService
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService, pms *service.PaymentMethodService) *SpaceHandler {
 	return &SpaceHandler{
 		spaceService:   ss,
 		tagService:     ts,
@@ -36,6 +38,7 @@ func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *serv
 		expenseService: es,
 		inviteService:  is,
 		accountService: mas,
+		methodService:  pms,
 	}
 }
 
@@ -398,7 +401,7 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		page = p
 	}
 
-	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsForSpacePaginated(spaceID, page)
+	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsAndMethodsForSpacePaginated(spaceID, page)
 	if err != nil {
 		slog.Error("failed to get expenses for space", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -433,7 +436,14 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, totalAllocated, tags, listsWithItems, page, totalPages))
+	methods, err := h.methodService.GetMethodsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get payment methods", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, totalAllocated, tags, listsWithItems, methods, page, totalPages))
 
 	if r.URL.Query().Get("created") == "true" {
 		ui.Render(w, r, toast.Toast(toast.Props{
@@ -528,6 +538,12 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		processedTags[tagName] = true
 	}
 
+	// Parse payment_method_id
+	var paymentMethodID *string
+	if pmid := r.FormValue("payment_method_id"); pmid != "" {
+		paymentMethodID = &pmid
+	}
+
 	// Parse linked shopping list items
 	itemIDs := r.Form["item_ids"]
 	itemAction := r.FormValue("item_action")
@@ -538,14 +554,15 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	dto := service.CreateExpenseDTO{
-		SpaceID:     spaceID,
-		UserID:      user.ID,
-		Description: description,
-		Amount:      amountCents,
-		Type:        expenseType,
-		Date:        date,
-		TagIDs:      finalTagIDs,
-		ItemIDs:     itemIDs,
+		SpaceID:         spaceID,
+		UserID:          user.ID,
+		Description:     description,
+		Amount:          amountCents,
+		Type:            expenseType,
+		Date:            date,
+		TagIDs:          finalTagIDs,
+		ItemIDs:         itemIDs,
+		PaymentMethodID: paymentMethodID,
 	}
 
 	_, err = h.expenseService.CreateExpense(dto)
@@ -587,7 +604,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return the full paginated list for page 1 so the new expense appears
-	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsForSpacePaginated(spaceID, 1)
+	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsAndMethodsForSpacePaginated(spaceID, 1)
 	if err != nil {
 		slog.Error("failed to get paginated expenses after create", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -684,14 +701,21 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		processedTags[tagName] = true
 	}
 
+	// Parse payment_method_id
+	var paymentMethodID *string
+	if pmid := r.FormValue("payment_method_id"); pmid != "" {
+		paymentMethodID = &pmid
+	}
+
 	dto := service.UpdateExpenseDTO{
-		ID:          expenseID,
-		SpaceID:     spaceID,
-		Description: description,
-		Amount:      amountCents,
-		Type:        expenseType,
-		Date:        date,
-		TagIDs:      finalTagIDs,
+		ID:              expenseID,
+		SpaceID:         spaceID,
+		Description:     description,
+		Amount:          amountCents,
+		Type:            expenseType,
+		Date:            date,
+		TagIDs:          finalTagIDs,
+		PaymentMethodID: paymentMethodID,
 	}
 
 	updatedExpense, err := h.expenseService.UpdateExpense(dto)
@@ -702,9 +726,11 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tagsMap, _ := h.expenseService.GetTagsByExpenseIDs([]string{updatedExpense.ID})
-	expWithTags := &model.ExpenseWithTags{
-		Expense: *updatedExpense,
-		Tags:    tagsMap[updatedExpense.ID],
+	methodsMap, _ := h.expenseService.GetPaymentMethodsByExpenseIDs([]string{updatedExpense.ID})
+	expWithTagsAndMethod := &model.ExpenseWithTagsAndMethod{
+		Expense:       *updatedExpense,
+		Tags:          tagsMap[updatedExpense.ID],
+		PaymentMethod: methodsMap[updatedExpense.ID],
 	}
 
 	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
@@ -719,7 +745,8 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	balance -= totalAllocated
 
-	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTags, balance, totalAllocated))
+	methods, _ := h.methodService.GetMethodsForSpace(spaceID)
+	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTagsAndMethod, balance, totalAllocated, methods))
 }
 
 func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
@@ -839,14 +866,15 @@ func (h *SpaceHandler) GetExpensesList(w http.ResponseWriter, r *http.Request) {
 		page = p
 	}
 
-	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsForSpacePaginated(spaceID, page)
+	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsAndMethodsForSpacePaginated(spaceID, page)
 	if err != nil {
 		slog.Error("failed to get expenses", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	ui.Render(w, r, pages.ExpensesListContent(spaceID, expenses, page, totalPages))
+	methods, _ := h.methodService.GetMethodsForSpace(spaceID)
+	ui.Render(w, r, pages.ExpensesListContent(spaceID, expenses, methods, page, totalPages))
 }
 
 func (h *SpaceHandler) GetShoppingListItems(w http.ResponseWriter, r *http.Request) {
@@ -1337,6 +1365,118 @@ func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
 	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+}
+
+// --- Payment Methods ---
+
+func (h *SpaceHandler) getMethodForSpace(w http.ResponseWriter, spaceID, methodID string) *model.PaymentMethod {
+	method, err := h.methodService.GetMethod(methodID)
+	if err != nil {
+		http.Error(w, "Payment method not found", http.StatusNotFound)
+		return nil
+	}
+	if method.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return method
+}
+
+func (h *SpaceHandler) PaymentMethodsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	methods, err := h.methodService.GetMethodsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get payment methods for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpacePaymentMethodsPage(space, methods))
+}
+
+func (h *SpaceHandler) CreatePaymentMethod(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	methodType := model.PaymentMethodType(r.FormValue("type"))
+	lastFour := r.FormValue("last_four")
+
+	method, err := h.methodService.CreateMethod(service.CreatePaymentMethodDTO{
+		SpaceID:   spaceID,
+		Name:      name,
+		Type:      methodType,
+		LastFour:  lastFour,
+		CreatedBy: user.ID,
+	})
+	if err != nil {
+		slog.Error("failed to create payment method", "error", err, "space_id", spaceID)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ui.Render(w, r, paymentmethod.MethodItem(spaceID, method))
+}
+
+func (h *SpaceHandler) UpdatePaymentMethod(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	methodID := r.PathValue("methodID")
+
+	if h.getMethodForSpace(w, spaceID, methodID) == nil {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	name := r.FormValue("name")
+	methodType := model.PaymentMethodType(r.FormValue("type"))
+	lastFour := r.FormValue("last_four")
+
+	updatedMethod, err := h.methodService.UpdateMethod(service.UpdatePaymentMethodDTO{
+		ID:       methodID,
+		Name:     name,
+		Type:     methodType,
+		LastFour: lastFour,
+	})
+	if err != nil {
+		slog.Error("failed to update payment method", "error", err, "method_id", methodID)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ui.Render(w, r, paymentmethod.MethodItem(spaceID, updatedMethod))
+}
+
+func (h *SpaceHandler) DeletePaymentMethod(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	methodID := r.PathValue("methodID")
+
+	if h.getMethodForSpace(w, spaceID, methodID) == nil {
+		return
+	}
+
+	err := h.methodService.DeleteMethod(methodID)
+	if err != nil {
+		slog.Error("failed to delete payment method", "error", err, "method_id", methodID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *SpaceHandler) buildListCards(spaceID string) ([]model.ListCardData, error) {

@@ -11,18 +11,19 @@ import (
 )
 
 type App struct {
-	Cfg                 *config.Config
-	DB                  *sqlx.DB
-	UserService         *service.UserService
-	AuthService         *service.AuthService
-	EmailService        *service.EmailService
-	ProfileService      *service.ProfileService
-	SpaceService        *service.SpaceService
-	TagService          *service.TagService
-	ShoppingListService *service.ShoppingListService
-	ExpenseService      *service.ExpenseService
-	InviteService       *service.InviteService
-	MoneyAccountService *service.MoneyAccountService
+	Cfg                  *config.Config
+	DB                   *sqlx.DB
+	UserService          *service.UserService
+	AuthService          *service.AuthService
+	EmailService         *service.EmailService
+	ProfileService       *service.ProfileService
+	SpaceService         *service.SpaceService
+	TagService           *service.TagService
+	ShoppingListService  *service.ShoppingListService
+	ExpenseService       *service.ExpenseService
+	InviteService        *service.InviteService
+	MoneyAccountService  *service.MoneyAccountService
+	PaymentMethodService *service.PaymentMethodService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -49,6 +50,7 @@ func New(cfg *config.Config) (*App, error) {
 	expenseRepository := repository.NewExpenseRepository(database)
 	invitationRepository := repository.NewInvitationRepository(database)
 	moneyAccountRepository := repository.NewMoneyAccountRepository(database)
+	paymentMethodRepository := repository.NewPaymentMethodRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
@@ -77,20 +79,22 @@ func New(cfg *config.Config) (*App, error) {
 	expenseService := service.NewExpenseService(expenseRepository)
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
 	moneyAccountService := service.NewMoneyAccountService(moneyAccountRepository)
+	paymentMethodService := service.NewPaymentMethodService(paymentMethodRepository)
 
 	return &App{
-		Cfg:                 cfg,
-		DB:                  database,
-		UserService:         userService,
-		AuthService:         authService,
-		EmailService:        emailService,
-		ProfileService:      profileService,
-		SpaceService:        spaceService,
-		TagService:          tagService,
-		ShoppingListService: shoppingListService,
-		ExpenseService:      expenseService,
-		InviteService:       inviteService,
-		MoneyAccountService: moneyAccountService,
+		Cfg:                  cfg,
+		DB:                   database,
+		UserService:          userService,
+		AuthService:          authService,
+		EmailService:         emailService,
+		ProfileService:       profileService,
+		SpaceService:         spaceService,
+		TagService:           tagService,
+		ShoppingListService:  shoppingListService,
+		ExpenseService:       expenseService,
+		InviteService:        inviteService,
+		MoneyAccountService:  moneyAccountService,
+		PaymentMethodService: paymentMethodService,
 	}, nil
 }
 func (a *App) Close() error {
