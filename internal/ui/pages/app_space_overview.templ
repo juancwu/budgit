@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
@@ -8,7 +9,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems) {
+templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, accounts []model.MoneyAccountWithBalance) {
 	@layouts.Space("Overview", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -78,6 +79,35 @@ templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []
 						</div>
 					} else {
 						<p class="text-sm text-muted-foreground">No tags yet.</p>
+					}
+				</div>
+				// Money Accounts section
+				<div class="border rounded-lg p-4">
+					<h2 class="text-lg font-semibold mb-2">Money Accounts</h2>
+					if len(accounts) > 0 {
+						<ul class="space-y-1">
+							for i, account := range accounts {
+								if i < 5 {
+									<li>
+										<a
+											href={ templ.URL("/app/spaces/" + space.ID + "/accounts") }
+											class="block px-3 py-2 rounded-md hover:bg-muted transition-colors text-sm flex justify-between"
+										>
+											<span>{ account.Name }</span>
+											<span class="text-muted-foreground">{ fmt.Sprintf("$%.2f", float64(account.BalanceCents)/100) }</span>
+										</a>
+									</li>
+								}
+							}
+						</ul>
+						<a
+							href={ templ.URL("/app/spaces/" + space.ID + "/accounts") }
+							class="block text-sm text-muted-foreground hover:text-foreground transition-colors mt-2 px-3"
+						>
+							View all accounts
+						</a>
+					} else {
+						<p class="text-sm text-muted-foreground">No accounts yet.</p>
 					}
 				</div>
 			</div>

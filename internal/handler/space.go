@@ -99,7 +99,14 @@ func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceOverviewPage(space, lists, tags, listsWithItems))
+	accounts, err := h.accountService.GetAccountsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get accounts for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceOverviewPage(space, lists, tags, listsWithItems, accounts))
 }
 
 func (h *SpaceHandler) ListsPage(w http.ResponseWriter, r *http.Request) {
