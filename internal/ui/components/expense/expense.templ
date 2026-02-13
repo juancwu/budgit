@@ -27,14 +27,14 @@ func (p AddExpenseFormProps) formAttrs() templ.Attributes {
 	closeScript := "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') then reset() me then show #item-selector-section end"
 	if p.FromOverview {
 		return templ.Attributes{
-			"hx-post":  "/app/spaces/" + p.Space.ID + "/expenses?from=overview",
+			"hx-post":   "/app/spaces/" + p.Space.ID + "/expenses?from=overview",
 			"hx-target": "body",
 			"hx-swap":   "beforeend",
 			"_":         closeScript,
 		}
 	}
 	return templ.Attributes{
-		"hx-post":  "/app/spaces/" + p.Space.ID + "/expenses",
+		"hx-post":   "/app/spaces/" + p.Space.ID + "/expenses",
 		"hx-target": "#expenses-list-wrapper",
 		"hx-swap":   "innerHTML",
 		"_":         closeScript,
@@ -229,10 +229,10 @@ templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTags) {
 				Amount
 			}
 			@input.Input(input.Props{
-				Name:  "amount",
-				ID:    "edit-amount-" + exp.ID,
-				Type:  "number",
-				Value: fmt.Sprintf("%.2f", float64(exp.AmountCents)/100.0),
+				Name:       "amount",
+				ID:         "edit-amount-" + exp.ID,
+				Type:       "number",
+				Value:      fmt.Sprintf("%.2f", float64(exp.AmountCents)/100.0),
 				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
 			})
 		</div>
@@ -357,7 +357,7 @@ templ ItemSelectorSection(listsWithItems []model.ListWithUncheckedItems, oob boo
 	</div>
 }
 
-templ BalanceCard(spaceID string, balance int, oob bool) {
+templ BalanceCard(spaceID string, balance int, allocated int, oob bool) {
 	<div
 		id="balance-card"
 		class="border rounded-lg p-4 bg-card text-card-foreground"
@@ -368,6 +368,11 @@ templ BalanceCard(spaceID string, balance int, oob bool) {
 		<h2 class="text-lg font-semibold">Current Balance</h2>
 		<p class={ "text-3xl font-bold", templ.KV("text-destructive", balance < 0) }>
 			{ fmt.Sprintf("$%.2f", float64(balance)/100.0) }
+			if allocated > 0 {
+				<span class="text-base font-normal text-muted-foreground">
+					({ fmt.Sprintf("$%.2f", float64(allocated)/100.0) } in accounts)
+				</span>
+			}
 		</p>
 	</div>
 }

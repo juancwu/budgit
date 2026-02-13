@@ -13,7 +13,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, balance int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, currentPage, totalPages int) {
+templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, balance int, allocated int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, currentPage, totalPages int) {
 	@layouts.Space("Expenses", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -43,7 +43,7 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTags, b
 				}
 			</div>
 			// Balance Card
-			@expense.BalanceCard(space.ID, balance, false)
+			@expense.BalanceCard(space.ID, balance, allocated, false)
 			// List of expenses
 			<div class="border rounded-lg">
 				<div id="expenses-list-wrapper">
@@ -191,12 +191,12 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTags) {
 	</div>
 }
 
-templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTags, balance int, currentPage, totalPages int) {
+templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTags, balance int, allocated int, currentPage, totalPages int) {
 	@ExpensesListContent(spaceID, expenses, currentPage, totalPages)
-	@expense.BalanceCard(spaceID, balance, true)
+	@expense.BalanceCard(spaceID, balance, allocated, true)
 }
 
-templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTags, balance int) {
+templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTags, balance int, allocated int) {
 	@ExpenseListItem(spaceID, exp)
-	@expense.BalanceCard(exp.SpaceID, balance, true)
+	@expense.BalanceCard(exp.SpaceID, balance, allocated, true)
 }

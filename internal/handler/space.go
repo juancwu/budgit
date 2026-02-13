@@ -426,7 +426,7 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, tags, listsWithItems, page, totalPages))
+	ui.Render(w, r, pages.SpaceExpensesPage(space, expenses, balance, totalAllocated, tags, listsWithItems, page, totalPages))
 
 	if r.URL.Query().Get("created") == "true" {
 		ui.Render(w, r, toast.Toast(toast.Props{
@@ -587,7 +587,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.ExpenseCreatedResponse(spaceID, expenses, balance, 1, totalPages))
+	ui.Render(w, r, pages.ExpenseCreatedResponse(spaceID, expenses, balance, totalAllocated, 1, totalPages))
 
 	// OOB-swap the item selector with fresh data (items may have been deleted/checked)
 	listsWithItems, err := h.listService.GetListsWithUncheckedItems(spaceID)
@@ -712,7 +712,7 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	balance -= totalAllocated
 
-	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTags, balance))
+	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTags, balance, totalAllocated))
 }
 
 func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
@@ -741,7 +741,7 @@ func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 	}
 	balance -= totalAllocated
 
-	ui.Render(w, r, expense.BalanceCard(spaceID, balance, true))
+	ui.Render(w, r, expense.BalanceCard(spaceID, balance, totalAllocated, true))
 }
 
 func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
@@ -821,7 +821,7 @@ func (h *SpaceHandler) GetBalanceCard(w http.ResponseWriter, r *http.Request) {
 	}
 	balance -= totalAllocated
 
-	ui.Render(w, r, expense.BalanceCard(spaceID, balance, false))
+	ui.Render(w, r, expense.BalanceCard(spaceID, balance, totalAllocated, false))
 }
 
 func (h *SpaceHandler) GetExpensesList(w http.ResponseWriter, r *http.Request) {
