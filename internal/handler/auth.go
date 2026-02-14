@@ -122,14 +122,14 @@ func (h *authHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Query().Get("resend") == "true" {
-		ui.RenderOOB(w, r, toast.Toast(toast.Props{
+		ui.RenderToast(w, r, toast.Toast(toast.Props{
 			Title:       "Magic link sent",
 			Description: "Check your email for a new magic link",
 			Variant:     toast.VariantSuccess,
 			Icon:        true,
 			Dismissible: true,
 			Duration:    5000,
-		}), "beforeend:#toast-container")
+		}))
 		return
 	}
 

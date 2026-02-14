@@ -4,7 +4,7 @@ go 1.25.1
 
 require (
 	github.com/Oudwins/tailwind-merge-go v0.2.1
-	github.com/a-h/templ v0.3.977
+	github.com/a-h/templ v0.3.960
 	github.com/alexedwards/argon2id v1.0.0
 	github.com/emersion/go-imap v1.2.1
 	github.com/golang-jwt/jwt/v5 v5.2.2
@@ -62,7 +62,7 @@ require (
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
-	github.com/templui/templui v1.5.0 // indirect
+	github.com/templui/templui v1.0.0 // indirect
 	github.com/tursodatabase/libsql-client-go v0.0.0-20240902231107-85af5b9d094d // indirect
 	github.com/vertica/vertica-sql-go v1.3.3 // indirect
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20241112172322-ea1f63298f77 // indirect

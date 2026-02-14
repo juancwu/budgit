@@ -46,9 +46,7 @@ templ SpaceSettingsPage(space *model.Space, members []*model.SpaceMemberWithProf
 									"required":     true,
 								},
 							})
-							@button.Button(button.Props{
-								Type: button.TypeSubmit,
-							}) {
+							@button.Submit() {
 								Save
 							}
 						</form>
@@ -110,9 +108,7 @@ templ SpaceSettingsPage(space *model.Space, members []*model.SpaceMemberWithProf
 										"required":     true,
 									},
 								})
-								@button.Button(button.Props{
-									Type: button.TypeSubmit,
-								}) {
+								@button.Submit() {
 									@icon.UserPlus(icon.Props{Class: "size-4"})
 									Invite
 								}

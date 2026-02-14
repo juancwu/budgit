@@ -89,9 +89,7 @@ templ AppSettings(hasPassword bool, errorMsg string) {
 								}
 							}
 						}
-						@button.Button(button.Props{
-							Type: button.TypeSubmit,
-						}) {
+						@button.Submit() {
 							if hasPassword {
 								Change Password
 							} else {

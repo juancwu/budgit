@@ -56,6 +56,8 @@ templ Base(props ...SEOProps) {
 			@smoothScrollScript()
 			// HTMX CSRF configuration
 			@htmxCSRFScript()
+			// Form submit spinner for non-HTMX forms
+			@formSubmitScript()
 			// Google Analytics
 			if cfg := ctxkeys.Config(ctx); cfg != nil && cfg.GoogleMeasuringID != "" {
 				@googleAnalyticsScript(cfg.GoogleMeasuringID)
@@ -116,6 +118,10 @@ templ smoothScrollScript() {
 
 templ htmxCSRFScript() {
 	<script src="/assets/js/htmx-csrf.js"></script>
+}
+
+templ formSubmitScript() {
+	<script src="/assets/js/form-submit.js"></script>
 }
 
 templ googleAnalyticsScript(id string) {

@@ -164,4 +164,30 @@
       "rlig" 1,
       "calt" 1;
   }
+
+  /* HTMX submit button loading states */
+  .htmx-submit-btn .btn-spinner {
+    display: none;
+  }
+
+  .htmx-request .htmx-submit-btn .btn-label,
+  .htmx-request.htmx-submit-btn .btn-label {
+    visibility: hidden;
+  }
+
+  .htmx-request .htmx-submit-btn .btn-spinner,
+  .htmx-request.htmx-submit-btn .btn-spinner {
+    display: flex;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .htmx-request .htmx-submit-btn,
+  .htmx-request.htmx-submit-btn {
+    position: relative;
+    pointer-events: none;
+    opacity: 0.7;
+  }
 }

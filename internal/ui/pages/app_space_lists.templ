@@ -27,9 +27,7 @@ templ SpaceListsPage(space *model.Space, cards []model.ListCardData) {
 					Name:        "name",
 					Placeholder: "New list name...",
 				})
-				@button.Button(button.Props{
-					Type: button.TypeSubmit,
-				}) {
+				@button.Submit() {
 					Create
 				}
 			</form>

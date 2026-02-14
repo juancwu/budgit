@@ -8,6 +8,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
 )
 
@@ -69,6 +70,13 @@ func (h *settingsHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Password set successfully — render page with success message
+	// Password set successfully — render page with success toast
 	ui.Render(w, r, pages.AppSettings(true, ""))
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Password updated",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }

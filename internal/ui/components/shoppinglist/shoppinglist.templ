@@ -35,8 +35,7 @@ templ ListCard(spaceID string, list *model.ShoppingList, items []*model.ListItem
 						"autocomplete": "off",
 					},
 				})
-				@button.Button(button.Props{
-					Type: button.TypeSubmit,
+				@button.Submit(button.Props{
 					Size: button.SizeSm,
 				}) {
 					@icon.Plus(icon.Props{Size: 16})

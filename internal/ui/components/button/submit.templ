@@ -1,0 +1,22 @@
+package button
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+
+templ Submit(props ...Props) {
+	{{ var p Props }}
+	if len(props) > 0 {
+		{{ p = props[0] }}
+	}
+	if p.Type == "" {
+		{{ p.Type = TypeSubmit }}
+	}
+	{{ p.Class = p.Class + " htmx-submit-btn" }}
+	@Button(p) {
+		<span class="btn-label contents">
+			{ children... }
+		</span>
+		<span class="btn-spinner">
+			@icon.LoaderCircle(icon.Props{Class: "animate-spin"})
+		</span>
+	}
+}

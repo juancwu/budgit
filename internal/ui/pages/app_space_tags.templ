@@ -30,9 +30,7 @@ templ SpaceTagsPage(space *model.Space, tags []*model.Tag) {
 						"autocomplete": "off",
 					},
 				})
-				@button.Button(button.Props{
-					Type: button.TypeSubmit,
-				}) {
+				@button.Submit() {
 					Create
 				}
 			</form>

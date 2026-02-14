@@ -154,7 +154,7 @@ templ CreateMethodForm(spaceID string, dialogID string) {
 			})
 		</div>
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Create
 			}
 		</div>
@@ -231,7 +231,7 @@ templ EditMethodForm(spaceID string, method *model.PaymentMethod, dialogID strin
 			})
 		</div>
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>

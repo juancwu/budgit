@@ -24,6 +24,10 @@ func RenderFragment(w http.ResponseWriter, r *http.Request, c templ.Component, f
 	}
 }
 
+func RenderToast(w http.ResponseWriter, r *http.Request, c templ.Component) {
+	RenderOOB(w, r, c, "beforeend:#toast-container")
+}
+
 func RenderOOB(w http.ResponseWriter, r *http.Request, c templ.Component, target string) {
 	// Write OOB wrapper start
 	_, err := fmt.Fprintf(w, `<div hx-swap-oob="%s">`, target)

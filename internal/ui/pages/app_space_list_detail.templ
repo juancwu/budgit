@@ -63,9 +63,7 @@ templ SpaceListDetailPage(space *model.Space, list *model.ShoppingList, items []
 						"autocomplete": "off",
 					},
 				})
-				@button.Button(button.Props{
-					Type: button.TypeSubmit,
-				}) {
+				@button.Submit() {
 					Add Item
 				}
 			</form>

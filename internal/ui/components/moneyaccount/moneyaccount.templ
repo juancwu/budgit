@@ -184,7 +184,7 @@ templ CreateAccountForm(spaceID string, dialogID string) {
 			})
 		</div>
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Create
 			}
 		</div>
@@ -212,7 +212,7 @@ templ EditAccountForm(spaceID string, acct *model.MoneyAccount, dialogID string)
 			})
 		</div>
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>
@@ -253,7 +253,7 @@ templ TransferForm(spaceID string, accountID string, direction model.TransferDir
 			})
 		</div>
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				if direction == model.TransferDirectionDeposit {
 					Deposit
 				} else {

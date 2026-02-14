@@ -165,7 +165,7 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 		// Shopping list items selector
 		@ItemSelectorSection(props.ListsWithItems, false)
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>
@@ -267,7 +267,7 @@ templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 		// Payment Method
 		@paymentmethod.MethodSelector(methods, exp.PaymentMethodID)
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>

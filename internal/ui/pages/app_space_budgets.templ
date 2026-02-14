@@ -261,7 +261,7 @@ templ AddBudgetForm(spaceID string, tags []*model.Tag) {
 			})
 		</div>
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>
@@ -374,7 +374,7 @@ templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag
 			}
 		</div>
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>

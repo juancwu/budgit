@@ -66,8 +66,7 @@ templ OnboardingWelcome() {
 				<form action="/auth/logout" method="POST" class="text-center mt-6">
 					@csrf.Token()
 					<span class="text-sm text-muted-foreground">Not you? </span>
-					@button.Button(button.Props{
-						Type:    button.TypeSubmit,
+					@button.Submit(button.Props{
 						Variant: button.VariantLink,
 						Class:   "p-0 h-auto text-sm",
 					}) {
@@ -138,8 +137,7 @@ templ OnboardingName(errorMsg string) {
 							@icon.ArrowLeft()
 							Back
 						}
-						@button.Button(button.Props{
-							Type:  button.TypeSubmit,
+						@button.Submit(button.Props{
 							Class: "grow",
 						}) {
 							Continue
@@ -150,8 +148,7 @@ templ OnboardingName(errorMsg string) {
 				<form action="/auth/logout" method="POST" class="text-center mt-6">
 					@csrf.Token()
 					<span class="text-sm text-muted-foreground">Not you? </span>
-					@button.Button(button.Props{
-						Type:    button.TypeSubmit,
+					@button.Submit(button.Props{
 						Variant: button.VariantLink,
 						Class:   "p-0 h-auto text-sm",
 					}) {
@@ -222,8 +219,7 @@ templ OnboardingSpace(name string, errorMsg string) {
 							@icon.ArrowLeft()
 							Back
 						}
-						@button.Button(button.Props{
-							Type:  button.TypeSubmit,
+						@button.Submit(button.Props{
 							Class: "grow",
 						}) {
 							Create Space
@@ -233,8 +229,7 @@ templ OnboardingSpace(name string, errorMsg string) {
 				<form action="/auth/logout" method="POST" class="text-center mt-6">
 					@csrf.Token()
 					<span class="text-sm text-muted-foreground">Not you? </span>
-					@button.Button(button.Props{
-						Type:    button.TypeSubmit,
+					@button.Submit(button.Props{
 						Variant: button.VariantLink,
 						Class:   "p-0 h-auto text-sm",
 					}) {

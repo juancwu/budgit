@@ -268,7 +268,7 @@ templ AddRecurringForm(spaceID string, tags []*model.Tag, methods []*model.Payme
 		// Payment Method
 		@paymentmethod.MethodSelector(methods, nil)
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>
@@ -401,7 +401,7 @@ templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMet
 		// Payment Method
 		@paymentmethod.MethodSelector(methods, re.PaymentMethodID)
 		<div class="flex justify-end">
-			@button.Button(button.Props{Type: button.TypeSubmit}) {
+			@button.Submit() {
 				Save
 			}
 		</div>

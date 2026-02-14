@@ -215,6 +215,13 @@ func (h *SpaceHandler) DeleteList(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/lists")
 	}
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "List deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) ListPage(w http.ResponseWriter, r *http.Request) {
@@ -337,6 +344,13 @@ func (h *SpaceHandler) DeleteItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Item deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) TagsPage(w http.ResponseWriter, r *http.Request) {
@@ -393,6 +407,13 @@ func (h *SpaceHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Tag deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
@@ -783,6 +804,13 @@ func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 	balance -= totalAllocated
 
 	ui.Render(w, r, expense.BalanceCard(spaceID, balance, totalAllocated, true))
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Expense deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
@@ -807,7 +835,7 @@ func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, toast.Toast(toast.Props{
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
 		Title:       "Invitation sent",
 		Description: "An email has been sent to " + email,
 		Variant:     toast.VariantSuccess,
@@ -1035,6 +1063,13 @@ func (h *SpaceHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Member removed",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) CancelInvite(w http.ResponseWriter, r *http.Request) {
@@ -1060,6 +1095,13 @@ func (h *SpaceHandler) CancelInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Invitation cancelled",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) GetPendingInvites(w http.ResponseWriter, r *http.Request) {
@@ -1240,6 +1282,13 @@ func (h *SpaceHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Account deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
@@ -1372,6 +1421,13 @@ func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
 	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Transfer deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 // --- Payment Methods ---
@@ -1484,6 +1540,13 @@ func (h *SpaceHandler) DeletePaymentMethod(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Payment method deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 // --- Recurring Expenses ---
@@ -1787,6 +1850,13 @@ func (h *SpaceHandler) DeleteRecurringExpense(w http.ResponseWriter, r *http.Req
 	}
 
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Recurring expense deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) ToggleRecurringExpense(w http.ResponseWriter, r *http.Request) {
@@ -2002,6 +2072,13 @@ func (h *SpaceHandler) DeleteBudget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Budget deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
 }
 
 func (h *SpaceHandler) GetBudgetsList(w http.ResponseWriter, r *http.Request) {

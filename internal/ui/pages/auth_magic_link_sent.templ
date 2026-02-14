@@ -39,10 +39,9 @@ templ MagicLinkSent(email string) {
 						>
 							@csrf.Token()
 							<input type="hidden" name="email" value={ email }/>
-							@button.Button(button.Props{
+							@button.Submit(button.Props{
 								Variant:   button.VariantOutline,
 								FullWidth: true,
-								Type:      button.TypeSubmit,
 							}) {
 								Resend magic link
 							}
