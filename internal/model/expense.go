@@ -47,6 +47,6 @@ type ExpenseItem struct {
 type TagExpenseSummary struct {
 	TagID       string `db:"tag_id"`
 	TagName     string `db:"tag_name"`
-	TagColor    string `db:"tag_color"`
+	TagColor    *string `db:"tag_color"`
 	TotalAmount int    `db:"total_amount"`
 }

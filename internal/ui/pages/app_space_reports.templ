@@ -98,7 +98,7 @@ templ ReportCharts(spaceID string, report *model.SpendingReport, from, to time.T
 					for i, t := range report.ByTag {
 						tagLabels[i] = t.TagName
 						tagData[i] = float64(t.TotalAmount) / 100.0
-						tagColors[i] = chartColor(i, &t.TagColor)
+						tagColors[i] = chartColor(i, t.TagColor)
 					}
 				}}
 				@chart.Chart(chart.Props{
