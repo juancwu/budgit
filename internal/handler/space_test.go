@@ -22,6 +22,8 @@ func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
 	inviteRepo := repository.NewInvitationRepository(dbi.DB)
 	accountRepo := repository.NewMoneyAccountRepository(dbi.DB)
 	methodRepo := repository.NewPaymentMethodRepository(dbi.DB)
+	recurringRepo := repository.NewRecurringExpenseRepository(dbi.DB)
+	budgetRepo := repository.NewBudgetRepository(dbi.DB)
 	userRepo := repository.NewUserRepository(dbi.DB)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
 	return NewSpaceHandler(
@@ -32,6 +34,9 @@ func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
 		service.NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc),
 		service.NewMoneyAccountService(accountRepo),
 		service.NewPaymentMethodService(methodRepo),
+		service.NewRecurringExpenseService(recurringRepo, expenseRepo),
+		service.NewBudgetService(budgetRepo),
+		service.NewReportService(expenseRepo),
 	)
 }
 
