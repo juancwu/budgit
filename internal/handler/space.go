@@ -14,6 +14,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/moneyaccount"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/recurring"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/shoppinglist"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tag"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
@@ -21,24 +22,30 @@ import (
 )
 
 type SpaceHandler struct {
-	spaceService   *service.SpaceService
-	tagService     *service.TagService
-	listService    *service.ShoppingListService
-	expenseService *service.ExpenseService
-	inviteService  *service.InviteService
-	accountService *service.MoneyAccountService
-	methodService  *service.PaymentMethodService
+	spaceService     *service.SpaceService
+	tagService       *service.TagService
+	listService      *service.ShoppingListService
+	expenseService   *service.ExpenseService
+	inviteService    *service.InviteService
+	accountService   *service.MoneyAccountService
+	methodService    *service.PaymentMethodService
+	recurringService *service.RecurringExpenseService
+	budgetService    *service.BudgetService
+	reportService    *service.ReportService
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService, pms *service.PaymentMethodService) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService, pms *service.PaymentMethodService, rs *service.RecurringExpenseService, bs *service.BudgetService, rps *service.ReportService) *SpaceHandler {
 	return &SpaceHandler{
-		spaceService:   ss,
-		tagService:     ts,
-		listService:    sls,
-		expenseService: es,
-		inviteService:  is,
-		accountService: mas,
-		methodService:  pms,
+		spaceService:     ss,
+		tagService:       ts,
+		listService:      sls,
+		expenseService:   es,
+		inviteService:    is,
+		accountService:   mas,
+		methodService:    pms,
+		recurringService: rs,
+		budgetService:    bs,
+		reportService:    rps,
 	}
 }
 
@@ -1477,6 +1484,613 @@ func (h *SpaceHandler) DeletePaymentMethod(w http.ResponseWriter, r *http.Reques
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// --- Recurring Expenses ---
+
+func (h *SpaceHandler) getRecurringForSpace(w http.ResponseWriter, spaceID, recurringID string) *model.RecurringExpense {
+	re, err := h.recurringService.GetRecurringExpense(recurringID)
+	if err != nil {
+		http.Error(w, "Recurring expense not found", http.StatusNotFound)
+		return nil
+	}
+	if re.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return re
+}
+
+func (h *SpaceHandler) RecurringExpensesPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	// Lazy check: process any due recurrences for this space
+	h.recurringService.ProcessDueRecurrencesForSpace(spaceID, time.Now())
+
+	recs, err := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get recurring expenses", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	tags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	methods, err := h.methodService.GetMethodsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get payment methods", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceRecurringPage(space, recs, tags, methods))
+}
+
+func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	description := r.FormValue("description")
+	amountStr := r.FormValue("amount")
+	typeStr := r.FormValue("type")
+	frequencyStr := r.FormValue("frequency")
+	startDateStr := r.FormValue("start_date")
+	endDateStr := r.FormValue("end_date")
+	tagNames := r.Form["tags"]
+
+	if description == "" || amountStr == "" || typeStr == "" || frequencyStr == "" || startDateStr == "" {
+		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		http.Error(w, "Invalid amount format.", http.StatusBadRequest)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start date format.", http.StatusBadRequest)
+		return
+	}
+
+	var endDate *time.Time
+	if endDateStr != "" {
+		ed, err := time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			http.Error(w, "Invalid end date format.", http.StatusBadRequest)
+			return
+		}
+		endDate = &ed
+	}
+
+	expenseType := model.ExpenseType(typeStr)
+	if expenseType != model.ExpenseTypeExpense && expenseType != model.ExpenseTypeTopup {
+		http.Error(w, "Invalid transaction type.", http.StatusBadRequest)
+		return
+	}
+
+	frequency := model.Frequency(frequencyStr)
+
+	// Tag processing
+	existingTags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	existingTagsMap := make(map[string]string)
+	for _, t := range existingTags {
+		existingTagsMap[t.Name] = t.ID
+	}
+
+	var finalTagIDs []string
+	processedTags := make(map[string]bool)
+	for _, rawTagName := range tagNames {
+		tagName := service.NormalizeTagName(rawTagName)
+		if tagName == "" || processedTags[tagName] {
+			continue
+		}
+		if id, exists := existingTagsMap[tagName]; exists {
+			finalTagIDs = append(finalTagIDs, id)
+		} else {
+			newTag, err := h.tagService.CreateTag(spaceID, tagName, nil)
+			if err != nil {
+				slog.Error("failed to create tag", "error", err, "tag_name", tagName)
+				continue
+			}
+			finalTagIDs = append(finalTagIDs, newTag.ID)
+			existingTagsMap[tagName] = newTag.ID
+		}
+		processedTags[tagName] = true
+	}
+
+	var paymentMethodID *string
+	if pmid := r.FormValue("payment_method_id"); pmid != "" {
+		paymentMethodID = &pmid
+	}
+
+	re, err := h.recurringService.CreateRecurringExpense(service.CreateRecurringExpenseDTO{
+		SpaceID:         spaceID,
+		UserID:          user.ID,
+		Description:     description,
+		Amount:          amountCents,
+		Type:            expenseType,
+		PaymentMethodID: paymentMethodID,
+		Frequency:       frequency,
+		StartDate:       startDate,
+		EndDate:         endDate,
+		TagIDs:          finalTagIDs,
+	})
+	if err != nil {
+		slog.Error("failed to create recurring expense", "error", err)
+		http.Error(w, "Failed to create recurring expense.", http.StatusInternalServerError)
+		return
+	}
+
+	// Fetch tags/method for the response
+	tagsMap, _ := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
+	for _, item := range tagsMap {
+		if item.ID == re.ID {
+			ui.Render(w, r, recurring.RecurringItem(spaceID, item, nil))
+			return
+		}
+	}
+
+	// Fallback: render without tags
+	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *re}, nil))
+}
+
+func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	recurringID := r.PathValue("recurringID")
+
+	if h.getRecurringForSpace(w, spaceID, recurringID) == nil {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	description := r.FormValue("description")
+	amountStr := r.FormValue("amount")
+	typeStr := r.FormValue("type")
+	frequencyStr := r.FormValue("frequency")
+	startDateStr := r.FormValue("start_date")
+	endDateStr := r.FormValue("end_date")
+	tagNames := r.Form["tags"]
+
+	if description == "" || amountStr == "" || typeStr == "" || frequencyStr == "" || startDateStr == "" {
+		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		http.Error(w, "Invalid amount.", http.StatusBadRequest)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start date.", http.StatusBadRequest)
+		return
+	}
+
+	var endDate *time.Time
+	if endDateStr != "" {
+		ed, err := time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			http.Error(w, "Invalid end date.", http.StatusBadRequest)
+			return
+		}
+		endDate = &ed
+	}
+
+	// Tag processing
+	existingTags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	existingTagsMap := make(map[string]string)
+	for _, t := range existingTags {
+		existingTagsMap[t.Name] = t.ID
+	}
+	var finalTagIDs []string
+	processedTags := make(map[string]bool)
+	for _, rawTagName := range tagNames {
+		tagName := service.NormalizeTagName(rawTagName)
+		if tagName == "" || processedTags[tagName] {
+			continue
+		}
+		if id, exists := existingTagsMap[tagName]; exists {
+			finalTagIDs = append(finalTagIDs, id)
+		} else {
+			newTag, err := h.tagService.CreateTag(spaceID, tagName, nil)
+			if err != nil {
+				continue
+			}
+			finalTagIDs = append(finalTagIDs, newTag.ID)
+		}
+		processedTags[tagName] = true
+	}
+
+	var paymentMethodID *string
+	if pmid := r.FormValue("payment_method_id"); pmid != "" {
+		paymentMethodID = &pmid
+	}
+
+	updated, err := h.recurringService.UpdateRecurringExpense(service.UpdateRecurringExpenseDTO{
+		ID:              recurringID,
+		Description:     description,
+		Amount:          amountCents,
+		Type:            model.ExpenseType(typeStr),
+		PaymentMethodID: paymentMethodID,
+		Frequency:       model.Frequency(frequencyStr),
+		StartDate:       startDate,
+		EndDate:         endDate,
+		TagIDs:          finalTagIDs,
+	})
+	if err != nil {
+		slog.Error("failed to update recurring expense", "error", err)
+		http.Error(w, "Failed to update.", http.StatusInternalServerError)
+		return
+	}
+
+	// Build response with tags/method
+	tagsMapResult, _ := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
+	for _, item := range tagsMapResult {
+		if item.ID == updated.ID {
+			methods, _ := h.methodService.GetMethodsForSpace(spaceID)
+			ui.Render(w, r, recurring.RecurringItem(spaceID, item, methods))
+			return
+		}
+	}
+
+	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *updated}, nil))
+}
+
+func (h *SpaceHandler) DeleteRecurringExpense(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	recurringID := r.PathValue("recurringID")
+
+	if h.getRecurringForSpace(w, spaceID, recurringID) == nil {
+		return
+	}
+
+	if err := h.recurringService.DeleteRecurringExpense(recurringID); err != nil {
+		slog.Error("failed to delete recurring expense", "error", err, "recurring_id", recurringID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) ToggleRecurringExpense(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	recurringID := r.PathValue("recurringID")
+
+	if h.getRecurringForSpace(w, spaceID, recurringID) == nil {
+		return
+	}
+
+	updated, err := h.recurringService.ToggleRecurringExpense(recurringID)
+	if err != nil {
+		slog.Error("failed to toggle recurring expense", "error", err, "recurring_id", recurringID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	tagsMapResult, _ := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
+	for _, item := range tagsMapResult {
+		if item.ID == updated.ID {
+			methods, _ := h.methodService.GetMethodsForSpace(spaceID)
+			ui.Render(w, r, recurring.RecurringItem(spaceID, item, methods))
+			return
+		}
+	}
+
+	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *updated}, nil))
+}
+
+// --- Budgets ---
+
+func (h *SpaceHandler) getBudgetForSpace(w http.ResponseWriter, spaceID, budgetID string) *model.Budget {
+	budget, err := h.budgetService.GetBudget(budgetID)
+	if err != nil {
+		http.Error(w, "Budget not found", http.StatusNotFound)
+		return nil
+	}
+	if budget.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return budget
+}
+
+func (h *SpaceHandler) BudgetsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	tags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	budgets, err := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	if err != nil {
+		slog.Error("failed to get budgets", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceBudgetsPage(space, budgets, tags))
+}
+
+func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	tagID := r.FormValue("tag_id")
+	amountStr := r.FormValue("amount")
+	periodStr := r.FormValue("period")
+	startDateStr := r.FormValue("start_date")
+	endDateStr := r.FormValue("end_date")
+
+	if tagID == "" || amountStr == "" || periodStr == "" || startDateStr == "" {
+		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		http.Error(w, "Invalid amount.", http.StatusBadRequest)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start date.", http.StatusBadRequest)
+		return
+	}
+
+	var endDate *time.Time
+	if endDateStr != "" {
+		ed, err := time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			http.Error(w, "Invalid end date.", http.StatusBadRequest)
+			return
+		}
+		endDate = &ed
+	}
+
+	_, err = h.budgetService.CreateBudget(service.CreateBudgetDTO{
+		SpaceID:   spaceID,
+		TagID:     tagID,
+		Amount:    amountCents,
+		Period:    model.BudgetPeriod(periodStr),
+		StartDate: startDate,
+		EndDate:   endDate,
+		CreatedBy: user.ID,
+	})
+	if err != nil {
+		slog.Error("failed to create budget", "error", err)
+		http.Error(w, "Failed to create budget.", http.StatusInternalServerError)
+		return
+	}
+
+	// Refresh the full budgets list
+	tags, _ := h.tagService.GetTagsForSpace(spaceID)
+	budgets, _ := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	ui.Render(w, r, pages.BudgetsList(spaceID, budgets, tags))
+}
+
+func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	budgetID := r.PathValue("budgetID")
+
+	if h.getBudgetForSpace(w, spaceID, budgetID) == nil {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	tagID := r.FormValue("tag_id")
+	amountStr := r.FormValue("amount")
+	periodStr := r.FormValue("period")
+	startDateStr := r.FormValue("start_date")
+	endDateStr := r.FormValue("end_date")
+
+	if tagID == "" || amountStr == "" || periodStr == "" || startDateStr == "" {
+		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil {
+		http.Error(w, "Invalid amount.", http.StatusBadRequest)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		http.Error(w, "Invalid start date.", http.StatusBadRequest)
+		return
+	}
+
+	var endDate *time.Time
+	if endDateStr != "" {
+		ed, err := time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			http.Error(w, "Invalid end date.", http.StatusBadRequest)
+			return
+		}
+		endDate = &ed
+	}
+
+	_, err = h.budgetService.UpdateBudget(service.UpdateBudgetDTO{
+		ID:        budgetID,
+		TagID:     tagID,
+		Amount:    amountCents,
+		Period:    model.BudgetPeriod(periodStr),
+		StartDate: startDate,
+		EndDate:   endDate,
+	})
+	if err != nil {
+		slog.Error("failed to update budget", "error", err)
+		http.Error(w, "Failed to update budget.", http.StatusInternalServerError)
+		return
+	}
+
+	// Refresh the full budgets list
+	tags, _ := h.tagService.GetTagsForSpace(spaceID)
+	budgets, _ := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	ui.Render(w, r, pages.BudgetsList(spaceID, budgets, tags))
+}
+
+func (h *SpaceHandler) DeleteBudget(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	budgetID := r.PathValue("budgetID")
+
+	if h.getBudgetForSpace(w, spaceID, budgetID) == nil {
+		return
+	}
+
+	if err := h.budgetService.DeleteBudget(budgetID); err != nil {
+		slog.Error("failed to delete budget", "error", err, "budget_id", budgetID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *SpaceHandler) GetBudgetsList(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	tags, _ := h.tagService.GetTagsForSpace(spaceID)
+	budgets, err := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	if err != nil {
+		slog.Error("failed to get budgets", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.BudgetsList(spaceID, budgets, tags))
+}
+
+// --- Reports ---
+
+func (h *SpaceHandler) ReportsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	// Default to this month
+	now := time.Now()
+	presets := service.GetPresetDateRanges(now)
+	from := presets[0].From
+	to := presets[0].To
+
+	report, err := h.reportService.GetSpendingReport(spaceID, from, to)
+	if err != nil {
+		slog.Error("failed to get spending report", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceReportsPage(space, report, presets, "this_month"))
+}
+
+func (h *SpaceHandler) GetReportCharts(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	rangeKey := r.URL.Query().Get("range")
+	now := time.Now()
+	presets := service.GetPresetDateRanges(now)
+
+	var from, to time.Time
+	activeRange := "this_month"
+
+	if rangeKey == "custom" {
+		fromStr := r.URL.Query().Get("from")
+		toStr := r.URL.Query().Get("to")
+		var err error
+		from, err = time.Parse("2006-01-02", fromStr)
+		if err != nil {
+			from = presets[0].From
+		}
+		to, err = time.Parse("2006-01-02", toStr)
+		if err != nil {
+			to = presets[0].To
+		}
+		activeRange = "custom"
+	} else {
+		for _, p := range presets {
+			if p.Key == rangeKey {
+				from = p.From
+				to = p.To
+				activeRange = p.Key
+				break
+			}
+		}
+		if from.IsZero() {
+			from = presets[0].From
+			to = presets[0].To
+		}
+	}
+
+	report, err := h.reportService.GetSpendingReport(spaceID, from, to)
+	if err != nil {
+		slog.Error("failed to get report charts", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	_ = activeRange
+	ui.Render(w, r, pages.ReportCharts(spaceID, report, from, to))
 }
 
 func (h *SpaceHandler) buildListCards(spaceID string) ([]model.ListCardData, error) {

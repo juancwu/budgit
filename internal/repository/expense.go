@@ -24,6 +24,11 @@ type ExpenseRepository interface {
 	GetPaymentMethodsByExpenseIDs(expenseIDs []string) (map[string]*model.PaymentMethod, error)
 	Update(expense *model.Expense, tagIDs []string) error
 	Delete(id string) error
+	// Report queries
+	GetDailySpending(spaceID string, from, to time.Time) ([]*model.DailySpending, error)
+	GetMonthlySpending(spaceID string, from, to time.Time) ([]*model.MonthlySpending, error)
+	GetTopExpenses(spaceID string, from, to time.Time, limit int) ([]*model.Expense, error)
+	GetIncomeVsExpenseSummary(spaceID string, from, to time.Time) (int, int, error)
 }
 
 type expenseRepository struct {
@@ -42,9 +47,9 @@ func (r *expenseRepository) Create(expense *model.Expense, tagIDs []string, item
 	defer tx.Rollback()
 
 	// Insert Expense
-	queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
-	_, err = tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.CreatedAt, expense.UpdatedAt)
+	queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, recurring_expense_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`
+	_, err = tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.RecurringExpenseID, expense.CreatedAt, expense.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -251,4 +256,70 @@ func (r *expenseRepository) Update(expense *model.Expense, tagIDs []string) erro
 func (r *expenseRepository) Delete(id string) error {
 	_, err := r.db.Exec(`DELETE FROM expenses WHERE id = $1;`, id)
 	return err
+}
+
+func (r *expenseRepository) GetDailySpending(spaceID string, from, to time.Time) ([]*model.DailySpending, error) {
+	var results []*model.DailySpending
+	query := `
+		SELECT date, SUM(amount_cents) as total_cents
+		FROM expenses
+		WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
+		GROUP BY date
+		ORDER BY date ASC;
+	`
+	err := r.db.Select(&results, query, spaceID, from, to)
+	return results, err
+}
+
+func (r *expenseRepository) GetMonthlySpending(spaceID string, from, to time.Time) ([]*model.MonthlySpending, error) {
+	var results []*model.MonthlySpending
+	query := `
+		SELECT TO_CHAR(date, 'YYYY-MM') as month, SUM(amount_cents) as total_cents
+		FROM expenses
+		WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
+		GROUP BY TO_CHAR(date, 'YYYY-MM')
+		ORDER BY month ASC;
+	`
+	err := r.db.Select(&results, query, spaceID, from, to)
+	return results, err
+}
+
+func (r *expenseRepository) GetTopExpenses(spaceID string, from, to time.Time, limit int) ([]*model.Expense, error) {
+	var results []*model.Expense
+	query := `
+		SELECT * FROM expenses
+		WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
+		ORDER BY amount_cents DESC
+		LIMIT $4;
+	`
+	err := r.db.Select(&results, query, spaceID, from, to, limit)
+	return results, err
+}
+
+func (r *expenseRepository) GetIncomeVsExpenseSummary(spaceID string, from, to time.Time) (int, int, error) {
+	type summary struct {
+		Type  string `db:"type"`
+		Total int    `db:"total"`
+	}
+	var results []summary
+	query := `
+		SELECT type, COALESCE(SUM(amount_cents), 0) as total
+		FROM expenses
+		WHERE space_id = $1 AND date >= $2 AND date <= $3
+		GROUP BY type;
+	`
+	err := r.db.Select(&results, query, spaceID, from, to)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	var income, expenses int
+	for _, r := range results {
+		if r.Type == "topup" {
+			income = r.Total
+		} else if r.Type == "expense" {
+			expenses = r.Total
+		}
+	}
+	return income, expenses, nil
 }

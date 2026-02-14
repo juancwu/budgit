@@ -1,0 +1,200 @@
+package pages
+
+import (
+	"fmt"
+	"time"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/service"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/chart"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+var defaultChartColors = []string{
+	"#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6",
+	"#ec4899", "#06b6d4", "#f97316", "#14b8a6", "#6366f1",
+}
+
+func chartColor(i int, tagColor *string) string {
+	if tagColor != nil && *tagColor != "" {
+		return *tagColor
+	}
+	return defaultChartColors[i%len(defaultChartColors)]
+}
+
+templ SpaceReportsPage(space *model.Space, report *model.SpendingReport, presets []service.DateRange, activeRange string) {
+	@layouts.Space("Reports", space) {
+		@chart.Script()
+		<div class="space-y-4">
+			<h1 class="text-2xl font-bold">Reports</h1>
+			// Date range selector
+			<div class="flex flex-wrap gap-2 items-center">
+				for _, p := range presets {
+					if p.Key == activeRange {
+						@button.Button(button.Props{
+							Size: button.SizeSm,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/app/spaces/%s/components/report-charts?range=%s", space.ID, p.Key),
+								"hx-target": "#report-content",
+								"hx-swap":   "innerHTML",
+							},
+						}) {
+							{ p.Label }
+						}
+					} else {
+						@button.Button(button.Props{
+							Variant: button.VariantOutline,
+							Size:    button.SizeSm,
+							Attributes: templ.Attributes{
+								"hx-get":    fmt.Sprintf("/app/spaces/%s/components/report-charts?range=%s", space.ID, p.Key),
+								"hx-target": "#report-content",
+								"hx-swap":   "innerHTML",
+							},
+						}) {
+							{ p.Label }
+						}
+					}
+				}
+			</div>
+			<div id="report-content">
+				@ReportCharts(space.ID, report, presets[0].From, presets[0].To)
+			</div>
+		</div>
+	}
+}
+
+templ ReportCharts(spaceID string, report *model.SpendingReport, from, to time.Time) {
+	<div class="grid gap-4 md:grid-cols-2 overflow-hidden">
+		// Income vs Expenses Summary
+		<div class="border rounded-lg p-4 bg-card text-card-foreground space-y-2 min-w-0">
+			<h3 class="font-semibold">Income vs Expenses</h3>
+			<div class="space-y-1">
+				<div class="flex justify-between">
+					<span class="text-green-500 font-medium">Income</span>
+					<span class="font-bold text-green-500">{ fmt.Sprintf("$%.2f", float64(report.TotalIncome)/100.0) }</span>
+				</div>
+				<div class="flex justify-between">
+					<span class="text-destructive font-medium">Expenses</span>
+					<span class="font-bold text-destructive">{ fmt.Sprintf("$%.2f", float64(report.TotalExpenses)/100.0) }</span>
+				</div>
+				<hr class="border-border"/>
+				<div class="flex justify-between">
+					<span class="font-medium">Net</span>
+					<span class={ "font-bold", templ.KV("text-green-500", report.NetBalance >= 0), templ.KV("text-destructive", report.NetBalance < 0) }>
+						{ fmt.Sprintf("$%.2f", float64(report.NetBalance)/100.0) }
+					</span>
+				</div>
+			</div>
+		</div>
+		// Spending by Tag (Doughnut chart)
+		if len(report.ByTag) > 0 {
+			<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0 overflow-hidden">
+				<h3 class="font-semibold mb-2">Spending by Category</h3>
+				{{
+					tagLabels := make([]string, len(report.ByTag))
+					tagData := make([]float64, len(report.ByTag))
+					tagColors := make([]string, len(report.ByTag))
+					for i, t := range report.ByTag {
+						tagLabels[i] = t.TagName
+						tagData[i] = float64(t.TotalAmount) / 100.0
+						tagColors[i] = chartColor(i, &t.TagColor)
+					}
+				}}
+				@chart.Chart(chart.Props{
+					Variant:    chart.VariantDoughnut,
+					ShowLegend: true,
+					Data: chart.Data{
+						Labels: tagLabels,
+						Datasets: []chart.Dataset{
+							{
+								Label:           "Spending",
+								Data:            tagData,
+								BackgroundColor: tagColors,
+							},
+						},
+					},
+				})
+			</div>
+		} else {
+			<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0">
+				<h3 class="font-semibold mb-2">Spending by Category</h3>
+				<p class="text-sm text-muted-foreground">No tagged expenses in this period.</p>
+			</div>
+		}
+		// Spending Over Time (Bar chart)
+		if len(report.DailySpending) > 0 || len(report.MonthlySpending) > 0 {
+			<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0 overflow-hidden">
+				<h3 class="font-semibold mb-2">Spending Over Time</h3>
+				{{
+					days := to.Sub(from).Hours() / 24
+					var timeLabels []string
+					var timeData []float64
+					if days <= 31 {
+						for _, d := range report.DailySpending {
+							timeLabels = append(timeLabels, d.Date.Format("Jan 02"))
+							timeData = append(timeData, float64(d.TotalCents)/100.0)
+						}
+					} else {
+						for _, m := range report.MonthlySpending {
+							timeLabels = append(timeLabels, m.Month)
+							timeData = append(timeData, float64(m.TotalCents)/100.0)
+						}
+					}
+				}}
+				@chart.Chart(chart.Props{
+					Variant:     chart.VariantBar,
+					ShowYAxis:   true,
+					ShowXAxis:   true,
+					ShowXLabels: true,
+					ShowYLabels: true,
+					Data: chart.Data{
+						Labels: timeLabels,
+						Datasets: []chart.Dataset{
+							{
+								Label:           "Spending",
+								Data:            timeData,
+								BackgroundColor: "#3b82f6",
+							},
+						},
+					},
+				})
+			</div>
+		} else {
+			<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0">
+				<h3 class="font-semibold mb-2">Spending Over Time</h3>
+				<p class="text-sm text-muted-foreground">No expenses in this period.</p>
+			</div>
+		}
+		// Top 10 Expenses
+		<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0 overflow-hidden">
+			<h3 class="font-semibold mb-2">Top Expenses</h3>
+			if len(report.TopExpenses) == 0 {
+				<p class="text-sm text-muted-foreground">No expenses in this period.</p>
+			} else {
+				<div class="divide-y">
+					for _, exp := range report.TopExpenses {
+						<div class="py-2 flex justify-between items-start gap-2">
+							<div class="min-w-0 flex-1">
+								<p class="font-medium text-sm truncate">{ exp.Description }</p>
+								<p class="text-xs text-muted-foreground">{ exp.Date.Format("Jan 02, 2006") }</p>
+								if len(exp.Tags) > 0 {
+									<div class="flex flex-wrap gap-1 mt-0.5">
+										for _, t := range exp.Tags {
+											@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+												{ t.Name }
+											}
+										}
+									</div>
+								}
+							</div>
+							<p class="font-bold text-destructive text-sm shrink-0">
+								{ fmt.Sprintf("$%.2f", float64(exp.AmountCents)/100.0) }
+							</p>
+						</div>
+					}
+				</div>
+			}
+		</div>
+	</div>
+}

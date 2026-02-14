@@ -1,0 +1,382 @@
+package pages
+
+import (
+	"fmt"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+func periodLabel(p model.BudgetPeriod) string {
+	switch p {
+	case model.BudgetPeriodWeekly:
+		return "Weekly"
+	case model.BudgetPeriodYearly:
+		return "Yearly"
+	default:
+		return "Monthly"
+	}
+}
+
+func progressBarColor(status model.BudgetStatus) string {
+	switch status {
+	case model.BudgetStatusOver:
+		return "bg-destructive"
+	case model.BudgetStatusWarning:
+		return "bg-yellow-500"
+	default:
+		return "bg-green-500"
+	}
+}
+
+templ SpaceBudgetsPage(space *model.Space, budgets []*model.BudgetWithSpent, tags []*model.Tag) {
+	@layouts.Space("Budgets", space) {
+		<div class="space-y-4">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold">Budgets</h1>
+				@dialog.Dialog(dialog.Props{ID: "add-budget-dialog"}) {
+					@dialog.Trigger() {
+						@button.Button() {
+							Add Budget
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Add Budget
+							}
+							@dialog.Description() {
+								Set a spending limit for a tag category.
+							}
+						}
+						@AddBudgetForm(space.ID, tags)
+					}
+				}
+			</div>
+			<div id="budgets-list-wrapper">
+				@BudgetsList(space.ID, budgets, tags)
+			</div>
+		</div>
+	}
+}
+
+templ BudgetsList(spaceID string, budgets []*model.BudgetWithSpent, tags []*model.Tag) {
+	<div id="budgets-list" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+		if len(budgets) == 0 {
+			<p class="text-sm text-muted-foreground col-span-full">No budgets set up yet.</p>
+		}
+		for _, b := range budgets {
+			@BudgetCard(spaceID, b, tags)
+		}
+	</div>
+}
+
+templ BudgetCard(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag) {
+	{{ editDialogID := "edit-budget-" + b.ID }}
+	{{ delDialogID := "del-budget-" + b.ID }}
+	{{ pct := b.Percentage }}
+	if pct > 100 {
+		{{ pct = 100 }}
+	}
+	<div id={ "budget-" + b.ID } class="border rounded-lg p-4 bg-card text-card-foreground space-y-3">
+		<div class="flex justify-between items-start">
+			<div>
+				<div class="flex items-center gap-2">
+					if b.TagColor != nil {
+						<span class="inline-block w-3 h-3 rounded-full" style={ "background-color: " + *b.TagColor }></span>
+					}
+					<h3 class="font-semibold">{ b.TagName }</h3>
+				</div>
+				<p class="text-xs text-muted-foreground">{ periodLabel(b.Period) } budget</p>
+			</div>
+			<div class="flex gap-1">
+				@dialog.Dialog(dialog.Props{ID: editDialogID}) {
+					@dialog.Trigger() {
+						@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+							@icon.Pencil(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Edit Budget
+							}
+							@dialog.Description() {
+								Update this budget's settings.
+							}
+						}
+						@EditBudgetForm(spaceID, b, tags)
+					}
+				}
+				@dialog.Dialog(dialog.Props{ID: delDialogID}) {
+					@dialog.Trigger() {
+						@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+							@icon.Trash2(icon.Props{Size: 14})
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete Budget
+							}
+							@dialog.Description() {
+								Are you sure you want to delete the budget for "{ b.TagName }"?
+							}
+						}
+						@dialog.Footer() {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							@button.Button(button.Props{
+								Variant: button.VariantDestructive,
+								Attributes: templ.Attributes{
+									"hx-delete": fmt.Sprintf("/app/spaces/%s/budgets/%s", spaceID, b.ID),
+									"hx-target": "#budget-" + b.ID,
+									"hx-swap":   "outerHTML",
+								},
+							}) {
+								Delete
+							}
+						}
+					}
+				}
+			</div>
+		</div>
+		// Progress bar
+		<div class="space-y-1">
+			<div class="flex justify-between text-sm">
+				<span>{ fmt.Sprintf("$%.2f", float64(b.SpentCents)/100.0) } spent</span>
+				<span>of { fmt.Sprintf("$%.2f", float64(b.AmountCents)/100.0) }</span>
+			</div>
+			<div class="w-full bg-muted rounded-full h-2.5">
+				<div class={ "h-2.5 rounded-full transition-all", progressBarColor(b.Status) } style={ fmt.Sprintf("width: %.1f%%", pct) }></div>
+			</div>
+			if b.Status == model.BudgetStatusOver {
+				<p class="text-xs text-destructive font-medium">Over budget by { fmt.Sprintf("$%.2f", float64(b.SpentCents-b.AmountCents)/100.0) }</p>
+			}
+		</div>
+	</div>
+}
+
+templ AddBudgetForm(spaceID string, tags []*model.Tag) {
+	<form
+		hx-post={ "/app/spaces/" + spaceID + "/budgets" }
+		hx-target="#budgets-list-wrapper"
+		hx-swap="innerHTML"
+		_="on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('add-budget-dialog') then reset() me end"
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Tag selector
+		<div>
+			@label.Label(label.Props{For: "budget-tag"}) {
+				Tag
+			}
+			<select name="tag_id" id="budget-tag" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
+				<option value="" disabled selected>Select a tag...</option>
+				for _, t := range tags {
+					<option value={ t.ID }>{ t.Name }</option>
+				}
+			</select>
+		</div>
+		// Amount
+		<div>
+			@label.Label(label.Props{For: "budget-amount"}) {
+				Budget Amount
+			}
+			@input.Input(input.Props{
+				Name:       "amount",
+				ID:         "budget-amount",
+				Type:       "number",
+				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
+			})
+		</div>
+		// Period
+		<div>
+			@label.Label(label.Props{}) {
+				Period
+			}
+			<div class="flex gap-4">
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:      "budget-period-monthly",
+						Name:    "period",
+						Value:   "monthly",
+						Checked: true,
+					})
+					@label.Label(label.Props{For: "budget-period-monthly"}) {
+						Monthly
+					}
+				</div>
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:    "budget-period-weekly",
+						Name:  "period",
+						Value: "weekly",
+					})
+					@label.Label(label.Props{For: "budget-period-weekly"}) {
+						Weekly
+					}
+				</div>
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:    "budget-period-yearly",
+						Name:  "period",
+						Value: "yearly",
+					})
+					@label.Label(label.Props{For: "budget-period-yearly"}) {
+						Yearly
+					}
+				</div>
+			</div>
+		</div>
+		// Start Date
+		<div>
+			@label.Label(label.Props{For: "budget-start-date"}) {
+				Start Date
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:         "budget-start-date",
+				Name:       "start_date",
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// End Date (optional)
+		<div>
+			@label.Label(label.Props{For: "budget-end-date"}) {
+				End Date (optional)
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:   "budget-end-date",
+				Name: "end_date",
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}
+
+templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag) {
+	{{ editDialogID := "edit-budget-" + b.ID }}
+	<form
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/budgets/%s", spaceID, b.ID) }
+		hx-target="#budgets-list-wrapper"
+		hx-swap="innerHTML"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + editDialogID + "') end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Tag selector
+		<div>
+			@label.Label(label.Props{For: "edit-budget-tag-" + b.ID}) {
+				Tag
+			}
+			<select name="tag_id" id={ "edit-budget-tag-" + b.ID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
+				for _, t := range tags {
+					<option value={ t.ID } selected?={ t.ID == b.TagID }>{ t.Name }</option>
+				}
+			</select>
+		</div>
+		// Amount
+		<div>
+			@label.Label(label.Props{For: "edit-budget-amount-" + b.ID}) {
+				Budget Amount
+			}
+			@input.Input(input.Props{
+				Name:       "amount",
+				ID:         "edit-budget-amount-" + b.ID,
+				Type:       "number",
+				Value:      fmt.Sprintf("%.2f", float64(b.AmountCents)/100.0),
+				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
+			})
+		</div>
+		// Period
+		<div>
+			@label.Label(label.Props{}) {
+				Period
+			}
+			<div class="flex gap-4">
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:      "edit-budget-period-monthly-" + b.ID,
+						Name:    "period",
+						Value:   "monthly",
+						Checked: b.Period == model.BudgetPeriodMonthly,
+					})
+					@label.Label(label.Props{For: "edit-budget-period-monthly-" + b.ID}) {
+						Monthly
+					}
+				</div>
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:      "edit-budget-period-weekly-" + b.ID,
+						Name:    "period",
+						Value:   "weekly",
+						Checked: b.Period == model.BudgetPeriodWeekly,
+					})
+					@label.Label(label.Props{For: "edit-budget-period-weekly-" + b.ID}) {
+						Weekly
+					}
+				</div>
+				<div class="flex items-center gap-2">
+					@radio.Radio(radio.Props{
+						ID:      "edit-budget-period-yearly-" + b.ID,
+						Name:    "period",
+						Value:   "yearly",
+						Checked: b.Period == model.BudgetPeriodYearly,
+					})
+					@label.Label(label.Props{For: "edit-budget-period-yearly-" + b.ID}) {
+						Yearly
+					}
+				</div>
+			</div>
+		</div>
+		// Start Date
+		<div>
+			@label.Label(label.Props{For: "edit-budget-start-" + b.ID}) {
+				Start Date
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:         "edit-budget-start-" + b.ID,
+				Name:       "start_date",
+				Value:      b.StartDate,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// End Date
+		<div>
+			@label.Label(label.Props{For: "edit-budget-end-" + b.ID}) {
+				End Date (optional)
+			}
+			if b.EndDate != nil {
+				@datepicker.DatePicker(datepicker.Props{
+					ID:    "edit-budget-end-" + b.ID,
+					Name:  "end_date",
+					Value: *b.EndDate,
+				})
+			} else {
+				@datepicker.DatePicker(datepicker.Props{
+					ID:   "edit-budget-end-" + b.ID,
+					Name: "end_date",
+				})
+			}
+		</div>
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}

@@ -15,7 +15,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	home := handler.NewHomeHandler()
 	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.BudgetService, a.ReportService)
 
 	mux := http.NewServeMux()
 
@@ -167,6 +167,57 @@ func SetupRoutes(a *app.App) http.Handler {
 	deleteMethodHandler := middleware.RequireAuth(space.DeletePaymentMethod)
 	deleteMethodWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteMethodHandler)
 	mux.Handle("DELETE /app/spaces/{spaceID}/payment-methods/{methodID}", deleteMethodWithAccess)
+
+	// Recurring expense routes
+	recurringPageHandler := middleware.RequireAuth(space.RecurringExpensesPage)
+	recurringPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(recurringPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/recurring", recurringPageWithAccess)
+
+	createRecurringHandler := middleware.RequireAuth(space.CreateRecurringExpense)
+	createRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createRecurringHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/recurring", createRecurringWithAccess)
+
+	updateRecurringHandler := middleware.RequireAuth(space.UpdateRecurringExpense)
+	updateRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateRecurringHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/recurring/{recurringID}", updateRecurringWithAccess)
+
+	deleteRecurringHandler := middleware.RequireAuth(space.DeleteRecurringExpense)
+	deleteRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteRecurringHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/recurring/{recurringID}", deleteRecurringWithAccess)
+
+	toggleRecurringHandler := middleware.RequireAuth(space.ToggleRecurringExpense)
+	toggleRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(toggleRecurringHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/recurring/{recurringID}/toggle", toggleRecurringWithAccess)
+
+	// Budget routes
+	budgetsPageHandler := middleware.RequireAuth(space.BudgetsPage)
+	budgetsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(budgetsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/budgets", budgetsPageWithAccess)
+
+	createBudgetHandler := middleware.RequireAuth(space.CreateBudget)
+	createBudgetWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createBudgetHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/budgets", createBudgetWithAccess)
+
+	updateBudgetHandler := middleware.RequireAuth(space.UpdateBudget)
+	updateBudgetWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateBudgetHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/budgets/{budgetID}", updateBudgetWithAccess)
+
+	deleteBudgetHandler := middleware.RequireAuth(space.DeleteBudget)
+	deleteBudgetWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteBudgetHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/budgets/{budgetID}", deleteBudgetWithAccess)
+
+	budgetsListHandler := middleware.RequireAuth(space.GetBudgetsList)
+	budgetsListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(budgetsListHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/components/budgets", budgetsListWithAccess)
+
+	// Report routes
+	reportsPageHandler := middleware.RequireAuth(space.ReportsPage)
+	reportsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(reportsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/reports", reportsPageWithAccess)
+
+	reportChartsHandler := middleware.RequireAuth(space.GetReportCharts)
+	reportChartsWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(reportChartsHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/components/report-charts", reportChartsWithAccess)
 
 	// Component routes (HTMX updates)
 	balanceCardHandler := middleware.RequireAuth(space.GetBalanceCard)

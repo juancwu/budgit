@@ -1,0 +1,409 @@
+package recurring
+
+import (
+	"fmt"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
+)
+
+func frequencyLabel(f model.Frequency) string {
+	switch f {
+	case model.FrequencyDaily:
+		return "Daily"
+	case model.FrequencyWeekly:
+		return "Weekly"
+	case model.FrequencyBiweekly:
+		return "Biweekly"
+	case model.FrequencyMonthly:
+		return "Monthly"
+	case model.FrequencyYearly:
+		return "Yearly"
+	default:
+		return string(f)
+	}
+}
+
+templ RecurringItem(spaceID string, re *model.RecurringExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
+	{{ editDialogID := "edit-recurring-" + re.ID }}
+	{{ delDialogID := "del-recurring-" + re.ID }}
+	<div id={ "recurring-" + re.ID } class="p-4 flex justify-between items-start gap-2">
+		<div class="min-w-0 flex-1">
+			<div class="flex items-center gap-2">
+				<p class="font-medium">{ re.Description }</p>
+				if !re.IsActive {
+					@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+						Paused
+					}
+				}
+			</div>
+			<div class="flex items-center gap-2 text-sm text-muted-foreground">
+				@badge.Badge(badge.Props{Variant: badge.VariantOutline}) {
+					{ frequencyLabel(re.Frequency) }
+				}
+				<span>Next: { re.NextOccurrence.Format("Jan 02, 2006") }</span>
+				if re.PaymentMethod != nil {
+					if re.PaymentMethod.LastFour != nil {
+						<span>&middot; { re.PaymentMethod.Name } (*{ *re.PaymentMethod.LastFour })</span>
+					} else {
+						<span>&middot; { re.PaymentMethod.Name }</span>
+					}
+				}
+			</div>
+			if len(re.Tags) > 0 {
+				<div class="flex flex-wrap gap-1 mt-1">
+					for _, t := range re.Tags {
+						@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+							{ t.Name }
+						}
+					}
+				</div>
+			}
+		</div>
+		<div class="flex items-center gap-1 shrink-0">
+			if re.Type == model.ExpenseTypeExpense {
+				<p class="font-bold text-destructive">
+					- { fmt.Sprintf("$%.2f", float64(re.AmountCents)/100.0) }
+				</p>
+			} else {
+				<p class="font-bold text-green-500">
+					+ { fmt.Sprintf("$%.2f", float64(re.AmountCents)/100.0) }
+				</p>
+			}
+			// Toggle pause/resume
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeIcon,
+				Class:   "size-7",
+				Attributes: templ.Attributes{
+					"hx-post":   fmt.Sprintf("/app/spaces/%s/recurring/%s/toggle", spaceID, re.ID),
+					"hx-target": "#recurring-" + re.ID,
+					"hx-swap":   "outerHTML",
+				},
+			}) {
+				if re.IsActive {
+					@icon.Pause(icon.Props{Size: 14})
+				} else {
+					@icon.Play(icon.Props{Size: 14})
+				}
+			}
+			// Edit button
+			@dialog.Dialog(dialog.Props{ID: editDialogID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+						@icon.Pencil(icon.Props{Size: 14})
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Edit Recurring Transaction
+						}
+						@dialog.Description() {
+							Update the details of this recurring transaction.
+						}
+					}
+					@EditRecurringForm(spaceID, re, methods)
+				}
+			}
+			// Delete button
+			@dialog.Dialog(dialog.Props{ID: delDialogID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+						@icon.Trash2(icon.Props{Size: 14})
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Delete Recurring Transaction
+						}
+						@dialog.Description() {
+							Are you sure you want to delete "{ re.Description }"? This will not remove previously generated expenses.
+						}
+					}
+					@dialog.Footer() {
+						@dialog.Close() {
+							@button.Button(button.Props{Variant: button.VariantOutline}) {
+								Cancel
+							}
+						}
+						@button.Button(button.Props{
+							Variant: button.VariantDestructive,
+							Attributes: templ.Attributes{
+								"hx-delete": fmt.Sprintf("/app/spaces/%s/recurring/%s", spaceID, re.ID),
+								"hx-target": "#recurring-" + re.ID,
+								"hx-swap":   "outerHTML",
+							},
+						}) {
+							Delete
+						}
+					}
+				}
+			}
+		</div>
+	</div>
+}
+
+templ AddRecurringForm(spaceID string, tags []*model.Tag, methods []*model.PaymentMethod, dialogID string) {
+	<form
+		hx-post={ "/app/spaces/" + spaceID + "/recurring" }
+		hx-target="#recurring-list"
+		hx-swap="beforeend"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + dialogID + "') then reset() me end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Type
+		<div class="flex gap-4">
+			<div class="flex items-start gap-3">
+				@radio.Radio(radio.Props{
+					ID:      "recurring-type-expense",
+					Name:    "type",
+					Value:   "expense",
+					Checked: true,
+				})
+				<div class="grid gap-2">
+					@label.Label(label.Props{For: "recurring-type-expense"}) {
+						Expense
+					}
+				</div>
+			</div>
+			<div class="flex items-start gap-3">
+				@radio.Radio(radio.Props{
+					ID:    "recurring-type-topup",
+					Name:  "type",
+					Value: "topup",
+				})
+				<div class="grid gap-2">
+					@label.Label(label.Props{For: "recurring-type-topup"}) {
+						Top-up
+					}
+				</div>
+			</div>
+		</div>
+		// Description
+		<div>
+			@label.Label(label.Props{For: "recurring-description"}) {
+				Description
+			}
+			@input.Input(input.Props{
+				Name:       "description",
+				ID:         "recurring-description",
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// Amount
+		<div>
+			@label.Label(label.Props{For: "recurring-amount"}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				Name:       "amount",
+				ID:         "recurring-amount",
+				Type:       "number",
+				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
+			})
+		</div>
+		// Frequency
+		<div>
+			@label.Label(label.Props{For: "recurring-frequency"}) {
+				Frequency
+			}
+			<select name="frequency" id="recurring-frequency" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
+				<option value="daily">Daily</option>
+				<option value="weekly">Weekly</option>
+				<option value="biweekly">Biweekly</option>
+				<option value="monthly" selected>Monthly</option>
+				<option value="yearly">Yearly</option>
+			</select>
+		</div>
+		// Start Date
+		<div>
+			@label.Label(label.Props{For: "recurring-start-date"}) {
+				Start Date
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:         "recurring-start-date",
+				Name:       "start_date",
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// End Date (optional)
+		<div>
+			@label.Label(label.Props{For: "recurring-end-date"}) {
+				End Date (optional)
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:   "recurring-end-date",
+				Name: "end_date",
+			})
+		</div>
+		// Tags
+		<div>
+			@label.Label(label.Props{For: "recurring-tags"}) {
+				Tags
+			}
+			<datalist id="recurring-available-tags">
+				for _, t := range tags {
+					<option value={ t.Name }></option>
+				}
+			</datalist>
+			@tagsinput.TagsInput(tagsinput.Props{
+				ID:          "recurring-tags",
+				Name:        "tags",
+				Placeholder: "Add tags (press enter)",
+				Attributes:  templ.Attributes{"list": "recurring-available-tags"},
+			})
+		</div>
+		// Payment Method
+		@paymentmethod.MethodSelector(methods, nil)
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}
+
+templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
+	{{ editDialogID := "edit-recurring-" + re.ID }}
+	{{ tagValues := make([]string, len(re.Tags)) }}
+	for i, t := range re.Tags {
+		{{ tagValues[i] = t.Name }}
+	}
+	<form
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/recurring/%s", spaceID, re.ID) }
+		hx-target={ "#recurring-" + re.ID }
+		hx-swap="outerHTML"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + editDialogID + "') end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Type
+		<div class="flex gap-4">
+			<div class="flex items-start gap-3">
+				@radio.Radio(radio.Props{
+					ID:      "edit-recurring-type-expense-" + re.ID,
+					Name:    "type",
+					Value:   "expense",
+					Checked: re.Type == model.ExpenseTypeExpense,
+				})
+				<div class="grid gap-2">
+					@label.Label(label.Props{For: "edit-recurring-type-expense-" + re.ID}) {
+						Expense
+					}
+				</div>
+			</div>
+			<div class="flex items-start gap-3">
+				@radio.Radio(radio.Props{
+					ID:      "edit-recurring-type-topup-" + re.ID,
+					Name:    "type",
+					Value:   "topup",
+					Checked: re.Type == model.ExpenseTypeTopup,
+				})
+				<div class="grid gap-2">
+					@label.Label(label.Props{For: "edit-recurring-type-topup-" + re.ID}) {
+						Top-up
+					}
+				</div>
+			</div>
+		</div>
+		// Description
+		<div>
+			@label.Label(label.Props{For: "edit-recurring-desc-" + re.ID}) {
+				Description
+			}
+			@input.Input(input.Props{
+				Name:       "description",
+				ID:         "edit-recurring-desc-" + re.ID,
+				Value:      re.Description,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// Amount
+		<div>
+			@label.Label(label.Props{For: "edit-recurring-amount-" + re.ID}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				Name:       "amount",
+				ID:         "edit-recurring-amount-" + re.ID,
+				Type:       "number",
+				Value:      fmt.Sprintf("%.2f", float64(re.AmountCents)/100.0),
+				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
+			})
+		</div>
+		// Frequency
+		<div>
+			@label.Label(label.Props{For: "edit-recurring-freq-" + re.ID}) {
+				Frequency
+			}
+			<select name="frequency" id={ "edit-recurring-freq-" + re.ID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
+				<option value="daily" selected?={ re.Frequency == model.FrequencyDaily }>Daily</option>
+				<option value="weekly" selected?={ re.Frequency == model.FrequencyWeekly }>Weekly</option>
+				<option value="biweekly" selected?={ re.Frequency == model.FrequencyBiweekly }>Biweekly</option>
+				<option value="monthly" selected?={ re.Frequency == model.FrequencyMonthly }>Monthly</option>
+				<option value="yearly" selected?={ re.Frequency == model.FrequencyYearly }>Yearly</option>
+			</select>
+		</div>
+		// Start Date
+		<div>
+			@label.Label(label.Props{For: "edit-recurring-start-" + re.ID}) {
+				Start Date
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:         "edit-recurring-start-" + re.ID,
+				Name:       "start_date",
+				Value:      re.StartDate,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// End Date (optional)
+		<div>
+			@label.Label(label.Props{For: "edit-recurring-end-" + re.ID}) {
+				End Date (optional)
+			}
+			if re.EndDate != nil {
+				@datepicker.DatePicker(datepicker.Props{
+					ID:    "edit-recurring-end-" + re.ID,
+					Name:  "end_date",
+					Value: *re.EndDate,
+				})
+			} else {
+				@datepicker.DatePicker(datepicker.Props{
+					ID:   "edit-recurring-end-" + re.ID,
+					Name: "end_date",
+				})
+			}
+		</div>
+		// Tags
+		<div>
+			@label.Label(label.Props{For: "edit-recurring-tags-" + re.ID}) {
+				Tags
+			}
+			@tagsinput.TagsInput(tagsinput.Props{
+				ID:          "edit-recurring-tags-" + re.ID,
+				Name:        "tags",
+				Value:       tagValues,
+				Placeholder: "Add tags (press enter)",
+			})
+		</div>
+		// Payment Method
+		@paymentmethod.MethodSelector(methods, re.PaymentMethodID)
+		<div class="flex justify-end">
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}

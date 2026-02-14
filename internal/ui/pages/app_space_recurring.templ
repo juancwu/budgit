@@ -1,0 +1,47 @@
+package pages
+
+import (
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/recurring"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+templ SpaceRecurringPage(space *model.Space, recs []*model.RecurringExpenseWithTagsAndMethod, tags []*model.Tag, methods []*model.PaymentMethod) {
+	@layouts.Space("Recurring", space) {
+		<div class="space-y-4">
+			<div class="flex justify-between items-center">
+				<h1 class="text-2xl font-bold">Recurring Transactions</h1>
+				@dialog.Dialog(dialog.Props{ID: "add-recurring-dialog"}) {
+					@dialog.Trigger() {
+						@button.Button() {
+							Add Recurring
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Add Recurring Transaction
+							}
+							@dialog.Description() {
+								Set up a recurring expense or top-up that will auto-generate on schedule.
+							}
+						}
+						@recurring.AddRecurringForm(space.ID, tags, methods, "add-recurring-dialog")
+					}
+				}
+			</div>
+			<div class="border rounded-lg">
+				<div id="recurring-list" class="divide-y">
+					if len(recs) == 0 {
+						<p class="p-4 text-sm text-muted-foreground">No recurring transactions set up yet.</p>
+					}
+					for _, re := range recs {
+						@recurring.RecurringItem(space.ID, re, methods)
+					}
+				</div>
+			</div>
+		</div>
+	}
+}

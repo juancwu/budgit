@@ -13,6 +13,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/app"
 	"git.juancwu.dev/juancwu/budgit/internal/config"
 	"git.juancwu.dev/juancwu/budgit/internal/routes"
+	"git.juancwu.dev/juancwu/budgit/internal/scheduler"
 )
 
 // version is set at build time via -ldflags.
@@ -34,6 +35,12 @@ func main() {
 	}()
 
 	handler := routes.SetupRoutes(a)
+
+	// Start recurring expense scheduler
+	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
+	defer schedulerCancel()
+	sched := scheduler.New(a.RecurringExpenseService)
+	go sched.Start(schedulerCtx)
 
 	// Health check bypasses all middleware
 	finalHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

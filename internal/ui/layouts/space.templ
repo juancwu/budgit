@@ -62,6 +62,36 @@ templ Space(title string, space *model.Space) {
 							}
 							@sidebar.MenuItem() {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/recurring",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/recurring",
+									Tooltip:  "Recurring Transactions",
+								}) {
+									@icon.Repeat(icon.Props{Class: "size-4"})
+									<span>Recurring</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/budgets",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/budgets",
+									Tooltip:  "Budgets",
+								}) {
+									@icon.Target(icon.Props{Class: "size-4"})
+									<span>Budgets</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/reports",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/reports",
+									Tooltip:  "Reports",
+								}) {
+									@icon.ChartPie(icon.Props{Class: "size-4"})
+									<span>Reports</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
 									Href:     "/app/spaces/" + space.ID + "/accounts",
 									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/accounts",
 									Tooltip:  "Money Accounts",

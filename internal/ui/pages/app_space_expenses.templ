@@ -112,7 +112,12 @@ templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTagsAndMe
 templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
 	<div id={ "expense-" + exp.ID } class="p-4 flex justify-between items-start gap-2">
 		<div class="min-w-0 flex-1">
-			<p class="font-medium">{ exp.Description }</p>
+			<div class="flex items-center gap-1.5">
+				<p class="font-medium">{ exp.Description }</p>
+				if exp.RecurringExpenseID != nil {
+					@icon.Repeat(icon.Props{Size: 14, Class: "text-muted-foreground shrink-0"})
+				}
+			</div>
 			<p class="text-sm text-muted-foreground">
 				{ exp.Date.Format("Jan 02, 2006") }
 				if exp.PaymentMethod != nil {
