@@ -122,6 +122,29 @@ func RateLimitAuth() func(http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// RateLimitCRUD creates middleware for state-changing CRUD endpoints.
+// Limits: 60 requests per minute per IP.
+func RateLimitCRUD() func(http.Handler) http.Handler {
+	limiter := NewRateLimiter(60, 1*time.Minute)
+
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ip := getClientIP(r)
+
+			if !limiter.Allow(ip) {
+				slog.Warn("CRUD rate limit exceeded",
+					"ip", ip,
+					"path", r.URL.Path,
+				)
+				http.Error(w, "Too many requests. Please try again later.", http.StatusTooManyRequests)
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // getClientIP extracts real client IP from request
 func getClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header (proxy/load balancer)

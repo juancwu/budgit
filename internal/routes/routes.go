@@ -35,6 +35,7 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	// Auth pages
 	authRateLimiter := middleware.RateLimitAuth()
+	crudLimiter := middleware.RateLimitCRUD()
 
 	mux.HandleFunc("GET /auth", middleware.RequireGuest(auth.AuthPage))
 	mux.HandleFunc("GET /auth/password", middleware.RequireGuest(auth.PasswordPage))
@@ -52,10 +53,10 @@ func SetupRoutes(a *app.App) http.Handler {
 	// ====================================================================================
 
 	mux.HandleFunc("GET /auth/onboarding", middleware.RequireAuth(auth.OnboardingPage))
-	mux.HandleFunc("POST /auth/onboarding", middleware.RequireAuth(auth.CompleteOnboarding))
+	mux.Handle("POST /auth/onboarding", crudLimiter(http.HandlerFunc(middleware.RequireAuth(auth.CompleteOnboarding))))
 
 	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
-	mux.HandleFunc("POST /app/spaces", middleware.RequireAuth(dashboard.CreateSpace))
+	mux.Handle("POST /app/spaces", crudLimiter(http.HandlerFunc(middleware.RequireAuth(dashboard.CreateSpace))))
 	mux.HandleFunc("GET /app/settings", middleware.RequireAuth(settings.SettingsPage))
 	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
 
@@ -70,7 +71,7 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	createListHandler := middleware.RequireAuth(space.CreateList)
 	createListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createListHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/lists", createListWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/lists", crudLimiter(createListWithAccess))
 
 	listPageHandler := middleware.RequireAuth(space.ListPage)
 	listPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listPageHandler)
@@ -78,23 +79,23 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	updateListHandler := middleware.RequireAuth(space.UpdateList)
 	updateListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateListHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}", updateListWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}", crudLimiter(updateListWithAccess))
 
 	deleteListHandler := middleware.RequireAuth(space.DeleteList)
 	deleteListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteListHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/lists/{listID}", deleteListWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/lists/{listID}", crudLimiter(deleteListWithAccess))
 
 	addItemHandler := middleware.RequireAuth(space.AddItemToList)
 	addItemWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(addItemHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/lists/{listID}/items", addItemWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/lists/{listID}/items", crudLimiter(addItemWithAccess))
 
 	toggleItemHandler := middleware.RequireAuth(space.ToggleItem)
 	toggleItemWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(toggleItemHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", toggleItemWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", crudLimiter(toggleItemWithAccess))
 
 	deleteItemHandler := middleware.RequireAuth(space.DeleteItem)
 	deleteItemWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteItemHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", deleteItemWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", crudLimiter(deleteItemWithAccess))
 
 	// Tag routes
 	tagsPageHandler := middleware.RequireAuth(space.TagsPage)
@@ -103,11 +104,11 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	createTagHandler := middleware.RequireAuth(space.CreateTag)
 	createTagWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createTagHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/tags", createTagWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/tags", crudLimiter(createTagWithAccess))
 
 	deleteTagHandler := middleware.RequireAuth(space.DeleteTag)
 	deleteTagWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteTagHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/tags/{tagID}", deleteTagWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/tags/{tagID}", crudLimiter(deleteTagWithAccess))
 
 	// Expense routes
 	expensesPageHandler := middleware.RequireAuth(space.ExpensesPage)
@@ -116,15 +117,15 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	createExpenseHandler := middleware.RequireAuth(space.CreateExpense)
 	createExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createExpenseHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/expenses", createExpenseWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/expenses", crudLimiter(createExpenseWithAccess))
 
 	updateExpenseHandler := middleware.RequireAuth(space.UpdateExpense)
 	updateExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateExpenseHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/expenses/{expenseID}", updateExpenseWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/expenses/{expenseID}", crudLimiter(updateExpenseWithAccess))
 
 	deleteExpenseHandler := middleware.RequireAuth(space.DeleteExpense)
 	deleteExpenseWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteExpenseHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/expenses/{expenseID}", deleteExpenseWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/expenses/{expenseID}", crudLimiter(deleteExpenseWithAccess))
 
 	// Money Account routes
 	accountsPageHandler := middleware.RequireAuth(space.AccountsPage)
@@ -133,23 +134,23 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	createAccountHandler := middleware.RequireAuth(space.CreateAccount)
 	createAccountWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createAccountHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/accounts", createAccountWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/accounts", crudLimiter(createAccountWithAccess))
 
 	updateAccountHandler := middleware.RequireAuth(space.UpdateAccount)
 	updateAccountWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateAccountHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/accounts/{accountID}", updateAccountWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/accounts/{accountID}", crudLimiter(updateAccountWithAccess))
 
 	deleteAccountHandler := middleware.RequireAuth(space.DeleteAccount)
 	deleteAccountWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteAccountHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}", deleteAccountWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}", crudLimiter(deleteAccountWithAccess))
 
 	createTransferHandler := middleware.RequireAuth(space.CreateTransfer)
 	createTransferWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createTransferHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/accounts/{accountID}/transfers", createTransferWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/accounts/{accountID}/transfers", crudLimiter(createTransferWithAccess))
 
 	deleteTransferHandler := middleware.RequireAuth(space.DeleteTransfer)
 	deleteTransferWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteTransferHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}/transfers/{transferID}", deleteTransferWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}/transfers/{transferID}", crudLimiter(deleteTransferWithAccess))
 
 	// Payment Method routes
 	methodsPageHandler := middleware.RequireAuth(space.PaymentMethodsPage)
@@ -158,15 +159,15 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	createMethodHandler := middleware.RequireAuth(space.CreatePaymentMethod)
 	createMethodWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createMethodHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/payment-methods", createMethodWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/payment-methods", crudLimiter(createMethodWithAccess))
 
 	updateMethodHandler := middleware.RequireAuth(space.UpdatePaymentMethod)
 	updateMethodWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateMethodHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/payment-methods/{methodID}", updateMethodWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/payment-methods/{methodID}", crudLimiter(updateMethodWithAccess))
 
 	deleteMethodHandler := middleware.RequireAuth(space.DeletePaymentMethod)
 	deleteMethodWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteMethodHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/payment-methods/{methodID}", deleteMethodWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/payment-methods/{methodID}", crudLimiter(deleteMethodWithAccess))
 
 	// Recurring expense routes
 	recurringPageHandler := middleware.RequireAuth(space.RecurringExpensesPage)
@@ -175,19 +176,19 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	createRecurringHandler := middleware.RequireAuth(space.CreateRecurringExpense)
 	createRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createRecurringHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/recurring", createRecurringWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/recurring", crudLimiter(createRecurringWithAccess))
 
 	updateRecurringHandler := middleware.RequireAuth(space.UpdateRecurringExpense)
 	updateRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateRecurringHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/recurring/{recurringID}", updateRecurringWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/recurring/{recurringID}", crudLimiter(updateRecurringWithAccess))
 
 	deleteRecurringHandler := middleware.RequireAuth(space.DeleteRecurringExpense)
 	deleteRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteRecurringHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/recurring/{recurringID}", deleteRecurringWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/recurring/{recurringID}", crudLimiter(deleteRecurringWithAccess))
 
 	toggleRecurringHandler := middleware.RequireAuth(space.ToggleRecurringExpense)
 	toggleRecurringWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(toggleRecurringHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/recurring/{recurringID}/toggle", toggleRecurringWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/recurring/{recurringID}/toggle", crudLimiter(toggleRecurringWithAccess))
 
 	// Budget routes
 	budgetsPageHandler := middleware.RequireAuth(space.BudgetsPage)
@@ -196,15 +197,15 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	createBudgetHandler := middleware.RequireAuth(space.CreateBudget)
 	createBudgetWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createBudgetHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/budgets", createBudgetWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/budgets", crudLimiter(createBudgetWithAccess))
 
 	updateBudgetHandler := middleware.RequireAuth(space.UpdateBudget)
 	updateBudgetWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateBudgetHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/budgets/{budgetID}", updateBudgetWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/budgets/{budgetID}", crudLimiter(updateBudgetWithAccess))
 
 	deleteBudgetHandler := middleware.RequireAuth(space.DeleteBudget)
 	deleteBudgetWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(deleteBudgetHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/budgets/{budgetID}", deleteBudgetWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/budgets/{budgetID}", crudLimiter(deleteBudgetWithAccess))
 
 	budgetsListHandler := middleware.RequireAuth(space.GetBudgetsList)
 	budgetsListWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(budgetsListHandler)
@@ -247,15 +248,15 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	updateSpaceNameHandler := middleware.RequireAuth(space.UpdateSpaceName)
 	updateSpaceNameWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(updateSpaceNameHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/settings/name", updateSpaceNameWithAccess)
+	mux.Handle("PATCH /app/spaces/{spaceID}/settings/name", crudLimiter(updateSpaceNameWithAccess))
 
 	removeMemberHandler := middleware.RequireAuth(space.RemoveMember)
 	removeMemberWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(removeMemberHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/members/{userID}", removeMemberWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/members/{userID}", crudLimiter(removeMemberWithAccess))
 
 	cancelInviteHandler := middleware.RequireAuth(space.CancelInvite)
 	cancelInviteWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(cancelInviteHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/invites/{token}", cancelInviteWithAccess)
+	mux.Handle("DELETE /app/spaces/{spaceID}/invites/{token}", crudLimiter(cancelInviteWithAccess))
 
 	getPendingInvitesHandler := middleware.RequireAuth(space.GetPendingInvites)
 	getPendingInvitesWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(getPendingInvitesHandler)
@@ -264,7 +265,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	// Invite routes
 	createInviteHandler := middleware.RequireAuth(space.CreateInvite)
 	createInviteWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(createInviteHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/invites", createInviteWithAccess)
+	mux.Handle("POST /app/spaces/{spaceID}/invites", crudLimiter(createInviteWithAccess))
 
 	mux.HandleFunc("GET /join/{token}", space.JoinSpace)
 
@@ -274,6 +275,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	// Global middlewares
 	handler := middleware.Chain(
 		mux,
+		middleware.SecurityHeaders(),
 		middleware.AppVersion(a.Cfg.Version),
 		middleware.Config(a.Cfg),
 		middleware.RequestLogging,

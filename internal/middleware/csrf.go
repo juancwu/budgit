@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/subtle"
 	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -23,7 +24,12 @@ func CSRFProtection(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip CSRF check for safe methods (GET, HEAD, OPTIONS)
 		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {
-			token := getOrGenerateCSRFToken(w, r)
+			token, err := getOrGenerateCSRFToken(w, r)
+			if err != nil {
+				slog.Error("failed to generate CSRF token", "error", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
 			ctx := ctxkeys.WithCSRFToken(r.Context(), token)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
@@ -36,7 +42,12 @@ func CSRFProtection(next http.Handler) http.Handler {
 		}
 
 		// Validate CSRF token for state-changing methods (POST, PUT, PATCH, DELETE)
-		token := getOrGenerateCSRFToken(w, r)
+		token, err := getOrGenerateCSRFToken(w, r)
+		if err != nil {
+			slog.Error("failed to generate CSRF token", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		ctx := ctxkeys.WithCSRFToken(r.Context(), token)
 
 		// Get submitted token - try multiple sources in priority order
@@ -64,13 +75,16 @@ func CSRFProtection(next http.Handler) http.Handler {
 }
 
 // getOrGenerateCSRFToken retrieves existing token or generates new one
-func getOrGenerateCSRFToken(w http.ResponseWriter, r *http.Request) string {
+func getOrGenerateCSRFToken(w http.ResponseWriter, r *http.Request) (string, error) {
 	cookie, err := r.Cookie(csrfCookieName)
 	if err == nil && cookie.Value != "" && len(cookie.Value) == base64.RawURLEncoding.EncodedLen(csrfTokenLen) {
-		return cookie.Value
+		return cookie.Value, nil
 	}
 
-	token := generateCSRFToken()
+	token, err := generateCSRFToken()
+	if err != nil {
+		return "", err
+	}
 
 	cfg := ctxkeys.Config(r.Context())
 	isProduction := cfg != nil && cfg.IsProduction()
@@ -86,17 +100,17 @@ func getOrGenerateCSRFToken(w http.ResponseWriter, r *http.Request) string {
 		MaxAge:   86400 * 7, // 7 days
 	})
 
-	return token
+	return token, nil
 }
 
 // generateCSRFToken creates cryptographically secure random token
-func generateCSRFToken() string {
+func generateCSRFToken() (string, error) {
 	bytes := make([]byte, csrfTokenLen)
 	_, err := rand.Read(bytes)
 	if err != nil {
-		panic("failed to generate csrf token: " + err.Error())
+		return "", fmt.Errorf("failed to generate csrf token: %w", err)
 	}
-	return base64.RawURLEncoding.EncodeToString(bytes)
+	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }
 
 // validCSRFToken performs constant-time comparison of tokens

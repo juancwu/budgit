@@ -78,6 +78,20 @@ func (h *SpaceHandler) getListForSpace(w http.ResponseWriter, spaceID, listID st
 	return list
 }
 
+// getTagForSpace fetches a tag and verifies it belongs to the given space.
+func (h *SpaceHandler) getTagForSpace(w http.ResponseWriter, spaceID, tagID string) *model.Tag {
+	tag, err := h.tagService.GetTagByID(tagID)
+	if err != nil {
+		http.Error(w, "Tag not found", http.StatusNotFound)
+		return nil
+	}
+	if tag.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return tag
+}
+
 func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	space, err := h.spaceService.GetSpace(spaceID)
@@ -397,7 +411,12 @@ func (h *SpaceHandler) CreateTag(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *SpaceHandler) DeleteTag(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
 	tagID := r.PathValue("tagID")
+
+	if h.getTagForSpace(w, spaceID, tagID) == nil {
+		return
+	}
 
 	err := h.tagService.DeleteTag(tagID)
 	if err != nil {
@@ -817,6 +836,17 @@ func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	user := ctxkeys.User(r.Context())
 
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
@@ -828,7 +858,7 @@ func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err := h.inviteService.CreateInvite(spaceID, user.ID, email)
+	_, err = h.inviteService.CreateInvite(spaceID, user.ID, email)
 	if err != nil {
 		slog.Error("failed to create invite", "error", err, "space_id", spaceID)
 		http.Error(w, "Failed to create invite", http.StatusInternalServerError)
