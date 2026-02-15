@@ -22,19 +22,10 @@ type AddExpenseFormProps struct {
 	ListsWithItems []model.ListWithUncheckedItems
 	PaymentMethods []*model.PaymentMethod
 	DialogID       string // which dialog to close on success
-	FromOverview   bool   // if true, POSTs with ?from=overview; server redirects to expenses page
 }
 
 func (p AddExpenseFormProps) formAttrs() templ.Attributes {
 	closeScript := "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') then reset() me then show #item-selector-section end"
-	if p.FromOverview {
-		return templ.Attributes{
-			"hx-post":   "/app/spaces/" + p.Space.ID + "/expenses?from=overview",
-			"hx-target": "body",
-			"hx-swap":   "beforeend",
-			"_":         closeScript,
-		}
-	}
 	return templ.Attributes{
 		"hx-post":   "/app/spaces/" + p.Space.ID + "/expenses",
 		"hx-target": "#expenses-list-wrapper",

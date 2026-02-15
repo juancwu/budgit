@@ -97,40 +97,24 @@ func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
 	space, err := h.spaceService.GetSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get space", "error", err, "space_id", spaceID)
-		// The RequireSpaceAccess middleware should prevent this, but as a fallback.
 		http.Error(w, "Space not found.", http.StatusNotFound)
 		return
 	}
 
-	lists, err := h.listService.GetListsForSpace(spaceID)
+	// Default to this month
+	now := time.Now()
+	presets := service.GetPresetDateRanges(now)
+	from := presets[0].From
+	to := presets[0].To
+
+	report, err := h.reportService.GetSpendingReport(spaceID, from, to)
 	if err != nil {
-		slog.Error("failed to get shopping lists for space", "error", err, "space_id", spaceID)
+		slog.Error("failed to get spending report", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	tags, err := h.tagService.GetTagsForSpace(spaceID)
-	if err != nil {
-		slog.Error("failed to get tags for space", "error", err, "space_id", spaceID)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	listsWithItems, err := h.listService.GetListsWithUncheckedItems(spaceID)
-	if err != nil {
-		slog.Error("failed to get lists with unchecked items", "error", err, "space_id", spaceID)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	accounts, err := h.accountService.GetAccountsForSpace(spaceID)
-	if err != nil {
-		slog.Error("failed to get accounts for space", "error", err, "space_id", spaceID)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	ui.Render(w, r, pages.SpaceOverviewPage(space, lists, tags, listsWithItems, accounts))
+	ui.Render(w, r, pages.SpaceReportsPage(space, report, presets, "this_month"))
 }
 
 func (h *SpaceHandler) ListsPage(w http.ResponseWriter, r *http.Request) {
@@ -643,12 +627,6 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		totalAllocated = 0
 	}
 	balance -= totalAllocated
-
-	if r.URL.Query().Get("from") == "overview" {
-		w.Header().Set("HX-Redirect", "/app/spaces/"+spaceID+"/expenses?created=true")
-		w.WriteHeader(http.StatusOK)
-		return
-	}
 
 	// Return the full paginated list for page 1 so the new expense appears
 	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsAndMethodsForSpacePaginated(spaceID, 1)
@@ -2126,30 +2104,6 @@ func (h *SpaceHandler) GetBudgetsList(w http.ResponseWriter, r *http.Request) {
 }
 
 // --- Reports ---
-
-func (h *SpaceHandler) ReportsPage(w http.ResponseWriter, r *http.Request) {
-	spaceID := r.PathValue("spaceID")
-	space, err := h.spaceService.GetSpace(spaceID)
-	if err != nil {
-		http.Error(w, "Space not found", http.StatusNotFound)
-		return
-	}
-
-	// Default to this month
-	now := time.Now()
-	presets := service.GetPresetDateRanges(now)
-	from := presets[0].From
-	to := presets[0].To
-
-	report, err := h.reportService.GetSpendingReport(spaceID, from, to)
-	if err != nil {
-		slog.Error("failed to get spending report", "error", err, "space_id", spaceID)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	ui.Render(w, r, pages.SpaceReportsPage(space, report, presets, "this_month"))
-}
 
 func (h *SpaceHandler) GetReportCharts(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")

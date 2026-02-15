@@ -212,10 +212,6 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.Handle("GET /app/spaces/{spaceID}/components/budgets", budgetsListWithAccess)
 
 	// Report routes
-	reportsPageHandler := middleware.RequireAuth(space.ReportsPage)
-	reportsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(reportsPageHandler)
-	mux.Handle("GET /app/spaces/{spaceID}/reports", reportsPageWithAccess)
-
 	reportChartsHandler := middleware.RequireAuth(space.GetReportCharts)
 	reportChartsWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(reportChartsHandler)
 	mux.Handle("GET /app/spaces/{spaceID}/components/report-charts", reportChartsWithAccess)
