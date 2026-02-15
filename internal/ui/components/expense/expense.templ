@@ -299,18 +299,20 @@ templ ItemSelectorSection(listsWithItems []model.ListWithUncheckedItems, oob boo
 									"_": "on change repeat for cb in <input[name='item_ids']/> in #" + itemsID + " set cb.checked to my.checked end",
 								},
 							})
-							<button
-								type="button"
-								id={ toggleID }
-								class="flex-1 flex items-center gap-1 text-sm font-medium cursor-pointer select-none"
-								_={ "on click toggle .hidden on #" + itemsID + " then toggle .rotate-90 on <svg/> in me" }
-							>
+							@button.Button(button.Props{
+								ID:      toggleID,
+								Variant: button.VariantGhost,
+								Class:   "flex-1 h-auto p-0 justify-start gap-1 text-sm font-medium select-none",
+								Attributes: templ.Attributes{
+									"_": "on click toggle .hidden on #" + itemsID + " then toggle .rotate-90 on <svg/> in me",
+								},
+							}) {
 								@icon.ChevronRight(icon.Props{Size: 14})
 								{ lwi.List.Name }
 								<span class="text-muted-foreground">
 									({ strconv.Itoa(len(lwi.Items)) })
 								</span>
-							</button>
+							}
 						</div>
 						<div id={ itemsID } class="hidden pl-6 space-y-1">
 							for _, item := range lwi.Items {

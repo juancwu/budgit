@@ -11,6 +11,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/calendar"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/progress"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
 import "fmt"
 import "time"
@@ -51,6 +52,7 @@ templ Base(props ...SEOProps) {
 			@datepicker.Script()
 			@progress.Script()
 			@tagsinput.Script()
+			@selectbox.Script()
 			// Site-wide enhancements
 			@themeScript()
 			// Must run before body to prevent flash

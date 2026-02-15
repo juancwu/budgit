@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
@@ -74,7 +75,9 @@ templ SpaceOverviewPage(space *model.Space, lists []*model.ShoppingList, tags []
 					if len(tags) > 0 {
 						<div class="flex flex-wrap gap-2">
 							for _, tag := range tags {
-								<span class="bg-secondary text-secondary-foreground rounded-full px-3 py-1 text-sm">{ tag.Name }</span>
+								@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+								{ tag.Name }
+							}
 							}
 						</div>
 					} else {

@@ -11,6 +11,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 )
 
 func methodDisplay(m *model.PaymentMethod) string {
@@ -240,29 +241,29 @@ templ EditMethodForm(spaceID string, method *model.PaymentMethod, dialogID strin
 
 templ MethodSelector(methods []*model.PaymentMethod, selectedMethodID *string) {
 	<div>
-		@label.Label(label.Props{For: "method-select"}) {
+		@label.Label(label.Props{}) {
 			Payment Method
 		}
-		<select
-			name="payment_method_id"
-			id="method-select"
-			class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-		>
-			<option value="">Cash</option>
-			for _, m := range methods {
-				<option
-					value={ m.ID }
-					if selectedMethodID != nil && *selectedMethodID == m.ID {
-						selected
-					}
-				>
-					if m.LastFour != nil {
-						{ m.Name } (*{ *m.LastFour })
-					} else {
-						{ m.Name }
-					}
-				</option>
+		@selectbox.SelectBox() {
+			@selectbox.Trigger(selectbox.TriggerProps{Name: "payment_method_id"}) {
+				@selectbox.Value(selectbox.ValueProps{Placeholder: "Cash"})
 			}
-		</select>
+			@selectbox.Content(selectbox.ContentProps{NoSearch: len(methods) <= 5}) {
+				@selectbox.Item(selectbox.ItemProps{Value: "", Selected: selectedMethodID == nil}) {
+					Cash
+				}
+				for _, m := range methods {
+					if m.LastFour != nil {
+						@selectbox.Item(selectbox.ItemProps{Value: m.ID, Selected: selectedMethodID != nil && *selectedMethodID == m.ID}) {
+							{ m.Name } (*{ *m.LastFour })
+						}
+					} else {
+						@selectbox.Item(selectbox.ItemProps{Value: m.ID, Selected: selectedMethodID != nil && *selectedMethodID == m.ID}) {
+							{ m.Name }
+						}
+					}
+				}
+			}
+		}
 	</div>
 }

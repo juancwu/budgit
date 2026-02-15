@@ -58,21 +58,25 @@ templ ListCardHeader(spaceID string, list *model.ShoppingList) {
 	<div id={ "lch-" + list.ID } class="flex items-center justify-between gap-2">
 		<h3 class="font-semibold truncate">{ list.Name }</h3>
 		<div class="flex items-center gap-1 shrink-0">
-			<button
-				type="button"
-				class="text-muted-foreground hover:text-foreground p-1 rounded hover:bg-muted transition-colors"
-				_={ fmt.Sprintf("on click toggle .hidden on #lch-%s then toggle .hidden on #lche-%s then focus() the first <input/> in #lche-%s", list.ID, list.ID, list.ID) }
-			>
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeIcon,
+				Class:   "size-7 text-muted-foreground hover:text-foreground",
+				Attributes: templ.Attributes{
+					"_": fmt.Sprintf("on click toggle .hidden on #lch-%s then toggle .hidden on #lche-%s then focus() the first <input/> in #lche-%s", list.ID, list.ID, list.ID),
+				},
+			}) {
 				@icon.Pencil(icon.Props{Size: 14})
-			</button>
+			}
 			@dialog.Dialog(dialog.Props{ID: "del-list-" + list.ID}) {
 				@dialog.Trigger() {
-					<button
-						type="button"
-						class="text-muted-foreground hover:text-destructive p-1 rounded hover:bg-muted transition-colors"
-					>
+					@button.Button(button.Props{
+						Variant: button.VariantGhost,
+						Size:    button.SizeIcon,
+						Class:   "size-7 text-muted-foreground hover:text-destructive",
+					}) {
 						@icon.Trash2(icon.Props{Size: 14})
-					</button>
+					}
 				}
 				@dialog.Content() {
 					@dialog.Header() {
@@ -121,16 +125,18 @@ templ ListCardHeader(spaceID string, list *model.ShoppingList) {
 				"required": "true",
 			},
 		})
-		<button type="submit" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 px-3 bg-primary text-primary-foreground hover:bg-primary/90">
+		@button.Submit(button.Props{Size: button.SizeSm}) {
 			Save
-		</button>
-		<button
-			type="button"
-			class="inline-flex items-center justify-center rounded-md text-sm font-medium h-8 px-3 border hover:bg-muted"
-			_={ fmt.Sprintf("on click toggle .hidden on #lche-%s then toggle .hidden on #lch-%s", list.ID, list.ID) }
-		>
+		}
+		@button.Button(button.Props{
+			Variant: button.VariantOutline,
+			Size:    button.SizeSm,
+			Attributes: templ.Attributes{
+				"_": fmt.Sprintf("on click toggle .hidden on #lche-%s then toggle .hidden on #lch-%s", list.ID, list.ID),
+			},
+		}) {
 			Cancel
-		</button>
+		}
 	</form>
 }
 
@@ -203,15 +209,18 @@ templ CardItemDetail(spaceID string, item *model.ListItem) {
 			},
 		})
 		<span class={ "text-sm flex-1", templ.KV("line-through text-muted-foreground", item.IsChecked) }>{ item.Name }</span>
-		<button
-			type="button"
-			class="text-muted-foreground hover:text-destructive p-1 rounded shrink-0"
-			hx-delete={ fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID) }
-			hx-swap="none"
-			_={ fmt.Sprintf("on htmx:afterRequest send refreshItems to #list-items-%s", item.ListID) }
-		>
+		@button.Button(button.Props{
+			Variant: button.VariantGhost,
+			Size:    button.SizeIcon,
+			Class:   "size-7 text-muted-foreground hover:text-destructive shrink-0",
+			Attributes: templ.Attributes{
+				"hx-delete": fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID),
+				"hx-swap":   "none",
+				"_":         fmt.Sprintf("on htmx:afterRequest send refreshItems to #list-items-%s", item.ListID),
+			},
+		}) {
 			@icon.X(icon.Props{Size: 14})
-		</button>
+		}
 	</div>
 }
 
@@ -219,12 +228,16 @@ templ CardItemDetail(spaceID string, item *model.ListItem) {
 templ ListNameHeader(spaceID string, list *model.ShoppingList) {
 	<div id="list-name-header" class="flex items-center gap-2 group">
 		<h1 class="text-2xl font-bold">{ list.Name }</h1>
-		<button
-			class="text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-			_="on click toggle .hidden on #list-name-header then toggle .hidden on #list-name-edit then focus() the first <input/> in #list-name-edit"
-		>
+		@button.Button(button.Props{
+			Variant: button.VariantGhost,
+			Size:    button.SizeIcon,
+			Class:   "size-7 text-muted-foreground hover:text-foreground opacity-0 group-hover:opacity-100 transition-opacity",
+			Attributes: templ.Attributes{
+				"_": "on click toggle .hidden on #list-name-header then toggle .hidden on #list-name-edit then focus() the first <input/> in #list-name-edit",
+			},
+		}) {
 			@icon.Pencil(icon.Props{Size: 16})
-		</button>
+		}
 	</div>
 	<form
 		id="list-name-edit"
@@ -243,16 +256,17 @@ templ ListNameHeader(spaceID string, list *model.ShoppingList) {
 				"required": "true",
 			},
 		})
-		<button type="submit" class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-3 bg-primary text-primary-foreground hover:bg-primary/90">
+		@button.Submit() {
 			Save
-		</button>
-		<button
-			type="button"
-			class="inline-flex items-center justify-center rounded-md text-sm font-medium h-9 px-3 border hover:bg-muted"
-			_="on click toggle .hidden on #list-name-edit then toggle .hidden on #list-name-header"
-		>
+		}
+		@button.Button(button.Props{
+			Variant: button.VariantOutline,
+			Attributes: templ.Attributes{
+				"_": "on click toggle .hidden on #list-name-edit then toggle .hidden on #list-name-header",
+			},
+		}) {
 			Cancel
-		</button>
+		}
 	</form>
 }
 
@@ -270,13 +284,17 @@ templ ItemDetail(spaceID string, item *model.ListItem) {
 			},
 		})
 		<span class={ templ.KV("line-through text-muted-foreground", item.IsChecked) }>{ item.Name }</span>
-		<button
-			hx-delete={ fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID) }
-			hx-target={ "#item-" + item.ID }
-			hx-swap="outerHTML"
-			class="ml-auto btn btn-xs btn-ghost"
-		>
-			&times;
-		</button>
+		@button.Button(button.Props{
+			Variant: button.VariantGhost,
+			Size:    button.SizeIcon,
+			Class:   "ml-auto size-7",
+			Attributes: templ.Attributes{
+				"hx-delete": fmt.Sprintf("/app/spaces/%s/lists/%s/items/%s", spaceID, item.ListID, item.ID),
+				"hx-target": "#item-" + item.ID,
+				"hx-swap":   "outerHTML",
+			},
+		}) {
+			@icon.X(icon.Props{Size: 14})
+		}
 	</div>
 }

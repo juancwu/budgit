@@ -11,6 +11,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
@@ -178,15 +179,21 @@ templ AddBudgetForm(spaceID string, tags []*model.Tag) {
 		@csrf.Token()
 		// Tag selector
 		<div>
-			@label.Label(label.Props{For: "budget-tag"}) {
+			@label.Label(label.Props{}) {
 				Tag
 			}
-			<select name="tag_id" id="budget-tag" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
-				<option value="" disabled selected>Select a tag...</option>
-				for _, t := range tags {
-					<option value={ t.ID }>{ t.Name }</option>
+			@selectbox.SelectBox(selectbox.Props{ID: "budget-tag"}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "tag_id"}) {
+					@selectbox.Value(selectbox.ValueProps{Placeholder: "Select a tag..."})
 				}
-			</select>
+				@selectbox.Content() {
+					for _, t := range tags {
+						@selectbox.Item(selectbox.ItemProps{Value: t.ID}) {
+							{ t.Name }
+						}
+					}
+				}
+			}
 		</div>
 		// Amount
 		<div>
@@ -280,14 +287,21 @@ templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag
 		@csrf.Token()
 		// Tag selector
 		<div>
-			@label.Label(label.Props{For: "edit-budget-tag-" + b.ID}) {
+			@label.Label(label.Props{}) {
 				Tag
 			}
-			<select name="tag_id" id={ "edit-budget-tag-" + b.ID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
-				for _, t := range tags {
-					<option value={ t.ID } selected?={ t.ID == b.TagID }>{ t.Name }</option>
+			@selectbox.SelectBox(selectbox.Props{ID: "edit-budget-tag-" + b.ID}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "tag_id"}) {
+					@selectbox.Value(selectbox.ValueProps{Placeholder: "Select a tag..."})
 				}
-			</select>
+				@selectbox.Content() {
+					for _, t := range tags {
+						@selectbox.Item(selectbox.ItemProps{Value: t.ID, Selected: t.ID == b.TagID}) {
+							{ t.Name }
+						}
+					}
+				}
+			}
 		</div>
 		// Amount
 		<div>

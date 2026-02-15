@@ -13,6 +13,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
 )
 
@@ -216,16 +217,31 @@ templ AddRecurringForm(spaceID string, tags []*model.Tag, methods []*model.Payme
 		</div>
 		// Frequency
 		<div>
-			@label.Label(label.Props{For: "recurring-frequency"}) {
+			@label.Label(label.Props{}) {
 				Frequency
 			}
-			<select name="frequency" id="recurring-frequency" class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
-				<option value="daily">Daily</option>
-				<option value="weekly">Weekly</option>
-				<option value="biweekly">Biweekly</option>
-				<option value="monthly" selected>Monthly</option>
-				<option value="yearly">Yearly</option>
-			</select>
+			@selectbox.SelectBox(selectbox.Props{ID: "recurring-frequency"}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "frequency"}) {
+					@selectbox.Value()
+				}
+				@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+					@selectbox.Item(selectbox.ItemProps{Value: "daily"}) {
+						Daily
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "weekly"}) {
+						Weekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "biweekly"}) {
+						Biweekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "monthly", Selected: true}) {
+						Monthly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "yearly"}) {
+						Yearly
+					}
+				}
+			}
 		</div>
 		// Start Date
 		<div>
@@ -345,16 +361,31 @@ templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMet
 		</div>
 		// Frequency
 		<div>
-			@label.Label(label.Props{For: "edit-recurring-freq-" + re.ID}) {
+			@label.Label(label.Props{}) {
 				Frequency
 			}
-			<select name="frequency" id={ "edit-recurring-freq-" + re.ID } class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background" required>
-				<option value="daily" selected?={ re.Frequency == model.FrequencyDaily }>Daily</option>
-				<option value="weekly" selected?={ re.Frequency == model.FrequencyWeekly }>Weekly</option>
-				<option value="biweekly" selected?={ re.Frequency == model.FrequencyBiweekly }>Biweekly</option>
-				<option value="monthly" selected?={ re.Frequency == model.FrequencyMonthly }>Monthly</option>
-				<option value="yearly" selected?={ re.Frequency == model.FrequencyYearly }>Yearly</option>
-			</select>
+			@selectbox.SelectBox(selectbox.Props{ID: "edit-recurring-freq-" + re.ID}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "frequency"}) {
+					@selectbox.Value()
+				}
+				@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+					@selectbox.Item(selectbox.ItemProps{Value: "daily", Selected: re.Frequency == model.FrequencyDaily}) {
+						Daily
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "weekly", Selected: re.Frequency == model.FrequencyWeekly}) {
+						Weekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "biweekly", Selected: re.Frequency == model.FrequencyBiweekly}) {
+						Biweekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "monthly", Selected: re.Frequency == model.FrequencyMonthly}) {
+						Monthly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "yearly", Selected: re.Frequency == model.FrequencyYearly}) {
+						Yearly
+					}
+				}
+			}
 		</div>
 		// Start Date
 		<div>
