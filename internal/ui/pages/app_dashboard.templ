@@ -71,7 +71,11 @@ templ Dashboard(spaces []*model.Space) {
 									Name:        "name",
 									Type:        input.TypeText,
 									Placeholder: "e.g. Household, Trip, Roommates",
+									Attributes: templ.Attributes{
+										"describedby": "create-space-error",
+									},
 								})
+								<p id="create-space-error" class="text-sm text-destructive"></p>
 							</div>
 							@dialog.Footer() {
 								@dialog.Close(dialog.CloseProps{For: "create-space-dialog"}) {

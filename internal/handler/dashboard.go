@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -40,7 +41,9 @@ func (h *dashboardHandler) CreateSpace(w http.ResponseWriter, r *http.Request) {
 
 	name := strings.TrimSpace(r.FormValue("name"))
 	if name == "" {
-		http.Error(w, "Space name is required", http.StatusBadRequest)
+		w.Header().Set("HX-Reswap", "none")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprint(w, `<p id="create-space-error" hx-swap-oob="true" class="text-sm text-destructive">Space name is required</p>`)
 		return
 	}
 

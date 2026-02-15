@@ -65,6 +65,6 @@ func TestDashboardHandler_CreateSpace_EmptyName(t *testing.T) {
 		w := httptest.NewRecorder()
 		h.CreateSpace(w, req)
 
-		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, http.StatusUnprocessableEntity, w.Code)
 	})
 }

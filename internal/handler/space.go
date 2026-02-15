@@ -156,14 +156,14 @@ func (h *SpaceHandler) CreateList(w http.ResponseWriter, r *http.Request) {
 
 	err := r.ParseForm()
 	if err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
 	name := r.FormValue("name")
 	if name == "" {
 		// handle error - maybe return a toast
-		http.Error(w, "List name is required", http.StatusBadRequest)
+		ui.RenderError(w, r, "List name is required", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -186,13 +186,13 @@ func (h *SpaceHandler) UpdateList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
 	name := r.FormValue("name")
 	if name == "" {
-		http.Error(w, "List name is required", http.StatusBadRequest)
+		ui.RenderError(w, r, "List name is required", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -274,13 +274,13 @@ func (h *SpaceHandler) AddItemToList(w http.ResponseWriter, r *http.Request) {
 	user := ctxkeys.User(r.Context())
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
 	name := r.FormValue("name")
 	if name == "" {
-		http.Error(w, "Item name cannot be empty", http.StatusBadRequest)
+		ui.RenderError(w, r, "Item name cannot be empty", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -388,7 +388,7 @@ func (h *SpaceHandler) TagsPage(w http.ResponseWriter, r *http.Request) {
 func (h *SpaceHandler) CreateTag(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -509,7 +509,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	user := ctxkeys.User(r.Context())
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -522,26 +522,26 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 
 	// --- Validation & Conversion ---
 	if description == "" || amountStr == "" || typeStr == "" || dateStr == "" {
-		http.Error(w, "All fields are required.", http.StatusBadRequest)
+		ui.RenderError(w, r, "All fields are required.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	amountFloat, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Invalid amount format.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
 	amountCents := int(amountFloat * 100)
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
-		http.Error(w, "Invalid date format.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid date format.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	expenseType := model.ExpenseType(typeStr)
 	if expenseType != model.ExpenseTypeExpense && expenseType != model.ExpenseTypeTopup {
-		http.Error(w, "Invalid transaction type.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid transaction type.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -678,7 +678,7 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -689,26 +689,26 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	tagNames := r.Form["tags"]
 
 	if description == "" || amountStr == "" || typeStr == "" || dateStr == "" {
-		http.Error(w, "All fields are required.", http.StatusBadRequest)
+		ui.RenderError(w, r, "All fields are required.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	amountFloat, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Invalid amount format.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
 	amountCents := int(amountFloat * 100)
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
-		http.Error(w, "Invalid date format.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid date format.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	expenseType := model.ExpenseType(typeStr)
 	if expenseType != model.ExpenseTypeExpense && expenseType != model.ExpenseTypeTopup {
-		http.Error(w, "Invalid transaction type.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid transaction type.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -848,13 +848,13 @@ func (h *SpaceHandler) CreateInvite(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
 	email := r.FormValue("email")
 	if email == "" {
-		http.Error(w, "Email is required", http.StatusBadRequest)
+		ui.RenderError(w, r, "Email is required", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -883,7 +883,7 @@ func (h *SpaceHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
 		spaceID, err := h.inviteService.AcceptInvite(token, user.ID)
 		if err != nil {
 			slog.Error("failed to accept invite", "error", err, "token", token)
-			http.Error(w, "Failed to join space: "+err.Error(), http.StatusBadRequest)
+			ui.RenderError(w, r, "Failed to join space: "+err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
 
@@ -1045,13 +1045,13 @@ func (h *SpaceHandler) UpdateSpaceName(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
 	name := r.FormValue("name")
 	if name == "" {
-		http.Error(w, "Name is required", http.StatusBadRequest)
+		ui.RenderError(w, r, "Name is required", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1082,7 +1082,7 @@ func (h *SpaceHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if userID == user.ID {
-		http.Error(w, "Cannot remove yourself", http.StatusBadRequest)
+		ui.RenderError(w, r, "Cannot remove yourself", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1213,13 +1213,13 @@ func (h *SpaceHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 	user := ctxkeys.User(r.Context())
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
 	name := r.FormValue("name")
 	if name == "" {
-		http.Error(w, "Account name is required", http.StatusBadRequest)
+		ui.RenderError(w, r, "Account name is required", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1251,13 +1251,13 @@ func (h *SpaceHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
 	name := r.FormValue("name")
 	if name == "" {
-		http.Error(w, "Account name is required", http.StatusBadRequest)
+		ui.RenderError(w, r, "Account name is required", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1331,7 +1331,7 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1341,7 +1341,7 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 
 	amountFloat, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil || amountFloat <= 0 {
-		http.Error(w, "Invalid amount", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid amount", http.StatusUnprocessableEntity)
 		return
 	}
 	amountCents := int(amountFloat * 100)
@@ -1363,7 +1363,7 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 
 	// Validate balance limits before creating transfer
 	if direction == model.TransferDirectionDeposit && amountCents > availableBalance {
-		fmt.Fprintf(w, "Insufficient available balance. You can deposit up to $%.2f.", float64(availableBalance)/100.0)
+		ui.RenderError(w, r, fmt.Sprintf("Insufficient available balance. You can deposit up to $%.2f.", float64(availableBalance)/100.0), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1375,7 +1375,7 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if amountCents > acctBalance {
-			fmt.Fprintf(w, "Insufficient account balance. You can withdraw up to $%.2f.", float64(acctBalance)/100.0)
+			ui.RenderError(w, r, fmt.Sprintf("Insufficient account balance. You can withdraw up to $%.2f.", float64(acctBalance)/100.0), http.StatusUnprocessableEntity)
 			return
 		}
 	}
@@ -1498,7 +1498,7 @@ func (h *SpaceHandler) CreatePaymentMethod(w http.ResponseWriter, r *http.Reques
 	user := ctxkeys.User(r.Context())
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1515,7 +1515,7 @@ func (h *SpaceHandler) CreatePaymentMethod(w http.ResponseWriter, r *http.Reques
 	})
 	if err != nil {
 		slog.Error("failed to create payment method", "error", err, "space_id", spaceID)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ui.RenderError(w, r, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1531,7 +1531,7 @@ func (h *SpaceHandler) UpdatePaymentMethod(w http.ResponseWriter, r *http.Reques
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1547,7 +1547,7 @@ func (h *SpaceHandler) UpdatePaymentMethod(w http.ResponseWriter, r *http.Reques
 	})
 	if err != nil {
 		slog.Error("failed to update payment method", "error", err, "method_id", methodID)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		ui.RenderError(w, r, err.Error(), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1634,7 +1634,7 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 	user := ctxkeys.User(r.Context())
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1647,20 +1647,20 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 	tagNames := r.Form["tags"]
 
 	if description == "" || amountStr == "" || typeStr == "" || frequencyStr == "" || startDateStr == "" {
-		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	amountFloat, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Invalid amount format.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
 	amountCents := int(amountFloat * 100)
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
-		http.Error(w, "Invalid start date format.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid start date format.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1668,7 +1668,7 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 	if endDateStr != "" {
 		ed, err := time.Parse("2006-01-02", endDateStr)
 		if err != nil {
-			http.Error(w, "Invalid end date format.", http.StatusBadRequest)
+			ui.RenderError(w, r, "Invalid end date format.", http.StatusUnprocessableEntity)
 			return
 		}
 		endDate = &ed
@@ -1676,7 +1676,7 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 
 	expenseType := model.ExpenseType(typeStr)
 	if expenseType != model.ExpenseTypeExpense && expenseType != model.ExpenseTypeTopup {
-		http.Error(w, "Invalid transaction type.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid transaction type.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1761,7 +1761,7 @@ func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Req
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1774,20 +1774,20 @@ func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Req
 	tagNames := r.Form["tags"]
 
 	if description == "" || amountStr == "" || typeStr == "" || frequencyStr == "" || startDateStr == "" {
-		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	amountFloat, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Invalid amount.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
 	amountCents := int(amountFloat * 100)
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
-		http.Error(w, "Invalid start date.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid start date.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1795,7 +1795,7 @@ func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Req
 	if endDateStr != "" {
 		ed, err := time.Parse("2006-01-02", endDateStr)
 		if err != nil {
-			http.Error(w, "Invalid end date.", http.StatusBadRequest)
+			ui.RenderError(w, r, "Invalid end date.", http.StatusUnprocessableEntity)
 			return
 		}
 		endDate = &ed
@@ -1961,7 +1961,7 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	user := ctxkeys.User(r.Context())
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1972,20 +1972,20 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	endDateStr := r.FormValue("end_date")
 
 	if tagID == "" || amountStr == "" || periodStr == "" || startDateStr == "" {
-		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	amountFloat, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Invalid amount.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
 	amountCents := int(amountFloat * 100)
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
-		http.Error(w, "Invalid start date.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid start date.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1993,7 +1993,7 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	if endDateStr != "" {
 		ed, err := time.Parse("2006-01-02", endDateStr)
 		if err != nil {
-			http.Error(w, "Invalid end date.", http.StatusBadRequest)
+			ui.RenderError(w, r, "Invalid end date.", http.StatusUnprocessableEntity)
 			return
 		}
 		endDate = &ed
@@ -2029,7 +2029,7 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -2040,20 +2040,20 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 	endDateStr := r.FormValue("end_date")
 
 	if tagID == "" || amountStr == "" || periodStr == "" || startDateStr == "" {
-		http.Error(w, "All required fields must be provided.", http.StatusBadRequest)
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
 		return
 	}
 
 	amountFloat, err := strconv.ParseFloat(amountStr, 64)
 	if err != nil {
-		http.Error(w, "Invalid amount.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
 	amountCents := int(amountFloat * 100)
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
-		http.Error(w, "Invalid start date.", http.StatusBadRequest)
+		ui.RenderError(w, r, "Invalid start date.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -2061,7 +2061,7 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 	if endDateStr != "" {
 		ed, err := time.Parse("2006-01-02", endDateStr)
 		if err != nil {
-			http.Error(w, "Invalid end date.", http.StatusBadRequest)
+			ui.RenderError(w, r, "Invalid end date.", http.StatusUnprocessableEntity)
 			return
 		}
 		endDate = &ed

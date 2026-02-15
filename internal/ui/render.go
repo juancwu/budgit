@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
 	"github.com/a-h/templ"
 )
 
@@ -22,6 +23,22 @@ func RenderFragment(w http.ResponseWriter, r *http.Request, c templ.Component, f
 		slog.Error("render fragment failed", "error", err)
 		http.Error(w, "internal server error", http.StatusInternalServerError)
 	}
+}
+
+func RenderError(w http.ResponseWriter, r *http.Request, msg string, code int) {
+	if r.Header.Get("HX-Request") == "true" {
+		w.Header().Set("HX-Reswap", "none")
+		w.WriteHeader(code)
+		RenderToast(w, r, toast.Toast(toast.Props{
+			Title:       msg,
+			Variant:     toast.VariantError,
+			Icon:        true,
+			Dismissible: true,
+			Duration:    5000,
+		}))
+		return
+	}
+	http.Error(w, msg, code)
 }
 
 func RenderToast(w http.ResponseWriter, r *http.Request, c templ.Component) {

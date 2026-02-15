@@ -146,7 +146,7 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 		// Tags
 		<div>
 			@label.Label(label.Props{For: "new-expense-tags"}) {
-				Tags
+				Tags (Optional)
 			}
 			<datalist id="available-tags">
 				for _, tag := range props.Tags {
@@ -255,7 +255,7 @@ templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 		// Tags
 		<div>
 			@label.Label(label.Props{For: "edit-tags-" + exp.ID}) {
-				Tags
+				Tags (Optional)
 			}
 			@tagsinput.TagsInput(tagsinput.Props{
 				ID:          "edit-tags-" + exp.ID,

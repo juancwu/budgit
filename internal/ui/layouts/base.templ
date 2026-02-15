@@ -28,6 +28,7 @@ templ Base(props ...SEOProps) {
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<meta name="csrf-token" content={ ctxkeys.CSRFToken(ctx) }/>
+			<meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"422","swap":true},{"code":"[45]..","swap":false,"error":true},{"code":"...","swap":true}]}'/>
 			if len(props) > 0 {
 				@seo(props[0])
 			} else {
