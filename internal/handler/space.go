@@ -2150,8 +2150,7 @@ func (h *SpaceHandler) GetReportCharts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_ = activeRange
-	ui.Render(w, r, pages.ReportCharts(spaceID, report, from, to))
+	ui.Render(w, r, pages.ReportCharts(spaceID, report, from, to, presets, activeRange))
 }
 
 func (h *SpaceHandler) buildListCards(spaceID string) ([]model.ListCardData, error) {
