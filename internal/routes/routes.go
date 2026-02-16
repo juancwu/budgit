@@ -61,9 +61,13 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
 
 	// Space routes
-	spaceDashboardHandler := middleware.RequireAuth(space.DashboardPage)
-	spaceDashboardWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(spaceDashboardHandler)
-	mux.Handle("GET /app/spaces/{spaceID}", spaceDashboardWithAccess)
+	spaceOverviewHandler := middleware.RequireAuth(space.OverviewPage)
+	spaceOverviewWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(spaceOverviewHandler)
+	mux.Handle("GET /app/spaces/{spaceID}", spaceOverviewWithAccess)
+
+	reportsPageHandler := middleware.RequireAuth(space.ReportsPage)
+	reportsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(reportsPageHandler)
+	mux.Handle("GET /app/spaces/{spaceID}/reports", reportsPageWithAccess)
 
 	listsPageHandler := middleware.RequireAuth(space.ListsPage)
 	listsPageWithAccess := middleware.RequireSpaceAccess(a.SpaceService)(listsPageHandler)

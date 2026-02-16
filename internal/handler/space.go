@@ -92,7 +92,7 @@ func (h *SpaceHandler) getTagForSpace(w http.ResponseWriter, spaceID, tagID stri
 	return tag
 }
 
-func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
+func (h *SpaceHandler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	space, err := h.spaceService.GetSpace(spaceID)
 	if err != nil {
@@ -101,7 +101,74 @@ func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Default to this month
+	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get balance", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	allocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
+		allocated = 0
+	}
+	balance -= allocated
+
+	// This month's report
+	now := time.Now()
+	presets := service.GetPresetDateRanges(now)
+	report, err := h.reportService.GetSpendingReport(spaceID, presets[0].From, presets[0].To)
+	if err != nil {
+		slog.Error("failed to get spending report", "error", err, "space_id", spaceID)
+		report = nil
+	}
+
+	// Budgets
+	tags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags", "error", err, "space_id", spaceID)
+	}
+	var budgets []*model.BudgetWithSpent
+	if tags != nil {
+		budgets, err = h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+		if err != nil {
+			slog.Error("failed to get budgets", "error", err, "space_id", spaceID)
+		}
+	}
+
+	// Recurring expenses
+	recs, err := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get recurring expenses", "error", err, "space_id", spaceID)
+	}
+
+	// Shopping lists
+	cards, err := h.buildListCards(spaceID)
+	if err != nil {
+		slog.Error("failed to build list cards", "error", err, "space_id", spaceID)
+	}
+
+	ui.Render(w, r, pages.SpaceOverviewPage(pages.OverviewData{
+		Space:             space,
+		Balance:           balance,
+		Allocated:         allocated,
+		Report:            report,
+		Budgets:           budgets,
+		UpcomingRecurring: recs,
+		ShoppingLists:     cards,
+	}))
+}
+
+func (h *SpaceHandler) ReportsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get space", "error", err, "space_id", spaceID)
+		http.Error(w, "Space not found.", http.StatusNotFound)
+		return
+	}
+
 	now := time.Now()
 	presets := service.GetPresetDateRanges(now)
 	from := presets[0].From

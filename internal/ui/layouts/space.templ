@@ -44,6 +44,16 @@ templ Space(title string, space *model.Space) {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
 									Href:     "/app/spaces/" + space.ID,
 									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID,
+									Tooltip:  "Overview",
+								}) {
+									@icon.House(icon.Props{Class: "size-4"})
+									<span>Overview</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     "/app/spaces/" + space.ID + "/reports",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces/"+space.ID+"/reports",
 									Tooltip:  "Reports",
 								}) {
 									@icon.ChartPie(icon.Props{Class: "size-4"})
