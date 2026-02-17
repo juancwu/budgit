@@ -190,11 +190,11 @@ func (s *AuthService) VerifyJWT(tokenString string) (jwt.MapClaims, error) {
 	return nil, fmt.Errorf("invalid token")
 }
 
-func (s *AuthService) SetJWTCookie(w http.ResponseWriter, token string, expiry time.Time) {
+func (s *AuthService) SetJWTCookie(w http.ResponseWriter, token string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     "auth_token",
 		Value:    token,
-		Expires:  expiry,
+		Expires:  time.Now().Add(s.jwtExpiry),
 		Path:     "/",
 		HttpOnly: true,
 		Secure:   s.isProduction,

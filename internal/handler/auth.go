@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
@@ -64,7 +63,7 @@ func (h *authHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	h.authService.SetJWTCookie(w, jwtToken, time.Now().Add(7*24*time.Hour))
+	h.authService.SetJWTCookie(w, jwtToken)
 
 	// Check for pending invite
 	inviteCookie, err := r.Cookie("pending_invite")
@@ -153,7 +152,7 @@ func (h *authHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	h.authService.SetJWTCookie(w, jwtToken, time.Now().Add(7*24*time.Hour))
+	h.authService.SetJWTCookie(w, jwtToken)
 
 	// Check for pending invite
 	inviteCookie, err := r.Cookie("pending_invite")
