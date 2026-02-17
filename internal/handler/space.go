@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
@@ -697,7 +696,9 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ui.Render(w, r, pages.ExpenseCreatedResponse(spaceID, expenses, balance, totalAllocated, 1, totalPages))
+	// Re-fetch tags (may have been auto-created)
+	refreshedTags, _ := h.tagService.GetTagsForSpace(spaceID)
+	ui.Render(w, r, pages.ExpenseCreatedResponse(spaceID, expenses, balance, totalAllocated, refreshedTags, 1, totalPages))
 
 	// OOB-swap the item selector with fresh data (items may have been deleted/checked)
 	listsWithItems, err := h.listService.GetListsWithUncheckedItems(spaceID)
@@ -832,7 +833,8 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	balance -= totalAllocated
 
 	methods, _ := h.methodService.GetMethodsForSpace(spaceID)
-	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTagsAndMethod, balance, totalAllocated, methods))
+	updatedTags, _ := h.tagService.GetTagsForSpace(spaceID)
+	ui.Render(w, r, pages.ExpenseUpdatedResponse(spaceID, expWithTagsAndMethod, balance, totalAllocated, methods, updatedTags))
 }
 
 func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
@@ -978,7 +980,8 @@ func (h *SpaceHandler) GetExpensesList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	methods, _ := h.methodService.GetMethodsForSpace(spaceID)
-	ui.Render(w, r, pages.ExpensesListContent(spaceID, expenses, methods, page, totalPages))
+	paginatedTags, _ := h.tagService.GetTagsForSpace(spaceID)
+	ui.Render(w, r, pages.ExpensesListContent(spaceID, expenses, methods, paginatedTags, page, totalPages))
 }
 
 func (h *SpaceHandler) GetShoppingListItems(w http.ResponseWriter, r *http.Request) {
@@ -1779,16 +1782,17 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 	}
 
 	// Fetch tags/method for the response
+	spaceTags, _ := h.tagService.GetTagsForSpace(spaceID)
 	tagsMap, _ := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
 	for _, item := range tagsMap {
 		if item.ID == re.ID {
-			ui.Render(w, r, recurring.RecurringItem(spaceID, item, nil))
+			ui.Render(w, r, recurring.RecurringItem(spaceID, item, nil, spaceTags))
 			return
 		}
 	}
 
 	// Fallback: render without tags
-	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *re}, nil))
+	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *re}, nil, spaceTags))
 }
 
 func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Request) {
@@ -1892,16 +1896,17 @@ func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Req
 	}
 
 	// Build response with tags/method
+	updateSpaceTags, _ := h.tagService.GetTagsForSpace(spaceID)
 	tagsMapResult, _ := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
 	for _, item := range tagsMapResult {
 		if item.ID == updated.ID {
 			methods, _ := h.methodService.GetMethodsForSpace(spaceID)
-			ui.Render(w, r, recurring.RecurringItem(spaceID, item, methods))
+			ui.Render(w, r, recurring.RecurringItem(spaceID, item, methods, updateSpaceTags))
 			return
 		}
 	}
 
-	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *updated}, nil))
+	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *updated}, nil, updateSpaceTags))
 }
 
 func (h *SpaceHandler) DeleteRecurringExpense(w http.ResponseWriter, r *http.Request) {
@@ -1943,19 +1948,62 @@ func (h *SpaceHandler) ToggleRecurringExpense(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	toggleSpaceTags, _ := h.tagService.GetTagsForSpace(spaceID)
 	tagsMapResult, _ := h.recurringService.GetRecurringExpensesWithTagsAndMethodsForSpace(spaceID)
 	for _, item := range tagsMapResult {
 		if item.ID == updated.ID {
 			methods, _ := h.methodService.GetMethodsForSpace(spaceID)
-			ui.Render(w, r, recurring.RecurringItem(spaceID, item, methods))
+			ui.Render(w, r, recurring.RecurringItem(spaceID, item, methods, toggleSpaceTags))
 			return
 		}
 	}
 
-	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *updated}, nil))
+	ui.Render(w, r, recurring.RecurringItem(spaceID, &model.RecurringExpenseWithTagsAndMethod{RecurringExpense: *updated}, nil, toggleSpaceTags))
 }
 
 // --- Budgets ---
+
+// processTagNames normalizes tag names, deduplicates them, and resolves them
+// to tag IDs. Tags that don't exist are auto-created.
+func (h *SpaceHandler) processTagNames(spaceID string, tagNames []string) ([]string, error) {
+	existingTags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	existingTagsMap := make(map[string]string)
+	for _, t := range existingTags {
+		existingTagsMap[t.Name] = t.ID
+	}
+
+	var finalTagIDs []string
+	processedTags := make(map[string]bool)
+
+	for _, rawTagName := range tagNames {
+		tagName := service.NormalizeTagName(rawTagName)
+		if tagName == "" {
+			continue
+		}
+		if processedTags[tagName] {
+			continue
+		}
+
+		if id, exists := existingTagsMap[tagName]; exists {
+			finalTagIDs = append(finalTagIDs, id)
+		} else {
+			newTag, err := h.tagService.CreateTag(spaceID, tagName, nil)
+			if err != nil {
+				slog.Error("failed to create new tag", "error", err, "tag_name", tagName)
+				continue
+			}
+			finalTagIDs = append(finalTagIDs, newTag.ID)
+			existingTagsMap[tagName] = newTag.ID
+		}
+		processedTags[tagName] = true
+	}
+
+	return finalTagIDs, nil
+}
 
 func (h *SpaceHandler) getBudgetForSpace(w http.ResponseWriter, spaceID, budgetID string) *model.Budget {
 	budget, err := h.budgetService.GetBudget(budgetID)
@@ -2004,24 +2052,26 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagIDsStr := r.FormValue("tag_ids")
+	tagNames := r.Form["tags"]
 	amountStr := r.FormValue("amount")
 	periodStr := r.FormValue("period")
 	startDateStr := r.FormValue("start_date")
 	endDateStr := r.FormValue("end_date")
 
-	var tagIDs []string
-	if tagIDsStr != "" {
-		for _, id := range strings.Split(tagIDsStr, ",") {
-			id = strings.TrimSpace(id)
-			if id != "" {
-				tagIDs = append(tagIDs, id)
-			}
-		}
+	if len(tagNames) == 0 || amountStr == "" || periodStr == "" || startDateStr == "" {
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
+		return
 	}
 
-	if len(tagIDs) == 0 || amountStr == "" || periodStr == "" || startDateStr == "" {
-		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
+	tagIDs, err := h.processTagNames(spaceID, tagNames)
+	if err != nil {
+		slog.Error("failed to process tag names", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(tagIDs) == 0 {
+		ui.RenderError(w, r, "At least one valid tag is required.", http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -2082,24 +2132,26 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagIDsStr := r.FormValue("tag_ids")
+	tagNames := r.Form["tags"]
 	amountStr := r.FormValue("amount")
 	periodStr := r.FormValue("period")
 	startDateStr := r.FormValue("start_date")
 	endDateStr := r.FormValue("end_date")
 
-	var tagIDs []string
-	if tagIDsStr != "" {
-		for _, id := range strings.Split(tagIDsStr, ",") {
-			id = strings.TrimSpace(id)
-			if id != "" {
-				tagIDs = append(tagIDs, id)
-			}
-		}
+	if len(tagNames) == 0 || amountStr == "" || periodStr == "" || startDateStr == "" {
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
+		return
 	}
 
-	if len(tagIDs) == 0 || amountStr == "" || periodStr == "" || startDateStr == "" {
-		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
+	tagIDs, err := h.processTagNames(spaceID, tagNames)
+	if err != nil {
+		slog.Error("failed to process tag names", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	if len(tagIDs) == 0 {
+		ui.RenderError(w, r, "At least one valid tag is required.", http.StatusUnprocessableEntity)
 		return
 	}
 
