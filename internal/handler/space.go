@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
@@ -125,16 +126,9 @@ func (h *SpaceHandler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Budgets
-	tags, err := h.tagService.GetTagsForSpace(spaceID)
+	budgets, err := h.budgetService.GetBudgetsWithSpent(spaceID)
 	if err != nil {
-		slog.Error("failed to get tags", "error", err, "space_id", spaceID)
-	}
-	var budgets []*model.BudgetWithSpent
-	if tags != nil {
-		budgets, err = h.budgetService.GetBudgetsWithSpent(spaceID, tags)
-		if err != nil {
-			slog.Error("failed to get budgets", "error", err, "space_id", spaceID)
-		}
+		slog.Error("failed to get budgets", "error", err, "space_id", spaceID)
 	}
 
 	// Recurring expenses
@@ -1991,7 +1985,7 @@ func (h *SpaceHandler) BudgetsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	budgets, err := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	budgets, err := h.budgetService.GetBudgetsWithSpent(spaceID)
 	if err != nil {
 		slog.Error("failed to get budgets", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -2010,13 +2004,23 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagID := r.FormValue("tag_id")
+	tagIDsStr := r.FormValue("tag_ids")
 	amountStr := r.FormValue("amount")
 	periodStr := r.FormValue("period")
 	startDateStr := r.FormValue("start_date")
 	endDateStr := r.FormValue("end_date")
 
-	if tagID == "" || amountStr == "" || periodStr == "" || startDateStr == "" {
+	var tagIDs []string
+	if tagIDsStr != "" {
+		for _, id := range strings.Split(tagIDsStr, ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	if len(tagIDs) == 0 || amountStr == "" || periodStr == "" || startDateStr == "" {
 		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
 		return
 	}
@@ -2046,7 +2050,7 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.budgetService.CreateBudget(service.CreateBudgetDTO{
 		SpaceID:   spaceID,
-		TagID:     tagID,
+		TagIDs:    tagIDs,
 		Amount:    amountCents,
 		Period:    model.BudgetPeriod(periodStr),
 		StartDate: startDate,
@@ -2061,7 +2065,7 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 
 	// Refresh the full budgets list
 	tags, _ := h.tagService.GetTagsForSpace(spaceID)
-	budgets, _ := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	budgets, _ := h.budgetService.GetBudgetsWithSpent(spaceID)
 	ui.Render(w, r, pages.BudgetsList(spaceID, budgets, tags))
 }
 
@@ -2078,13 +2082,23 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tagID := r.FormValue("tag_id")
+	tagIDsStr := r.FormValue("tag_ids")
 	amountStr := r.FormValue("amount")
 	periodStr := r.FormValue("period")
 	startDateStr := r.FormValue("start_date")
 	endDateStr := r.FormValue("end_date")
 
-	if tagID == "" || amountStr == "" || periodStr == "" || startDateStr == "" {
+	var tagIDs []string
+	if tagIDsStr != "" {
+		for _, id := range strings.Split(tagIDsStr, ",") {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				tagIDs = append(tagIDs, id)
+			}
+		}
+	}
+
+	if len(tagIDs) == 0 || amountStr == "" || periodStr == "" || startDateStr == "" {
 		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
 		return
 	}
@@ -2114,7 +2128,7 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 
 	_, err = h.budgetService.UpdateBudget(service.UpdateBudgetDTO{
 		ID:        budgetID,
-		TagID:     tagID,
+		TagIDs:    tagIDs,
 		Amount:    amountCents,
 		Period:    model.BudgetPeriod(periodStr),
 		StartDate: startDate,
@@ -2128,7 +2142,7 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 
 	// Refresh the full budgets list
 	tags, _ := h.tagService.GetTagsForSpace(spaceID)
-	budgets, _ := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	budgets, _ := h.budgetService.GetBudgetsWithSpent(spaceID)
 	ui.Render(w, r, pages.BudgetsList(spaceID, budgets, tags))
 }
 
@@ -2160,7 +2174,7 @@ func (h *SpaceHandler) GetBudgetsList(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 
 	tags, _ := h.tagService.GetTagsForSpace(spaceID)
-	budgets, err := h.budgetService.GetBudgetsWithSpent(spaceID, tags)
+	budgets, err := h.budgetService.GetBudgetsWithSpent(spaceID)
 	if err != nil {
 		slog.Error("failed to get budgets", "error", err, "space_id", spaceID)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
