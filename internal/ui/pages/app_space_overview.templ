@@ -257,11 +257,15 @@ templ overviewBudgetsCard(data OverviewData) {
 							{{ pct = 100 }}
 						}
 						<div class="space-y-1">
-							<div class="flex items-center gap-2">
-								if b.TagColor != nil {
-									<span class="inline-block w-2.5 h-2.5 rounded-full" style={ "background-color: " + *b.TagColor }></span>
+							<div class="flex items-center gap-2 flex-wrap">
+								for _, t := range b.Tags {
+									<span class="inline-flex items-center gap-1">
+										if t.Color != nil {
+											<span class="inline-block w-2.5 h-2.5 rounded-full" style={ "background-color: " + *t.Color }></span>
+										}
+										<span class="text-sm font-medium">{ t.Name }</span>
+									</span>
 								}
-								<span class="text-sm font-medium">{ b.TagName }</span>
 								<span class="text-xs text-muted-foreground ml-auto">{ overviewPeriodLabel(b.Period) }</span>
 							</div>
 							<div class="flex justify-between text-xs text-muted-foreground">

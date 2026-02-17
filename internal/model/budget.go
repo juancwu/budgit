@@ -1,6 +1,9 @@
 package model
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type BudgetPeriod string
 
@@ -21,7 +24,6 @@ const (
 type Budget struct {
 	ID          string       `db:"id"`
 	SpaceID     string       `db:"space_id"`
-	TagID       string       `db:"tag_id"`
 	AmountCents int          `db:"amount_cents"`
 	Period      BudgetPeriod `db:"period"`
 	StartDate   time.Time    `db:"start_date"`
@@ -34,9 +36,16 @@ type Budget struct {
 
 type BudgetWithSpent struct {
 	Budget
-	TagName    string  `db:"tag_name"`
-	TagColor   *string `db:"tag_color"`
+	Tags       []*Tag
 	SpentCents int
 	Percentage float64
 	Status     BudgetStatus
+}
+
+func (b *BudgetWithSpent) TagNames() string {
+	names := make([]string, len(b.Tags))
+	for i, t := range b.Tags {
+		names[i] = t.Name
+	}
+	return strings.Join(names, ", ")
 }

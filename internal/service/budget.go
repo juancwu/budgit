@@ -11,7 +11,7 @@ import (
 
 type CreateBudgetDTO struct {
 	SpaceID   string
-	TagID     string
+	TagIDs    []string
 	Amount    int
 	Period    model.BudgetPeriod
 	StartDate time.Time
@@ -21,7 +21,7 @@ type CreateBudgetDTO struct {
 
 type UpdateBudgetDTO struct {
 	ID        string
-	TagID     string
+	TagIDs    []string
 	Amount    int
 	Period    model.BudgetPeriod
 	StartDate time.Time
@@ -41,11 +41,14 @@ func (s *BudgetService) CreateBudget(dto CreateBudgetDTO) (*model.Budget, error)
 		return nil, fmt.Errorf("budget amount must be positive")
 	}
 
+	if len(dto.TagIDs) == 0 {
+		return nil, fmt.Errorf("at least one tag is required")
+	}
+
 	now := time.Now()
 	budget := &model.Budget{
 		ID:          uuid.NewString(),
 		SpaceID:     dto.SpaceID,
-		TagID:       dto.TagID,
 		AmountCents: dto.Amount,
 		Period:      dto.Period,
 		StartDate:   dto.StartDate,
@@ -56,7 +59,7 @@ func (s *BudgetService) CreateBudget(dto CreateBudgetDTO) (*model.Budget, error)
 		UpdatedAt:   now,
 	}
 
-	if err := s.budgetRepo.Create(budget); err != nil {
+	if err := s.budgetRepo.Create(budget, dto.TagIDs); err != nil {
 		return nil, err
 	}
 	return budget, nil
@@ -66,21 +69,35 @@ func (s *BudgetService) GetBudget(id string) (*model.Budget, error) {
 	return s.budgetRepo.GetByID(id)
 }
 
-func (s *BudgetService) GetBudgetsWithSpent(spaceID string, tags []*model.Tag) ([]*model.BudgetWithSpent, error) {
+func (s *BudgetService) GetBudgetsWithSpent(spaceID string) ([]*model.BudgetWithSpent, error) {
 	budgets, err := s.budgetRepo.GetBySpaceID(spaceID)
 	if err != nil {
 		return nil, err
 	}
 
-	tagMap := make(map[string]*model.Tag)
-	for _, t := range tags {
-		tagMap[t.ID] = t
+	// Collect budget IDs for batch tag fetch
+	budgetIDs := make([]string, len(budgets))
+	for i, b := range budgets {
+		budgetIDs[i] = b.ID
+	}
+
+	budgetTagsMap, err := s.budgetRepo.GetTagsByBudgetIDs(budgetIDs)
+	if err != nil {
+		return nil, err
 	}
 
 	result := make([]*model.BudgetWithSpent, 0, len(budgets))
 	for _, b := range budgets {
+		tags := budgetTagsMap[b.ID]
+
+		// Extract tag IDs for spending calculation
+		tagIDs := make([]string, len(tags))
+		for i, t := range tags {
+			tagIDs[i] = t.ID
+		}
+
 		start, end := GetCurrentPeriodBounds(b.Period, time.Now())
-		spent, err := s.budgetRepo.GetSpentForBudget(spaceID, b.TagID, start, end)
+		spent, err := s.budgetRepo.GetSpentForBudget(spaceID, tagIDs, start, end)
 		if err != nil {
 			spent = 0
 		}
@@ -102,14 +119,10 @@ func (s *BudgetService) GetBudgetsWithSpent(spaceID string, tags []*model.Tag) (
 
 		bws := &model.BudgetWithSpent{
 			Budget:     *b,
+			Tags:       tags,
 			SpentCents: spent,
 			Percentage: percentage,
 			Status:     status,
-		}
-
-		if tag, ok := tagMap[b.TagID]; ok {
-			bws.TagName = tag.Name
-			bws.TagColor = tag.Color
 		}
 
 		result = append(result, bws)
@@ -122,19 +135,22 @@ func (s *BudgetService) UpdateBudget(dto UpdateBudgetDTO) (*model.Budget, error)
 		return nil, fmt.Errorf("budget amount must be positive")
 	}
 
+	if len(dto.TagIDs) == 0 {
+		return nil, fmt.Errorf("at least one tag is required")
+	}
+
 	existing, err := s.budgetRepo.GetByID(dto.ID)
 	if err != nil {
 		return nil, err
 	}
 
-	existing.TagID = dto.TagID
 	existing.AmountCents = dto.Amount
 	existing.Period = dto.Period
 	existing.StartDate = dto.StartDate
 	existing.EndDate = dto.EndDate
 	existing.UpdatedAt = time.Now()
 
-	if err := s.budgetRepo.Update(existing); err != nil {
+	if err := s.budgetRepo.Update(existing, dto.TagIDs); err != nil {
 		return nil, err
 	}
 	return existing, nil
