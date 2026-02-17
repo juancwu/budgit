@@ -13,7 +13,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagcombobox"
 )
 
 type AddExpenseFormProps struct {
@@ -139,16 +139,11 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 			@label.Label(label.Props{For: "new-expense-tags"}) {
 				Tags (Optional)
 			}
-			<datalist id="available-tags">
-				for _, tag := range props.Tags {
-					<option value={ tag.Name }></option>
-				}
-			</datalist>
-			@tagsinput.TagsInput(tagsinput.Props{
+			@tagcombobox.TagCombobox(tagcombobox.Props{
 				ID:          "new-expense-tags",
 				Name:        "tags",
-				Placeholder: "Add tags (press enter)",
-				Attributes:  templ.Attributes{"list": "available-tags"},
+				Tags:        props.Tags,
+				Placeholder: "Search or create tags...",
 			})
 		</div>
 		// Payment Method
@@ -163,7 +158,7 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 	</form>
 }
 
-templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
+templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod, tags []*model.Tag) {
 	{{ editDialogID := "edit-expense-" + exp.ID }}
 	{{ tagValues := make([]string, len(exp.Tags)) }}
 	for i, t := range exp.Tags {
@@ -248,11 +243,12 @@ templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 			@label.Label(label.Props{For: "edit-tags-" + exp.ID}) {
 				Tags (Optional)
 			}
-			@tagsinput.TagsInput(tagsinput.Props{
+			@tagcombobox.TagCombobox(tagcombobox.Props{
 				ID:          "edit-tags-" + exp.ID,
 				Name:        "tags",
 				Value:       tagValues,
-				Placeholder: "Add tags (press enter)",
+				Tags:        tags,
+				Placeholder: "Search or create tags...",
 			})
 		</div>
 		// Payment Method

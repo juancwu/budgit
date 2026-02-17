@@ -11,7 +11,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagcombobox"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
@@ -35,15 +35,6 @@ func progressBarColor(status model.BudgetStatus) string {
 	default:
 		return "bg-green-500"
 	}
-}
-
-func budgetTagSelected(tags []*model.Tag, tagID string) bool {
-	for _, t := range tags {
-		if t.ID == tagID {
-			return true
-		}
-	}
-	return false
 }
 
 templ SpaceBudgetsPage(space *model.Space, budgets []*model.BudgetWithSpent, tags []*model.Tag) {
@@ -190,23 +181,17 @@ templ AddBudgetForm(spaceID string, tags []*model.Tag) {
 		class="space-y-4"
 	>
 		@csrf.Token()
-		// Tag selector (multi-select)
+		// Tag selector
 		<div>
-			@label.Label(label.Props{}) {
+			@label.Label(label.Props{For: "budget-tags"}) {
 				Tags
 			}
-			@selectbox.SelectBox(selectbox.Props{ID: "budget-tags", Multiple: true}) {
-				@selectbox.Trigger(selectbox.TriggerProps{Name: "tag_ids", Multiple: true, ShowPills: true, SelectedCountText: "{n} tags selected"}) {
-					@selectbox.Value(selectbox.ValueProps{Placeholder: "Select tags..."})
-				}
-				@selectbox.Content() {
-					for _, t := range tags {
-						@selectbox.Item(selectbox.ItemProps{Value: t.ID}) {
-							{ t.Name }
-						}
-					}
-				}
-			}
+			@tagcombobox.TagCombobox(tagcombobox.Props{
+				ID:          "budget-tags",
+				Name:        "tags",
+				Tags:        tags,
+				Placeholder: "Search or create tags...",
+			})
 		</div>
 		// Amount
 		<div>
@@ -290,6 +275,10 @@ templ AddBudgetForm(spaceID string, tags []*model.Tag) {
 
 templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag) {
 	{{ editDialogID := "edit-budget-" + b.ID }}
+	{{ budgetTagNames := make([]string, len(b.Tags)) }}
+	for i, t := range b.Tags {
+		{{ budgetTagNames[i] = t.Name }}
+	}
 	<form
 		hx-patch={ fmt.Sprintf("/app/spaces/%s/budgets/%s", spaceID, b.ID) }
 		hx-target="#budgets-list-wrapper"
@@ -298,23 +287,18 @@ templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag
 		class="space-y-4"
 	>
 		@csrf.Token()
-		// Tag selector (multi-select with pre-selected tags)
+		// Tag selector
 		<div>
-			@label.Label(label.Props{}) {
+			@label.Label(label.Props{For: "edit-budget-tags-" + b.ID}) {
 				Tags
 			}
-			@selectbox.SelectBox(selectbox.Props{ID: "edit-budget-tags-" + b.ID, Multiple: true}) {
-				@selectbox.Trigger(selectbox.TriggerProps{Name: "tag_ids", Multiple: true, ShowPills: true, SelectedCountText: "{n} tags selected"}) {
-					@selectbox.Value(selectbox.ValueProps{Placeholder: "Select tags..."})
-				}
-				@selectbox.Content() {
-					for _, t := range tags {
-						@selectbox.Item(selectbox.ItemProps{Value: t.ID, Selected: budgetTagSelected(b.Tags, t.ID)}) {
-							{ t.Name }
-						}
-					}
-				}
-			}
+			@tagcombobox.TagCombobox(tagcombobox.Props{
+				ID:          "edit-budget-tags-" + b.ID,
+				Name:        "tags",
+				Value:       budgetTagNames,
+				Tags:        tags,
+				Placeholder: "Search or create tags...",
+			})
 		</div>
 		// Amount
 		<div>

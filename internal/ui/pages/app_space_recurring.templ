@@ -38,7 +38,7 @@ templ SpaceRecurringPage(space *model.Space, recs []*model.RecurringExpenseWithT
 						<p class="p-4 text-sm text-muted-foreground">No recurring transactions set up yet.</p>
 					}
 					for _, re := range recs {
-						@recurring.RecurringItem(space.ID, re, methods)
+						@recurring.RecurringItem(space.ID, re, methods, tags)
 					}
 				</div>
 			</div>

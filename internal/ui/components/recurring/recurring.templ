@@ -14,7 +14,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagcombobox"
 )
 
 func frequencyLabel(f model.Frequency) string {
@@ -34,7 +34,7 @@ func frequencyLabel(f model.Frequency) string {
 	}
 }
 
-templ RecurringItem(spaceID string, re *model.RecurringExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
+templ RecurringItem(spaceID string, re *model.RecurringExpenseWithTagsAndMethod, methods []*model.PaymentMethod, tags []*model.Tag) {
 	{{ editDialogID := "edit-recurring-" + re.ID }}
 	{{ delDialogID := "del-recurring-" + re.ID }}
 	<div id={ "recurring-" + re.ID } class="p-4 flex justify-between items-start gap-2">
@@ -113,7 +113,7 @@ templ RecurringItem(spaceID string, re *model.RecurringExpenseWithTagsAndMethod,
 							Update the details of this recurring transaction.
 						}
 					}
-					@EditRecurringForm(spaceID, re, methods)
+					@EditRecurringForm(spaceID, re, methods, tags)
 				}
 			}
 			// Delete button
@@ -269,16 +269,11 @@ templ AddRecurringForm(spaceID string, tags []*model.Tag, methods []*model.Payme
 			@label.Label(label.Props{For: "recurring-tags"}) {
 				Tags
 			}
-			<datalist id="recurring-available-tags">
-				for _, t := range tags {
-					<option value={ t.Name }></option>
-				}
-			</datalist>
-			@tagsinput.TagsInput(tagsinput.Props{
+			@tagcombobox.TagCombobox(tagcombobox.Props{
 				ID:          "recurring-tags",
 				Name:        "tags",
-				Placeholder: "Add tags (press enter)",
-				Attributes:  templ.Attributes{"list": "recurring-available-tags"},
+				Tags:        tags,
+				Placeholder: "Search or create tags...",
 			})
 		</div>
 		// Payment Method
@@ -291,7 +286,7 @@ templ AddRecurringForm(spaceID string, tags []*model.Tag, methods []*model.Payme
 	</form>
 }
 
-templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
+templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMethod, methods []*model.PaymentMethod, tags []*model.Tag) {
 	{{ editDialogID := "edit-recurring-" + re.ID }}
 	{{ tagValues := make([]string, len(re.Tags)) }}
 	for i, t := range re.Tags {
@@ -422,11 +417,12 @@ templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMet
 			@label.Label(label.Props{For: "edit-recurring-tags-" + re.ID}) {
 				Tags
 			}
-			@tagsinput.TagsInput(tagsinput.Props{
+			@tagcombobox.TagCombobox(tagcombobox.Props{
 				ID:          "edit-recurring-tags-" + re.ID,
 				Name:        "tags",
 				Value:       tagValues,
-				Placeholder: "Add tags (press enter)",
+				Tags:        tags,
+				Placeholder: "Search or create tags...",
 			})
 		</div>
 		// Payment Method

@@ -48,21 +48,21 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTagsAnd
 			// List of expenses
 			<div class="border rounded-lg">
 				<div id="expenses-list-wrapper">
-					@ExpensesListContent(space.ID, expenses, methods, currentPage, totalPages)
+					@ExpensesListContent(space.ID, expenses, methods, tags, currentPage, totalPages)
 				</div>
 			</div>
 		</div>
 	}
 }
 
-templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod, currentPage, totalPages int) {
+templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod, tags []*model.Tag, currentPage, totalPages int) {
 	<h2 class="text-lg font-semibold p-4">History</h2>
 	<div id="expenses-list" class="divide-y">
 		if len(expenses) == 0 {
 			<p class="p-4 text-sm text-muted-foreground">No expenses recorded yet.</p>
 		}
 		for _, exp := range expenses {
-			@ExpenseListItem(spaceID, exp, methods)
+			@ExpenseListItem(spaceID, exp, methods, tags)
 		}
 	</div>
 	if totalPages > 1 {
@@ -109,7 +109,7 @@ templ ExpensesListContent(spaceID string, expenses []*model.ExpenseWithTagsAndMe
 	}
 }
 
-templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod) {
+templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, methods []*model.PaymentMethod, tags []*model.Tag) {
 	<div id={ "expense-" + exp.ID } class="p-4 flex justify-between items-start gap-2">
 		<div class="min-w-0 flex-1">
 			<div class="flex items-center gap-1.5">
@@ -166,7 +166,7 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 							Update the details of this transaction.
 						}
 					}
-					@expense.EditExpenseForm(spaceID, exp, methods)
+					@expense.EditExpenseForm(spaceID, exp, methods, tags)
 				}
 			}
 			// Delete button
@@ -208,12 +208,12 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 	</div>
 }
 
-templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, balance int, allocated int, currentPage, totalPages int) {
-	@ExpensesListContent(spaceID, expenses, nil, currentPage, totalPages)
+templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, balance int, allocated int, tags []*model.Tag, currentPage, totalPages int) {
+	@ExpensesListContent(spaceID, expenses, nil, tags, currentPage, totalPages)
 	@expense.BalanceCard(spaceID, balance, allocated, true)
 }
 
-templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTagsAndMethod, balance int, allocated int, methods []*model.PaymentMethod) {
-	@ExpenseListItem(spaceID, exp, methods)
+templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTagsAndMethod, balance int, allocated int, methods []*model.PaymentMethod, tags []*model.Tag) {
+	@ExpenseListItem(spaceID, exp, methods, tags)
 	@expense.BalanceCard(exp.SpaceID, balance, allocated, true)
 }
