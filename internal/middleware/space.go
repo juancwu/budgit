@@ -10,9 +10,9 @@ import (
 
 // RequireSpaceAccess validates that a user is a member of the space they are trying to access.
 // It expects a URL parameter named "spaceID".
-func RequireSpaceAccess(spaceService *service.SpaceService) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func RequireSpaceAccess(spaceService *service.SpaceService) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
 			user := ctxkeys.User(r.Context())
 			if user == nil {
 				// This should be caught by RequireAuth first, but as a safeguard.
@@ -45,6 +45,6 @@ func RequireSpaceAccess(spaceService *service.SpaceService) func(http.Handler) h
 			}
 
 			next.ServeHTTP(w, r)
-		})
+		}
 	}
 }
