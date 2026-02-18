@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
@@ -47,6 +48,40 @@ func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *serv
 		budgetService:    bs,
 		reportService:    rps,
 	}
+}
+
+func (h *SpaceHandler) DashboardPage(w http.ResponseWriter, r *http.Request) {
+	user := ctxkeys.User(r.Context())
+	spaces, err := h.spaceService.GetSpacesForUser(user.ID)
+	if err != nil {
+		slog.Error("failed to get spaces for user", "error", err, "user_id", user.ID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.Dashboard(spaces))
+}
+
+func (h *SpaceHandler) CreateSpace(w http.ResponseWriter, r *http.Request) {
+	user := ctxkeys.User(r.Context())
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		w.Header().Set("HX-Reswap", "none")
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		fmt.Fprint(w, `<p id="create-space-error" hx-swap-oob="true" class="text-sm text-destructive">Space name is required</p>`)
+		return
+	}
+
+	space, err := h.spaceService.CreateSpace(name, user.ID)
+	if err != nil {
+		slog.Error("failed to create space", "error", err, "user_id", user.ID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/app/spaces/"+space.ID)
+	w.WriteHeader(http.StatusOK)
 }
 
 // getExpenseForSpace fetches an expense and verifies it belongs to the given space.

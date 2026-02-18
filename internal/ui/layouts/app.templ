@@ -27,7 +27,7 @@ templ App(title string) {
 						@sidebar.MenuItem() {
 							@sidebar.MenuButton(sidebar.MenuButtonProps{
 								Size: sidebar.MenuButtonSizeLg,
-								Href: "/app/dashboard",
+								Href: "/app/spaces",
 							}) {
 								@icon.LayoutDashboard()
 								<div class="flex flex-col">
@@ -45,12 +45,12 @@ templ App(title string) {
 						@sidebar.Menu() {
 							@sidebar.MenuItem() {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
-									Href:     "/app/dashboard",
-									IsActive: ctxkeys.URLPath(ctx) == "/app/dashboard",
-									Tooltip:  "Dashboard",
+									Href:     "/app/spaces",
+									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces",
+									Tooltip:  "Spaces",
 								}) {
 									@icon.House(icon.Props{Class: "size-4"})
-									<span>Dashboard</span>
+									<span>Spaces</span>
 								}
 							}
 						}
