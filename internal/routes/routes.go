@@ -13,7 +13,6 @@ import (
 func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	home := handler.NewHomeHandler()
-	dashboard := handler.NewDashboardHandler(a.SpaceService, a.ExpenseService)
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
 	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.BudgetService, a.ReportService)
 
@@ -55,8 +54,9 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("GET /auth/onboarding", middleware.RequireAuth(auth.OnboardingPage))
 	mux.Handle("POST /auth/onboarding", crudLimiter(http.HandlerFunc(middleware.RequireAuth(auth.CompleteOnboarding))))
 
-	mux.HandleFunc("GET /app/dashboard", middleware.RequireAuth(dashboard.DashboardPage))
-	mux.Handle("POST /app/spaces", crudLimiter(http.HandlerFunc(middleware.RequireAuth(dashboard.CreateSpace))))
+	mux.HandleFunc("GET /app/dashboard", middleware.Redirect("/app/spaces"))
+	mux.HandleFunc("GET /app/spaces", middleware.RequireAuth(space.DashboardPage))
+	mux.Handle("POST /app/spaces", crudLimiter(middleware.RequireAuth(space.CreateSpace)))
 	mux.HandleFunc("GET /app/settings", middleware.RequireAuth(settings.SettingsPage))
 	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
 
