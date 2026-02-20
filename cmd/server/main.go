@@ -39,7 +39,7 @@ func main() {
 	// Start recurring expense scheduler
 	schedulerCtx, schedulerCancel := context.WithCancel(context.Background())
 	defer schedulerCancel()
-	sched := scheduler.New(a.RecurringExpenseService)
+	sched := scheduler.New(a.RecurringExpenseService, a.RecurringDepositService)
 	go sched.Start(schedulerCtx)
 
 	// Health check bypasses all middleware

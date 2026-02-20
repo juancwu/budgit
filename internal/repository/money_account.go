@@ -91,8 +91,8 @@ func (r *moneyAccountRepository) Delete(id string) error {
 }
 
 func (r *moneyAccountRepository) CreateTransfer(transfer *model.AccountTransfer) error {
-	query := `INSERT INTO account_transfers (id, account_id, amount_cents, direction, note, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7);`
-	_, err := r.db.Exec(query, transfer.ID, transfer.AccountID, transfer.AmountCents, transfer.Direction, transfer.Note, transfer.CreatedBy, transfer.CreatedAt)
+	query := `INSERT INTO account_transfers (id, account_id, amount_cents, direction, note, recurring_deposit_id, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`
+	_, err := r.db.Exec(query, transfer.ID, transfer.AccountID, transfer.AmountCents, transfer.Direction, transfer.Note, transfer.RecurringDepositID, transfer.CreatedBy, transfer.CreatedAt)
 	return err
 }
 

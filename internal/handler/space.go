@@ -23,30 +23,32 @@ import (
 )
 
 type SpaceHandler struct {
-	spaceService     *service.SpaceService
-	tagService       *service.TagService
-	listService      *service.ShoppingListService
-	expenseService   *service.ExpenseService
-	inviteService    *service.InviteService
-	accountService   *service.MoneyAccountService
-	methodService    *service.PaymentMethodService
-	recurringService *service.RecurringExpenseService
-	budgetService    *service.BudgetService
-	reportService    *service.ReportService
+	spaceService            *service.SpaceService
+	tagService              *service.TagService
+	listService             *service.ShoppingListService
+	expenseService          *service.ExpenseService
+	inviteService           *service.InviteService
+	accountService          *service.MoneyAccountService
+	methodService           *service.PaymentMethodService
+	recurringService        *service.RecurringExpenseService
+	recurringDepositService *service.RecurringDepositService
+	budgetService           *service.BudgetService
+	reportService           *service.ReportService
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService, pms *service.PaymentMethodService, rs *service.RecurringExpenseService, bs *service.BudgetService, rps *service.ReportService) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService, pms *service.PaymentMethodService, rs *service.RecurringExpenseService, rds *service.RecurringDepositService, bs *service.BudgetService, rps *service.ReportService) *SpaceHandler {
 	return &SpaceHandler{
-		spaceService:     ss,
-		tagService:       ts,
-		listService:      sls,
-		expenseService:   es,
-		inviteService:    is,
-		accountService:   mas,
-		methodService:    pms,
-		recurringService: rs,
-		budgetService:    bs,
-		reportService:    rps,
+		spaceService:            ss,
+		tagService:              ts,
+		listService:             sls,
+		expenseService:          es,
+		inviteService:           is,
+		accountService:          mas,
+		methodService:           pms,
+		recurringService:        rs,
+		recurringDepositService: rds,
+		budgetService:           bs,
+		reportService:           rps,
 	}
 }
 
@@ -1259,6 +1261,9 @@ func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Lazy process recurring deposits
+	h.recurringDepositService.ProcessDueRecurrencesForSpace(spaceID, time.Now())
+
 	accounts, err := h.accountService.GetAccountsForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get accounts for space", "error", err, "space_id", spaceID)
@@ -1282,7 +1287,13 @@ func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	availableBalance := totalBalance - totalAllocated
 
-	ui.Render(w, r, pages.SpaceAccountsPage(space, accounts, totalBalance, availableBalance))
+	recurringDeposits, err := h.recurringDepositService.GetRecurringDepositsWithAccountsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get recurring deposits", "error", err, "space_id", spaceID)
+		recurringDeposits = nil
+	}
+
+	ui.Render(w, r, pages.SpaceAccountsPage(space, accounts, totalBalance, availableBalance, recurringDeposits))
 }
 
 func (h *SpaceHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
@@ -1535,6 +1546,245 @@ func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
 		Dismissible: true,
 		Duration:    5000,
 	}))
+}
+
+// --- Recurring Deposits ---
+
+func (h *SpaceHandler) getRecurringDepositForSpace(w http.ResponseWriter, spaceID, depositID string) *model.RecurringDeposit {
+	rd, err := h.recurringDepositService.GetRecurringDeposit(depositID)
+	if err != nil {
+		http.Error(w, "Recurring deposit not found", http.StatusNotFound)
+		return nil
+	}
+	if rd.SpaceID != spaceID {
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return nil
+	}
+	return rd
+}
+
+func (h *SpaceHandler) CreateRecurringDeposit(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	if err := r.ParseForm(); err != nil {
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
+		return
+	}
+
+	accountID := r.FormValue("account_id")
+	amountStr := r.FormValue("amount")
+	frequencyStr := r.FormValue("frequency")
+	startDateStr := r.FormValue("start_date")
+	endDateStr := r.FormValue("end_date")
+	title := r.FormValue("title")
+
+	if accountID == "" || amountStr == "" || frequencyStr == "" || startDateStr == "" {
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
+		return
+	}
+
+	// Verify account belongs to space
+	if h.getAccountForSpace(w, spaceID, accountID) == nil {
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil || amountFloat <= 0 {
+		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		ui.RenderError(w, r, "Invalid start date.", http.StatusUnprocessableEntity)
+		return
+	}
+
+	var endDate *time.Time
+	if endDateStr != "" {
+		ed, err := time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			ui.RenderError(w, r, "Invalid end date.", http.StatusUnprocessableEntity)
+			return
+		}
+		endDate = &ed
+	}
+
+	rd, err := h.recurringDepositService.CreateRecurringDeposit(service.CreateRecurringDepositDTO{
+		SpaceID:   spaceID,
+		AccountID: accountID,
+		Amount:    amountCents,
+		Frequency: model.Frequency(frequencyStr),
+		StartDate: startDate,
+		EndDate:   endDate,
+		Title:     title,
+		CreatedBy: user.ID,
+	})
+	if err != nil {
+		slog.Error("failed to create recurring deposit", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Build response with account name
+	accounts, _ := h.accountService.GetAccountsForSpace(spaceID)
+	var accountName string
+	for _, acct := range accounts {
+		if acct.ID == rd.AccountID {
+			accountName = acct.Name
+			break
+		}
+	}
+
+	rdWithAccount := &model.RecurringDepositWithAccount{
+		RecurringDeposit: *rd,
+		AccountName:      accountName,
+	}
+
+	ui.Render(w, r, moneyaccount.RecurringDepositItem(spaceID, rdWithAccount, accounts))
+}
+
+func (h *SpaceHandler) UpdateRecurringDeposit(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	recurringDepositID := r.PathValue("recurringDepositID")
+
+	if h.getRecurringDepositForSpace(w, spaceID, recurringDepositID) == nil {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
+		return
+	}
+
+	accountID := r.FormValue("account_id")
+	amountStr := r.FormValue("amount")
+	frequencyStr := r.FormValue("frequency")
+	startDateStr := r.FormValue("start_date")
+	endDateStr := r.FormValue("end_date")
+	title := r.FormValue("title")
+
+	if accountID == "" || amountStr == "" || frequencyStr == "" || startDateStr == "" {
+		ui.RenderError(w, r, "All required fields must be provided.", http.StatusUnprocessableEntity)
+		return
+	}
+
+	// Verify account belongs to space
+	if h.getAccountForSpace(w, spaceID, accountID) == nil {
+		return
+	}
+
+	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	if err != nil || amountFloat <= 0 {
+		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
+		return
+	}
+	amountCents := int(amountFloat * 100)
+
+	startDate, err := time.Parse("2006-01-02", startDateStr)
+	if err != nil {
+		ui.RenderError(w, r, "Invalid start date.", http.StatusUnprocessableEntity)
+		return
+	}
+
+	var endDate *time.Time
+	if endDateStr != "" {
+		ed, err := time.Parse("2006-01-02", endDateStr)
+		if err != nil {
+			ui.RenderError(w, r, "Invalid end date.", http.StatusUnprocessableEntity)
+			return
+		}
+		endDate = &ed
+	}
+
+	updated, err := h.recurringDepositService.UpdateRecurringDeposit(service.UpdateRecurringDepositDTO{
+		ID:        recurringDepositID,
+		AccountID: accountID,
+		Amount:    amountCents,
+		Frequency: model.Frequency(frequencyStr),
+		StartDate: startDate,
+		EndDate:   endDate,
+		Title:     title,
+	})
+	if err != nil {
+		slog.Error("failed to update recurring deposit", "error", err, "id", recurringDepositID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	accounts, _ := h.accountService.GetAccountsForSpace(spaceID)
+	var accountName string
+	for _, acct := range accounts {
+		if acct.ID == updated.AccountID {
+			accountName = acct.Name
+			break
+		}
+	}
+
+	rdWithAccount := &model.RecurringDepositWithAccount{
+		RecurringDeposit: *updated,
+		AccountName:      accountName,
+	}
+
+	ui.Render(w, r, moneyaccount.RecurringDepositItem(spaceID, rdWithAccount, accounts))
+}
+
+func (h *SpaceHandler) DeleteRecurringDeposit(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	recurringDepositID := r.PathValue("recurringDepositID")
+
+	if h.getRecurringDepositForSpace(w, spaceID, recurringDepositID) == nil {
+		return
+	}
+
+	if err := h.recurringDepositService.DeleteRecurringDeposit(recurringDepositID); err != nil {
+		slog.Error("failed to delete recurring deposit", "error", err, "id", recurringDepositID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	ui.RenderToast(w, r, toast.Toast(toast.Props{
+		Title:       "Recurring deposit deleted",
+		Variant:     toast.VariantSuccess,
+		Icon:        true,
+		Dismissible: true,
+		Duration:    5000,
+	}))
+}
+
+func (h *SpaceHandler) ToggleRecurringDeposit(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	recurringDepositID := r.PathValue("recurringDepositID")
+
+	if h.getRecurringDepositForSpace(w, spaceID, recurringDepositID) == nil {
+		return
+	}
+
+	updated, err := h.recurringDepositService.ToggleRecurringDeposit(recurringDepositID)
+	if err != nil {
+		slog.Error("failed to toggle recurring deposit", "error", err, "id", recurringDepositID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	accounts, _ := h.accountService.GetAccountsForSpace(spaceID)
+	var accountName string
+	for _, acct := range accounts {
+		if acct.ID == updated.AccountID {
+			accountName = acct.Name
+			break
+		}
+	}
+
+	rdWithAccount := &model.RecurringDepositWithAccount{
+		RecurringDeposit: *updated,
+		AccountName:      accountName,
+	}
+
+	ui.Render(w, r, moneyaccount.RecurringDepositItem(spaceID, rdWithAccount, accounts))
 }
 
 // --- Payment Methods ---
