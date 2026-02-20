@@ -2,6 +2,7 @@ package moneyaccount
 
 import (
 	"fmt"
+	"strconv"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
@@ -10,6 +11,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 )
 
@@ -536,6 +538,125 @@ templ AddRecurringDepositForm(spaceID string, accounts []model.MoneyAccountWithB
 			}
 		</div>
 	</form>
+}
+
+templ TransferHistorySection(spaceID string, transfers []*model.AccountTransferWithAccount, currentPage, totalPages int) {
+	<div class="space-y-4 mt-8">
+		<h2 class="text-xl font-bold">Transfer History</h2>
+		<div class="border rounded-lg">
+			<div id="transfer-history-wrapper">
+				@TransferHistoryContent(spaceID, transfers, currentPage, totalPages, false)
+			</div>
+		</div>
+	</div>
+}
+
+templ TransferHistoryContent(spaceID string, transfers []*model.AccountTransferWithAccount, currentPage, totalPages int, oob bool) {
+	<div
+		if oob {
+			id="transfer-history-wrapper"
+			hx-swap-oob="innerHTML:#transfer-history-wrapper"
+		}
+	>
+		<div class="divide-y">
+			if len(transfers) == 0 {
+				<p class="p-4 text-sm text-muted-foreground">No transfers recorded yet.</p>
+			}
+			for _, t := range transfers {
+				@TransferHistoryItem(spaceID, t)
+			}
+		</div>
+		if totalPages > 1 {
+			<div class="border-t p-2">
+				@pagination.Pagination(pagination.Props{Class: "justify-center"}) {
+					@pagination.Content() {
+						@pagination.Item() {
+							@pagination.Previous(pagination.PreviousProps{
+								Disabled: currentPage <= 1,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/app/spaces/%s/components/transfer-history?page=%d", spaceID, currentPage-1),
+									"hx-target": "#transfer-history-wrapper",
+									"hx-swap":   "innerHTML",
+								},
+							})
+						}
+						for _, pg := range pagination.CreatePagination(currentPage, totalPages, 3).Pages {
+							@pagination.Item() {
+								@pagination.Link(pagination.LinkProps{
+									IsActive: pg == currentPage,
+									Attributes: templ.Attributes{
+										"hx-get":    fmt.Sprintf("/app/spaces/%s/components/transfer-history?page=%d", spaceID, pg),
+										"hx-target": "#transfer-history-wrapper",
+										"hx-swap":   "innerHTML",
+									},
+								}) {
+									{ strconv.Itoa(pg) }
+								}
+							}
+						}
+						@pagination.Item() {
+							@pagination.Next(pagination.NextProps{
+								Disabled: currentPage >= totalPages,
+								Attributes: templ.Attributes{
+									"hx-get":    fmt.Sprintf("/app/spaces/%s/components/transfer-history?page=%d", spaceID, currentPage+1),
+									"hx-target": "#transfer-history-wrapper",
+									"hx-swap":   "innerHTML",
+								},
+							})
+						}
+					}
+				}
+			</div>
+		}
+	</div>
+}
+
+templ TransferHistoryItem(spaceID string, t *model.AccountTransferWithAccount) {
+	<div id={ "transfer-" + t.ID } class="p-4 flex justify-between items-start gap-2">
+		<div class="min-w-0 flex-1">
+			<div class="flex items-center gap-1.5">
+				<p class="font-medium">
+					if t.Note != "" {
+						{ t.Note }
+					} else if t.Direction == model.TransferDirectionDeposit {
+						Deposit
+					} else {
+						Withdrawal
+					}
+				</p>
+				if t.RecurringDepositID != nil {
+					@icon.Repeat(icon.Props{Size: 14, Class: "text-muted-foreground shrink-0"})
+				}
+			</div>
+			<p class="text-sm text-muted-foreground">
+				{ t.CreatedAt.Format("Jan 2, 2006") } &middot; { t.AccountName }
+			</p>
+		</div>
+		<div class="flex items-center gap-2">
+			if t.Direction == model.TransferDirectionDeposit {
+				<span class="font-bold text-green-600 whitespace-nowrap">
+					+{ fmt.Sprintf("$%.2f", float64(t.AmountCents)/100.0) }
+				</span>
+			} else {
+				<span class="font-bold text-destructive whitespace-nowrap">
+					-{ fmt.Sprintf("$%.2f", float64(t.AmountCents)/100.0) }
+				</span>
+			}
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeIcon,
+				Class:   "size-7",
+				Attributes: templ.Attributes{
+					"hx-delete":  fmt.Sprintf("/app/spaces/%s/accounts/%s/transfers/%s", spaceID, t.AccountID, t.ID),
+					"hx-target":  "#transfer-" + t.ID,
+					"hx-swap":    "delete",
+					"hx-confirm": "Delete this transfer?",
+				},
+			}) {
+				@icon.Trash2(icon.Props{Size: 14})
+			}
+		</div>
+	</div>
 }
 
 templ EditRecurringDepositForm(spaceID string, rd *model.RecurringDepositWithAccount, accounts []model.MoneyAccountWithBalance, dialogID string) {

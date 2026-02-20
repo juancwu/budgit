@@ -171,3 +171,31 @@ func (s *MoneyAccountService) GetAccountBalance(accountID string) (int, error) {
 func (s *MoneyAccountService) GetTotalAllocatedForSpace(spaceID string) (int, error) {
 	return s.accountRepo.GetTotalAllocatedForSpace(spaceID)
 }
+
+const TransfersPerPage = 25
+
+func (s *MoneyAccountService) GetTransfersForSpacePaginated(spaceID string, page int) ([]*model.AccountTransferWithAccount, int, error) {
+	total, err := s.accountRepo.CountTransfersBySpaceID(spaceID)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	totalPages := (total + TransfersPerPage - 1) / TransfersPerPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page < 1 {
+		page = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * TransfersPerPage
+	transfers, err := s.accountRepo.GetTransfersBySpaceIDPaginated(spaceID, TransfersPerPage, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return transfers, totalPages, nil
+}

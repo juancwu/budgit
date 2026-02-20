@@ -33,3 +33,8 @@ type MoneyAccountWithBalance struct {
 	MoneyAccount
 	BalanceCents int
 }
+
+type AccountTransferWithAccount struct {
+	AccountTransfer
+	AccountName string `db:"account_name"`
+}

@@ -8,7 +8,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceAccountsPage(space *model.Space, accounts []model.MoneyAccountWithBalance, totalBalance int, availableBalance int, recurringDeposits []*model.RecurringDepositWithAccount) {
+templ SpaceAccountsPage(space *model.Space, accounts []model.MoneyAccountWithBalance, totalBalance int, availableBalance int, recurringDeposits []*model.RecurringDepositWithAccount, transfers []*model.AccountTransferWithAccount, currentPage, totalPages int) {
 	@layouts.Space("Accounts", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -42,6 +42,7 @@ templ SpaceAccountsPage(space *model.Space, accounts []model.MoneyAccountWithBal
 				}
 			</div>
 			@moneyaccount.RecurringDepositsSection(space.ID, recurringDeposits, accounts)
+			@moneyaccount.TransferHistorySection(space.ID, transfers, currentPage, totalPages)
 		</div>
 	}
 }

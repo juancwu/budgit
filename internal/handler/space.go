@@ -1293,7 +1293,14 @@ func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 		recurringDeposits = nil
 	}
 
-	ui.Render(w, r, pages.SpaceAccountsPage(space, accounts, totalBalance, availableBalance, recurringDeposits))
+	transfers, totalPages, err := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
+	if err != nil {
+		slog.Error("failed to get transfers", "error", err, "space_id", spaceID)
+		transfers = nil
+		totalPages = 1
+	}
+
+	ui.Render(w, r, pages.SpaceAccountsPage(space, accounts, totalBalance, availableBalance, recurringDeposits, transfers, 1, totalPages))
 }
 
 func (h *SpaceHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
@@ -1502,6 +1509,9 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("HX-Trigger", "transferSuccess")
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
 	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, newAvailable, true))
+
+	transfers, transferTotalPages, _ := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
+	ui.Render(w, r, moneyaccount.TransferHistoryContent(spaceID, transfers, 1, transferTotalPages, true))
 }
 
 func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
@@ -1539,6 +1549,10 @@ func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
 	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+
+	transfers, transferTotalPages, _ := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
+	ui.Render(w, r, moneyaccount.TransferHistoryContent(spaceID, transfers, 1, transferTotalPages, true))
+
 	ui.RenderToast(w, r, toast.Toast(toast.Props{
 		Title:       "Transfer deleted",
 		Variant:     toast.VariantSuccess,
@@ -1546,6 +1560,26 @@ func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
 		Dismissible: true,
 		Duration:    5000,
 	}))
+}
+
+// --- Transfer History ---
+
+func (h *SpaceHandler) GetTransferHistory(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 0 {
+		page = p
+	}
+
+	transfers, totalPages, err := h.accountService.GetTransfersForSpacePaginated(spaceID, page)
+	if err != nil {
+		slog.Error("failed to get transfers", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, moneyaccount.TransferHistoryContent(spaceID, transfers, page, totalPages, false))
 }
 
 // --- Recurring Deposits ---

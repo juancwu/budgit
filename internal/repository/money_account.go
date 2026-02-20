@@ -27,6 +27,9 @@ type MoneyAccountRepository interface {
 
 	GetAccountBalance(accountID string) (int, error)
 	GetTotalAllocatedForSpace(spaceID string) (int, error)
+
+	GetTransfersBySpaceIDPaginated(spaceID string, limit, offset int) ([]*model.AccountTransferWithAccount, error)
+	CountTransfersBySpaceID(spaceID string) (int, error)
 }
 
 type moneyAccountRepository struct {
@@ -134,4 +137,29 @@ func (r *moneyAccountRepository) GetTotalAllocatedForSpace(spaceID string) (int,
 		WHERE a.space_id = $1;`
 	err := r.db.Get(&total, query, spaceID)
 	return total, err
+}
+
+func (r *moneyAccountRepository) GetTransfersBySpaceIDPaginated(spaceID string, limit, offset int) ([]*model.AccountTransferWithAccount, error) {
+	var transfers []*model.AccountTransferWithAccount
+	query := `SELECT t.id, t.account_id, t.amount_cents, t.direction, t.note,
+		t.recurring_deposit_id, t.created_by, t.created_at, a.name AS account_name
+		FROM account_transfers t
+		JOIN money_accounts a ON t.account_id = a.id
+		WHERE a.space_id = $1
+		ORDER BY t.created_at DESC
+		LIMIT $2 OFFSET $3;`
+	err := r.db.Select(&transfers, query, spaceID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return transfers, nil
+}
+
+func (r *moneyAccountRepository) CountTransfersBySpaceID(spaceID string) (int, error) {
+	var count int
+	query := `SELECT COUNT(*) FROM account_transfers t
+		JOIN money_accounts a ON t.account_id = a.id
+		WHERE a.space_id = $1;`
+	err := r.db.Get(&count, query, spaceID)
+	return count, err
 }

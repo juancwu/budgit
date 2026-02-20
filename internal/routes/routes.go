@@ -239,6 +239,10 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.HandleFunc("GET /app/spaces/{spaceID}/components/report-charts", reportChartsWithAuth)
 
 	// Component routes (HTMX updates)
+	transferHistoryHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetTransferHistory)
+	transferHistoryWithAuth := middleware.RequireAuth(transferHistoryHandler)
+	mux.HandleFunc("GET /app/spaces/{spaceID}/components/transfer-history", transferHistoryWithAuth)
+
 	balanceCardHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetBalanceCard)
 	balanceCardWithAuth := middleware.RequireAuth(balanceCardHandler)
 	mux.HandleFunc("GET /app/spaces/{spaceID}/components/balance", balanceCardWithAuth)
