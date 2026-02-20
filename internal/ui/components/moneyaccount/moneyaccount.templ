@@ -5,11 +5,30 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 )
+
+func frequencyLabel(f model.Frequency) string {
+	switch f {
+	case model.FrequencyDaily:
+		return "Daily"
+	case model.FrequencyWeekly:
+		return "Weekly"
+	case model.FrequencyBiweekly:
+		return "Biweekly"
+	case model.FrequencyMonthly:
+		return "Monthly"
+	case model.FrequencyYearly:
+		return "Yearly"
+	default:
+		return string(f)
+	}
+}
 
 templ BalanceSummaryCard(spaceID string, totalBalance int, availableBalance int, oob bool) {
 	<div
@@ -235,9 +254,9 @@ templ TransferForm(spaceID string, accountID string, direction model.TransferDir
 				Amount
 			}
 			@input.Input(input.Props{
-				Name: "amount",
-				ID:   "transfer-amount-" + accountID + "-" + string(direction),
-				Type: "number",
+				Name:       "amount",
+				ID:         "transfer-amount-" + accountID + "-" + string(direction),
+				Type:       "number",
 				Attributes: templ.Attributes{"step": "0.01", "required": "true", "min": "0.01"},
 			})
 			<p id={ errorID } class="text-sm text-destructive mt-1"></p>
@@ -259,6 +278,379 @@ templ TransferForm(spaceID string, accountID string, direction model.TransferDir
 				} else {
 					Withdraw
 				}
+			}
+		</div>
+	</form>
+}
+
+templ RecurringDepositsSection(spaceID string, deposits []*model.RecurringDepositWithAccount, accounts []model.MoneyAccountWithBalance) {
+	<div class="space-y-4 mt-8">
+		<div class="flex justify-between items-center">
+			<h2 class="text-xl font-bold">Recurring Deposits</h2>
+			if len(accounts) > 0 {
+				@dialog.Dialog(dialog.Props{ID: "add-recurring-deposit-dialog"}) {
+					@dialog.Trigger() {
+						@button.Button() {
+							Add
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Add Recurring Deposit
+							}
+							@dialog.Description() {
+								Automatically deposit into an account on a schedule.
+							}
+						}
+						@AddRecurringDepositForm(spaceID, accounts, "add-recurring-deposit-dialog")
+					}
+				}
+			}
+		</div>
+		<div class="border rounded-lg">
+			<div id="recurring-deposits-list" class="divide-y">
+				if len(deposits) == 0 {
+					<p class="p-4 text-sm text-muted-foreground">No recurring deposits set up yet.</p>
+				}
+				for _, rd := range deposits {
+					@RecurringDepositItem(spaceID, rd, accounts)
+				}
+			</div>
+		</div>
+	</div>
+}
+
+templ RecurringDepositItem(spaceID string, rd *model.RecurringDepositWithAccount, accounts []model.MoneyAccountWithBalance) {
+	{{ editDialogID := "edit-rd-" + rd.ID }}
+	{{ delDialogID := "del-rd-" + rd.ID }}
+	<div
+		id={ "recurring-deposit-" + rd.ID }
+		class={ "flex items-center justify-between p-4 gap-4", templ.KV("opacity-50", !rd.IsActive) }
+	>
+		<div class="flex-1 min-w-0">
+			<div class="flex items-center gap-2 flex-wrap">
+				<span class="font-medium truncate">
+					if rd.Title != "" {
+						{ rd.Title }
+					} else {
+						Deposit to { rd.AccountName }
+					}
+				</span>
+				<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+					{ frequencyLabel(rd.Frequency) }
+				</span>
+				if !rd.IsActive {
+					<span class="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+						Paused
+					</span>
+				}
+			</div>
+			<div class="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+				<span>{ rd.AccountName }</span>
+				<span>&middot;</span>
+				<span>Next: { rd.NextOccurrence.Format("Jan 2, 2006") }</span>
+			</div>
+		</div>
+		<div class="flex items-center gap-2">
+			<span class="font-bold text-green-600 whitespace-nowrap">
+				+{ fmt.Sprintf("$%.2f", float64(rd.AmountCents)/100.0) }
+			</span>
+			// Toggle
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeIcon,
+				Class:   "size-7",
+				Attributes: templ.Attributes{
+					"hx-post":   fmt.Sprintf("/app/spaces/%s/accounts/recurring/%s/toggle", spaceID, rd.ID),
+					"hx-target": "#recurring-deposit-" + rd.ID,
+					"hx-swap":   "outerHTML",
+				},
+			}) {
+				if rd.IsActive {
+					@icon.Pause(icon.Props{Size: 14})
+				} else {
+					@icon.Play(icon.Props{Size: 14})
+				}
+			}
+			// Edit
+			@dialog.Dialog(dialog.Props{ID: editDialogID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+						@icon.Pencil(icon.Props{Size: 14})
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Edit Recurring Deposit
+						}
+						@dialog.Description() {
+							Update the recurring deposit settings.
+						}
+					}
+					@EditRecurringDepositForm(spaceID, rd, accounts, editDialogID)
+				}
+			}
+			// Delete
+			@dialog.Dialog(dialog.Props{ID: delDialogID}) {
+				@dialog.Trigger() {
+					@button.Button(button.Props{Variant: button.VariantGhost, Size: button.SizeIcon, Class: "size-7"}) {
+						@icon.Trash2(icon.Props{Size: 14})
+					}
+				}
+				@dialog.Content() {
+					@dialog.Header() {
+						@dialog.Title() {
+							Delete Recurring Deposit
+						}
+						@dialog.Description() {
+							Are you sure? This will not affect past deposits already made.
+						}
+					}
+					@dialog.Footer() {
+						@dialog.Close() {
+							@button.Button(button.Props{Variant: button.VariantOutline}) {
+								Cancel
+							}
+						}
+						@button.Button(button.Props{
+							Variant: button.VariantDestructive,
+							Attributes: templ.Attributes{
+								"hx-delete": fmt.Sprintf("/app/spaces/%s/accounts/recurring/%s", spaceID, rd.ID),
+								"hx-target": "#recurring-deposit-" + rd.ID,
+								"hx-swap":   "delete",
+							},
+						}) {
+							Delete
+						}
+					}
+				}
+			}
+		</div>
+	</div>
+}
+
+templ AddRecurringDepositForm(spaceID string, accounts []model.MoneyAccountWithBalance, dialogID string) {
+	<form
+		hx-post={ "/app/spaces/" + spaceID + "/accounts/recurring" }
+		hx-target="#recurring-deposits-list"
+		hx-swap="beforeend"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + dialogID + "') then reset() me end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Account
+		<div>
+			@label.Label(label.Props{}) {
+				Account
+			}
+			@selectbox.SelectBox(selectbox.Props{ID: "rd-account"}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "account_id"}) {
+					@selectbox.Value()
+				}
+				@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+					for i, acct := range accounts {
+						@selectbox.Item(selectbox.ItemProps{Value: acct.ID, Selected: i == 0}) {
+							{ acct.Name }
+						}
+					}
+				}
+			}
+		</div>
+		// Amount
+		<div>
+			@label.Label(label.Props{For: "rd-amount"}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				Name:       "amount",
+				ID:         "rd-amount",
+				Type:       "number",
+				Attributes: templ.Attributes{"step": "0.01", "required": "true", "min": "0.01"},
+			})
+		</div>
+		// Frequency
+		<div>
+			@label.Label(label.Props{}) {
+				Frequency
+			}
+			@selectbox.SelectBox(selectbox.Props{ID: "rd-frequency"}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "frequency"}) {
+					@selectbox.Value()
+				}
+				@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+					@selectbox.Item(selectbox.ItemProps{Value: "daily"}) {
+						Daily
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "weekly"}) {
+						Weekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "biweekly"}) {
+						Biweekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "monthly", Selected: true}) {
+						Monthly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "yearly"}) {
+						Yearly
+					}
+				}
+			}
+		</div>
+		// Start Date
+		<div>
+			@label.Label(label.Props{For: "rd-start-date"}) {
+				Start Date
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:         "rd-start-date",
+				Name:       "start_date",
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// End Date (optional)
+		<div>
+			@label.Label(label.Props{For: "rd-end-date"}) {
+				End Date (optional)
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:   "rd-end-date",
+				Name: "end_date",
+			})
+		</div>
+		// Title (optional)
+		<div>
+			@label.Label(label.Props{For: "rd-title"}) {
+				Title (optional)
+			}
+			@input.Input(input.Props{
+				Name:       "title",
+				ID:         "rd-title",
+				Attributes: templ.Attributes{"placeholder": "e.g. Monthly savings"},
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Submit() {
+				Save
+			}
+		</div>
+	</form>
+}
+
+templ EditRecurringDepositForm(spaceID string, rd *model.RecurringDepositWithAccount, accounts []model.MoneyAccountWithBalance, dialogID string) {
+	<form
+		hx-patch={ fmt.Sprintf("/app/spaces/%s/accounts/recurring/%s", spaceID, rd.ID) }
+		hx-target={ "#recurring-deposit-" + rd.ID }
+		hx-swap="outerHTML"
+		_={ "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + dialogID + "') end" }
+		class="space-y-4"
+	>
+		@csrf.Token()
+		// Account
+		<div>
+			@label.Label(label.Props{}) {
+				Account
+			}
+			@selectbox.SelectBox(selectbox.Props{ID: "edit-rd-account-" + rd.ID}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "account_id"}) {
+					@selectbox.Value()
+				}
+				@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+					for _, acct := range accounts {
+						@selectbox.Item(selectbox.ItemProps{Value: acct.ID, Selected: acct.ID == rd.AccountID}) {
+							{ acct.Name }
+						}
+					}
+				}
+			}
+		</div>
+		// Amount
+		<div>
+			@label.Label(label.Props{For: "edit-rd-amount-" + rd.ID}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				Name:       "amount",
+				ID:         "edit-rd-amount-" + rd.ID,
+				Type:       "number",
+				Value:      fmt.Sprintf("%.2f", float64(rd.AmountCents)/100.0),
+				Attributes: templ.Attributes{"step": "0.01", "required": "true", "min": "0.01"},
+			})
+		</div>
+		// Frequency
+		<div>
+			@label.Label(label.Props{}) {
+				Frequency
+			}
+			@selectbox.SelectBox(selectbox.Props{ID: "edit-rd-frequency-" + rd.ID}) {
+				@selectbox.Trigger(selectbox.TriggerProps{Name: "frequency"}) {
+					@selectbox.Value()
+				}
+				@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+					@selectbox.Item(selectbox.ItemProps{Value: "daily", Selected: rd.Frequency == model.FrequencyDaily}) {
+						Daily
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "weekly", Selected: rd.Frequency == model.FrequencyWeekly}) {
+						Weekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "biweekly", Selected: rd.Frequency == model.FrequencyBiweekly}) {
+						Biweekly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "monthly", Selected: rd.Frequency == model.FrequencyMonthly}) {
+						Monthly
+					}
+					@selectbox.Item(selectbox.ItemProps{Value: "yearly", Selected: rd.Frequency == model.FrequencyYearly}) {
+						Yearly
+					}
+				}
+			}
+		</div>
+		// Start Date
+		<div>
+			@label.Label(label.Props{For: "edit-rd-start-date-" + rd.ID}) {
+				Start Date
+			}
+			@datepicker.DatePicker(datepicker.Props{
+				ID:         "edit-rd-start-date-" + rd.ID,
+				Name:       "start_date",
+				Value:      rd.StartDate,
+				Attributes: templ.Attributes{"required": "true"},
+			})
+		</div>
+		// End Date (optional)
+		<div>
+			@label.Label(label.Props{For: "edit-rd-end-date-" + rd.ID}) {
+				End Date (optional)
+			}
+			if rd.EndDate != nil {
+				@datepicker.DatePicker(datepicker.Props{
+					ID:    "edit-rd-end-date-" + rd.ID,
+					Name:  "end_date",
+					Value: *rd.EndDate,
+				})
+			} else {
+				@datepicker.DatePicker(datepicker.Props{
+					ID:   "edit-rd-end-date-" + rd.ID,
+					Name: "end_date",
+				})
+			}
+		</div>
+		// Title (optional)
+		<div>
+			@label.Label(label.Props{For: "edit-rd-title-" + rd.ID}) {
+				Title (optional)
+			}
+			@input.Input(input.Props{
+				Name:       "title",
+				ID:         "edit-rd-title-" + rd.ID,
+				Value:      rd.Title,
+				Attributes: templ.Attributes{"placeholder": "e.g. Monthly savings"},
+			})
+		</div>
+		<div class="flex justify-end">
+			@button.Submit() {
+				Save
 			}
 		</div>
 	</form>

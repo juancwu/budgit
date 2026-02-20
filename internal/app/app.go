@@ -25,6 +25,7 @@ type App struct {
 	MoneyAccountService     *service.MoneyAccountService
 	PaymentMethodService    *service.PaymentMethodService
 	RecurringExpenseService *service.RecurringExpenseService
+	RecurringDepositService *service.RecurringDepositService
 	BudgetService           *service.BudgetService
 	ReportService           *service.ReportService
 }
@@ -55,6 +56,7 @@ func New(cfg *config.Config) (*App, error) {
 	moneyAccountRepository := repository.NewMoneyAccountRepository(database)
 	paymentMethodRepository := repository.NewPaymentMethodRepository(database)
 	recurringExpenseRepository := repository.NewRecurringExpenseRepository(database)
+	recurringDepositRepository := repository.NewRecurringDepositRepository(database)
 	budgetRepository := repository.NewBudgetRepository(database)
 
 	// Services
@@ -86,6 +88,7 @@ func New(cfg *config.Config) (*App, error) {
 	moneyAccountService := service.NewMoneyAccountService(moneyAccountRepository)
 	paymentMethodService := service.NewPaymentMethodService(paymentMethodRepository)
 	recurringExpenseService := service.NewRecurringExpenseService(recurringExpenseRepository, expenseRepository)
+	recurringDepositService := service.NewRecurringDepositService(recurringDepositRepository, moneyAccountRepository, expenseService)
 	budgetService := service.NewBudgetService(budgetRepository)
 	reportService := service.NewReportService(expenseRepository)
 
@@ -104,6 +107,7 @@ func New(cfg *config.Config) (*App, error) {
 		MoneyAccountService:     moneyAccountService,
 		PaymentMethodService:    paymentMethodService,
 		RecurringExpenseService: recurringExpenseService,
+		RecurringDepositService: recurringDepositService,
 		BudgetService:           budgetService,
 		ReportService:           reportService,
 	}, nil

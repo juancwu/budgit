@@ -19,13 +19,14 @@ type MoneyAccount struct {
 }
 
 type AccountTransfer struct {
-	ID          string            `db:"id"`
-	AccountID   string            `db:"account_id"`
-	AmountCents int               `db:"amount_cents"`
-	Direction   TransferDirection `db:"direction"`
-	Note        string            `db:"note"`
-	CreatedBy   string            `db:"created_by"`
-	CreatedAt   time.Time         `db:"created_at"`
+	ID                 string            `db:"id"`
+	AccountID          string            `db:"account_id"`
+	AmountCents        int               `db:"amount_cents"`
+	Direction          TransferDirection `db:"direction"`
+	Note               string            `db:"note"`
+	RecurringDepositID *string           `db:"recurring_deposit_id"`
+	CreatedBy          string            `db:"created_by"`
+	CreatedAt          time.Time         `db:"created_at"`
 }
 
 type MoneyAccountWithBalance struct {

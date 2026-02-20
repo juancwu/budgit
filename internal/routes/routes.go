@@ -14,7 +14,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	home := handler.NewHomeHandler()
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.BudgetService, a.ReportService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.RecurringDepositService, a.BudgetService, a.ReportService)
 
 	mux := http.NewServeMux()
 
@@ -156,6 +156,23 @@ func SetupRoutes(a *app.App) http.Handler {
 	deleteTransferHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteTransfer)
 	deleteTransferWithAuth := middleware.RequireAuth(deleteTransferHandler)
 	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}/transfers/{transferID}", crudLimiter(deleteTransferWithAuth))
+
+	// Recurring Deposit routes
+	createRecurringDepositHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateRecurringDeposit)
+	createRecurringDepositWithAuth := middleware.RequireAuth(createRecurringDepositHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/accounts/recurring", crudLimiter(createRecurringDepositWithAuth))
+
+	updateRecurringDepositHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateRecurringDeposit)
+	updateRecurringDepositWithAuth := middleware.RequireAuth(updateRecurringDepositHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/accounts/recurring/{recurringDepositID}", crudLimiter(updateRecurringDepositWithAuth))
+
+	deleteRecurringDepositHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteRecurringDeposit)
+	deleteRecurringDepositWithAuth := middleware.RequireAuth(deleteRecurringDepositHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/recurring/{recurringDepositID}", crudLimiter(deleteRecurringDepositWithAuth))
+
+	toggleRecurringDepositHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ToggleRecurringDeposit)
+	toggleRecurringDepositWithAuth := middleware.RequireAuth(toggleRecurringDepositHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/accounts/recurring/{recurringDepositID}/toggle", crudLimiter(toggleRecurringDepositWithAuth))
 
 	// Payment Method routes
 	methodsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.PaymentMethodsPage)
