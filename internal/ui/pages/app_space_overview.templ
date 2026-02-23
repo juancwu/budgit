@@ -9,6 +9,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/chart"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks/dialogs"
 )
 
 type OverviewData struct {
@@ -19,6 +20,9 @@ type OverviewData struct {
 	Budgets           []*model.BudgetWithSpent
 	UpcomingRecurring []*model.RecurringExpenseWithTagsAndMethod
 	ShoppingLists     []model.ListCardData
+	Tags              []*model.Tag
+	Methods           []*model.PaymentMethod
+	ListsWithItems    []model.ListWithUncheckedItems
 }
 
 func overviewProgressBarColor(status model.BudgetStatus) string {
@@ -135,7 +139,10 @@ templ overviewSectionHeader(title, href string) {
 
 templ overviewBalanceCard(data OverviewData) {
 	<div class="border rounded-lg p-4 bg-card text-card-foreground">
-		<h3 class="font-semibold mb-3">Current Balance</h3>
+		<div class="flex items-center justify-between">
+			<h3 class="font-semibold mb-3">Current Balance</h3>
+			@dialogs.AddTransaction(data.Space, data.Tags, data.ListsWithItems, data.Methods)
+		</div>
 		<p class={ "text-3xl font-bold", templ.KV("text-destructive", data.Balance < 0) }>
 			{ fmt.Sprintf("$%.2f", float64(data.Balance)/100.0) }
 		</p>

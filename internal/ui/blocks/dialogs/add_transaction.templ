@@ -1,9 +1,12 @@
 package dialogs
 
-import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
-import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
-import "git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
-import "git.juancwu.dev/juancwu/budgit/internal/model"
+import (
+	"fmt"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+)
 
 templ AddTransaction(space *model.Space, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, methods []*model.PaymentMethod) {
 	@dialog.Dialog(dialog.Props{ID: "add-transaction-dialog"}) {
@@ -27,6 +30,7 @@ templ AddTransaction(space *model.Space, tags []*model.Tag, listsWithItems []mod
 				ListsWithItems: listsWithItems,
 				PaymentMethods: methods,
 				DialogID:       "add-transaction-dialog",
+				RedirectURL:    fmt.Sprintf("/app/spaces/%s/expenses?created=true", space.ID),
 			})
 		}
 	}

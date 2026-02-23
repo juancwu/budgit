@@ -179,6 +179,27 @@ func (h *SpaceHandler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to build list cards", "error", err, "space_id", spaceID)
 	}
 
+	tags, err := h.tagService.GetTagsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get tags for space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	listsWithItems, err := h.listService.GetListsWithUncheckedItems(spaceID)
+	if err != nil {
+		slog.Error("failed to get lists with unchecked items", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	methods, err := h.methodService.GetMethodsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to get payment methods", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
 	ui.Render(w, r, pages.SpaceOverviewPage(pages.OverviewData{
 		Space:             space,
 		Balance:           balance,
@@ -187,6 +208,9 @@ func (h *SpaceHandler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 		Budgets:           budgets,
 		UpcomingRecurring: recs,
 		ShoppingLists:     cards,
+		Tags:              tags,
+		Methods:           methods,
+		ListsWithItems:    listsWithItems,
 	}))
 }
 
@@ -711,6 +735,13 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 				slog.Error("failed to check linked item", "error", err, "item_id", itemID)
 			}
 		}
+	}
+
+	// If a redirect URL was provided (e.g. from the overview page), redirect instead of inline swap
+	if redirectURL := r.FormValue("redirect"); redirectURL != "" {
+		w.Header().Set("HX-Redirect", redirectURL)
+		w.WriteHeader(http.StatusOK)
+		return
 	}
 
 	balance, err := h.expenseService.GetBalanceForSpace(spaceID)

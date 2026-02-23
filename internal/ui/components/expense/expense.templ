@@ -22,16 +22,21 @@ type AddExpenseFormProps struct {
 	ListsWithItems []model.ListWithUncheckedItems
 	PaymentMethods []*model.PaymentMethod
 	DialogID       string // which dialog to close on success
+	RedirectURL    string // when set, server returns HX-Redirect instead of inline swap
 }
 
 func (p AddExpenseFormProps) formAttrs() templ.Attributes {
-	closeScript := "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') then reset() me then show #item-selector-section end"
-	return templ.Attributes{
-		"hx-post":   "/app/spaces/" + p.Space.ID + "/expenses",
-		"hx-target": "#expenses-list-wrapper",
-		"hx-swap":   "innerHTML",
-		"_":         closeScript,
+	attrs := templ.Attributes{
+		"hx-post": "/app/spaces/" + p.Space.ID + "/expenses",
 	}
+	if p.RedirectURL != "" {
+		attrs["_"] = "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') end"
+	} else {
+		attrs["hx-target"] = "#expenses-list-wrapper"
+		attrs["hx-swap"] = "innerHTML"
+		attrs["_"] = "on htmx:afterOnLoad if event.detail.xhr.status == 200 then call window.tui.dialog.close('" + p.DialogID + "') then reset() me then show #item-selector-section end"
+	}
+	return attrs
 }
 
 templ AddExpenseForm(props AddExpenseFormProps) {
@@ -40,6 +45,9 @@ templ AddExpenseForm(props AddExpenseFormProps) {
 		{ props.formAttrs()... }
 	>
 		@csrf.Token()
+		if props.RedirectURL != "" {
+			<input type="hidden" name="redirect" value={ props.RedirectURL }/>
+		}
 		// Type
 		<div class="flex gap-4">
 			<div class="flex items-start gap-3">
