@@ -16,7 +16,7 @@ func RequireSpaceAccess(spaceService *service.SpaceService) func(http.HandlerFun
 			user := ctxkeys.User(r.Context())
 			if user == nil {
 				// This should be caught by RequireAuth first, but as a safeguard.
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				redirect(w, r, "/auth", http.StatusSeeOther)
 				return
 			}
 
