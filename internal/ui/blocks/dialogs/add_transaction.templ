@@ -1,0 +1,33 @@
+package dialogs
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/expense"
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+
+templ AddTransaction(space *model.Space, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, methods []*model.PaymentMethod) {
+	@dialog.Dialog(dialog.Props{ID: "add-transaction-dialog"}) {
+		@dialog.Trigger() {
+			@button.Button() {
+				Add Transaction
+			}
+		}
+		@dialog.Content() {
+			@dialog.Header() {
+				@dialog.Title() {
+					Add Transaction
+				}
+				@dialog.Description() {
+					Add a new expense or top-up to your space.
+				}
+			}
+			@expense.AddExpenseForm(expense.AddExpenseFormProps{
+				Space:          space,
+				Tags:           tags,
+				ListsWithItems: listsWithItems,
+				PaymentMethods: methods,
+				DialogID:       "add-transaction-dialog",
+			})
+		}
+	}
+}

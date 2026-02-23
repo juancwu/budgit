@@ -11,6 +11,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks/dialogs"
 )
 
 templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTagsAndMethod, balance int, allocated int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, methods []*model.PaymentMethod, currentPage, totalPages int) {
@@ -18,30 +19,7 @@ templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTagsAnd
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
 				<h1 class="text-2xl font-bold">Expenses</h1>
-				@dialog.Dialog(dialog.Props{ID: "add-expense-dialog"}) {
-					@dialog.Trigger() {
-						@button.Button() {
-							Add Expense
-						}
-					}
-					@dialog.Content() {
-						@dialog.Header() {
-							@dialog.Title() {
-								Add Transaction
-							}
-							@dialog.Description() {
-								Add a new expense or top-up to your space.
-							}
-						}
-						@expense.AddExpenseForm(expense.AddExpenseFormProps{
-							Space:          space,
-							Tags:           tags,
-							ListsWithItems: listsWithItems,
-							PaymentMethods: methods,
-							DialogID:       "add-expense-dialog",
-						})
-					}
-				}
+				@dialogs.AddTransaction(space, tags, listsWithItems, methods)
 			</div>
 			// Balance Card
 			@expense.BalanceCard(space.ID, balance, allocated, false)
@@ -122,12 +100,12 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 				{ exp.Date.Format("Jan 02, 2006") }
 				if exp.PaymentMethod != nil {
 					if exp.PaymentMethod.LastFour != nil {
-						<span> &middot; { exp.PaymentMethod.Name } (*{ *exp.PaymentMethod.LastFour })</span>
+						<span>&middot; { exp.PaymentMethod.Name } (*{ *exp.PaymentMethod.LastFour })</span>
 					} else {
-						<span> &middot; { exp.PaymentMethod.Name }</span>
+						<span>&middot; { exp.PaymentMethod.Name }</span>
 					}
 				} else {
-					<span> &middot; Cash</span>
+					<span>&middot; Cash</span>
 				}
 			</p>
 			if len(exp.Tags) > 0 {
