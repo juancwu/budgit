@@ -23,7 +23,7 @@ func RequireSpaceAccess(spaceService *service.SpaceService) func(http.HandlerFun
 			spaceID := r.PathValue("spaceID")
 			if spaceID == "" {
 				slog.Warn("RequireSpaceAccess middleware used on a route without a {spaceID} path parameter")
-				http.Error(w, "Not Found", http.StatusNotFound)
+				notfound(w, r)
 				return
 			}
 
@@ -35,12 +35,7 @@ func RequireSpaceAccess(spaceService *service.SpaceService) func(http.HandlerFun
 			}
 
 			if !isMember {
-				if r.Header.Get("HX-Request") == "true" {
-					w.Header().Set("HX-Redirect", "/forbidden")
-					w.WriteHeader(http.StatusSeeOther)
-					return
-				}
-				http.Redirect(w, r, "/forbidden", http.StatusSeeOther)
+				redirect(w, r, "/forbidden", http.StatusSeeOther)
 				return
 			}
 
