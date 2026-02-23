@@ -298,7 +298,6 @@ func SetupRoutes(a *app.App) http.Handler {
 	handler := middleware.Chain(
 		mux,
 		middleware.SecurityHeaders(),
-		middleware.AppVersion(a.Cfg.Version),
 		middleware.Config(a.Cfg),
 		middleware.RequestLogging,
 		middleware.NoCacheDynamic,

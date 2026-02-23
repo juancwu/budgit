@@ -39,7 +39,6 @@ func AuthenticatedContext(user *model.User, profile *model.Profile) context.Cont
 	ctx = ctxkeys.WithProfile(ctx, profile)
 	ctx = ctxkeys.WithConfig(ctx, TestConfig().Sanitized())
 	ctx = ctxkeys.WithCSRFToken(ctx, "test-csrf-token")
-	ctx = ctxkeys.WithAppVersion(ctx, "test")
 	return ctx
 }
 

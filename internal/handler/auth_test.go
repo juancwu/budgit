@@ -32,7 +32,6 @@ func guestContext() context.Context {
 	ctx := context.Background()
 	ctx = ctxkeys.WithConfig(ctx, testutil.TestConfig().Sanitized())
 	ctx = ctxkeys.WithCSRFToken(ctx, "test")
-	ctx = ctxkeys.WithAppVersion(ctx, "test")
 	return ctx
 }
 

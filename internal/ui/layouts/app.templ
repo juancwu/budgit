@@ -69,7 +69,7 @@ templ App(title string) {
 						}
 					}
 					<div class="px-2 py-1">
-						<span class="text-xs text-muted-foreground">App version: { ctxkeys.AppVersion(ctx) }</span>
+						<span class="text-xs text-muted-foreground">App version: { cfg.Version }</span>
 					</div>
 					@sidebar.Separator()
 					@sidebar.Menu() {
