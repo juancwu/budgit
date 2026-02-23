@@ -5,6 +5,8 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+
+	"github.com/shopspring/decimal"
 	"strings"
 	"time"
 
@@ -631,12 +633,12 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	amountDecimal, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -801,12 +803,12 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	amountDecimal, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -1465,12 +1467,12 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 	direction := model.TransferDirection(r.FormValue("direction"))
 	note := r.FormValue("note")
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
-	if err != nil || amountFloat <= 0 {
+	amountDecimal, err := decimal.NewFromString(amountStr)
+	if err != nil || amountDecimal.LessThanOrEqual(decimal.Zero) {
 		ui.RenderError(w, r, "Invalid amount", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	// Calculate available space balance for deposit validation
 	totalBalance, err := h.expenseService.GetBalanceForSpace(spaceID)
@@ -1654,12 +1656,12 @@ func (h *SpaceHandler) CreateRecurringDeposit(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
-	if err != nil || amountFloat <= 0 {
+	amountDecimal, err := decimal.NewFromString(amountStr)
+	if err != nil || amountDecimal.LessThanOrEqual(decimal.Zero) {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -1741,12 +1743,12 @@ func (h *SpaceHandler) UpdateRecurringDeposit(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
-	if err != nil || amountFloat <= 0 {
+	amountDecimal, err := decimal.NewFromString(amountStr)
+	if err != nil || amountDecimal.LessThanOrEqual(decimal.Zero) {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2043,12 +2045,12 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	amountDecimal, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2171,12 +2173,12 @@ func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	amountDecimal, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2425,12 +2427,12 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	amountDecimal, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2505,12 +2507,12 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountFloat, err := strconv.ParseFloat(amountStr, 64)
+	amountDecimal, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountFloat * 100)
+	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
