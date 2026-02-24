@@ -517,8 +517,9 @@ templ AddRecurringDepositForm(spaceID string, accounts []model.MoneyAccountWithB
 				End Date (optional)
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:   "rd-end-date",
-				Name: "end_date",
+				ID:        "rd-end-date",
+				Name:      "end_date",
+				Clearable: true,
 			})
 		</div>
 		// Title (optional)
@@ -733,10 +734,11 @@ templ EditRecurringDepositForm(spaceID string, rd *model.RecurringDepositWithAcc
 				Start Date
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:         "edit-rd-start-date-" + rd.ID,
-				Name:       "start_date",
-				Value:      rd.StartDate,
-				Attributes: templ.Attributes{"required": "true"},
+				ID:        "edit-rd-start-date-" + rd.ID,
+				Name:      "start_date",
+				Value:     rd.StartDate,
+				Required:  true,
+				Clearable: true,
 			})
 		</div>
 		// End Date (optional)
@@ -746,14 +748,16 @@ templ EditRecurringDepositForm(spaceID string, rd *model.RecurringDepositWithAcc
 			}
 			if rd.EndDate != nil {
 				@datepicker.DatePicker(datepicker.Props{
-					ID:    "edit-rd-end-date-" + rd.ID,
-					Name:  "end_date",
-					Value: *rd.EndDate,
+					ID:        "edit-rd-end-date-" + rd.ID,
+					Name:      "end_date",
+					Value:     *rd.EndDate,
+					Clearable: true,
 				})
 			} else {
 				@datepicker.DatePicker(datepicker.Props{
-					ID:   "edit-rd-end-date-" + rd.ID,
-					Name: "end_date",
+					ID:        "edit-rd-end-date-" + rd.ID,
+					Name:      "end_date",
+					Clearable: true,
 				})
 			}
 		</div>

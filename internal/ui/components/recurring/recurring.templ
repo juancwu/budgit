@@ -249,9 +249,10 @@ templ AddRecurringForm(spaceID string, tags []*model.Tag, methods []*model.Payme
 				Start Date
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:         "recurring-start-date",
-				Name:       "start_date",
-				Attributes: templ.Attributes{"required": "true"},
+				ID:        "recurring-start-date",
+				Name:      "start_date",
+				Required:  true,
+				Clearable: true,
 			})
 		</div>
 		// End Date (optional)
@@ -260,8 +261,9 @@ templ AddRecurringForm(spaceID string, tags []*model.Tag, methods []*model.Payme
 				End Date (optional)
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:   "recurring-end-date",
-				Name: "end_date",
+				ID:        "recurring-end-date",
+				Name:      "end_date",
+				Clearable: true,
 			})
 		</div>
 		// Tags
@@ -388,10 +390,11 @@ templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMet
 				Start Date
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:         "edit-recurring-start-" + re.ID,
-				Name:       "start_date",
-				Value:      re.StartDate,
-				Attributes: templ.Attributes{"required": "true"},
+				ID:        "edit-recurring-start-" + re.ID,
+				Name:      "start_date",
+				Value:     re.StartDate,
+				Required:  true,
+				Clearable: true,
 			})
 		</div>
 		// End Date (optional)
@@ -401,14 +404,16 @@ templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMet
 			}
 			if re.EndDate != nil {
 				@datepicker.DatePicker(datepicker.Props{
-					ID:    "edit-recurring-end-" + re.ID,
-					Name:  "end_date",
-					Value: *re.EndDate,
+					ID:        "edit-recurring-end-" + re.ID,
+					Name:      "end_date",
+					Value:     *re.EndDate,
+					Clearable: true,
 				})
 			} else {
 				@datepicker.DatePicker(datepicker.Props{
-					ID:   "edit-recurring-end-" + re.ID,
-					Name: "end_date",
+					ID:        "edit-recurring-end-" + re.ID,
+					Name:      "end_date",
+					Clearable: true,
 				})
 			}
 		</div>

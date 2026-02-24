@@ -250,9 +250,10 @@ templ AddBudgetForm(spaceID string, tags []*model.Tag) {
 				Start Date
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:         "budget-start-date",
-				Name:       "start_date",
-				Attributes: templ.Attributes{"required": "true"},
+				ID:        "budget-start-date",
+				Name:      "start_date",
+				Required:  true,
+				Clearable: true,
 			})
 		</div>
 		// End Date (optional)
@@ -261,8 +262,9 @@ templ AddBudgetForm(spaceID string, tags []*model.Tag) {
 				End Date (optional)
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:   "budget-end-date",
-				Name: "end_date",
+				ID:        "budget-end-date",
+				Name:      "end_date",
+				Clearable: true,
 			})
 		</div>
 		<div class="flex justify-end">
@@ -360,10 +362,11 @@ templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag
 				Start Date
 			}
 			@datepicker.DatePicker(datepicker.Props{
-				ID:         "edit-budget-start-" + b.ID,
-				Name:       "start_date",
-				Value:      b.StartDate,
-				Attributes: templ.Attributes{"required": "true"},
+				ID:        "edit-budget-start-" + b.ID,
+				Name:      "start_date",
+				Value:     b.StartDate,
+				Clearable: true,
+				Required:  true,
 			})
 		</div>
 		// End Date
@@ -373,14 +376,16 @@ templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag
 			}
 			if b.EndDate != nil {
 				@datepicker.DatePicker(datepicker.Props{
-					ID:    "edit-budget-end-" + b.ID,
-					Name:  "end_date",
-					Value: *b.EndDate,
+					ID:        "edit-budget-end-" + b.ID,
+					Name:      "end_date",
+					Value:     *b.EndDate,
+					Clearable: true,
 				})
 			} else {
 				@datepicker.DatePicker(datepicker.Props{
-					ID:   "edit-budget-end-" + b.ID,
-					Name: "end_date",
+					ID:        "edit-budget-end-" + b.ID,
+					Name:      "end_date",
+					Clearable: true,
 				})
 			}
 		</div>
