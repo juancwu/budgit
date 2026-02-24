@@ -47,6 +47,8 @@ type Props struct {
 	Placeholder string
 	Disabled    bool
 	HasError    bool
+	Required    bool
+	Clearable   bool
 }
 
 templ DatePicker(props ...Props) {
@@ -77,6 +79,11 @@ templ DatePicker(props ...Props) {
 		if !p.Value.IsZero() {
 			valuePtr = &p.Value
 			initialSelectedISO = p.Value.Format("2006-01-02")
+		}
+
+		var required = "false"
+		if p.Required {
+			required = "true"
 		}
 	}}
 	<div class="relative inline-block w-full">
@@ -116,6 +123,7 @@ templ DatePicker(props ...Props) {
 					"data-tui-datepicker-display-format": string(p.Format),
 					"data-tui-datepicker-locale-tag":     string(p.LocaleTag),
 					"data-tui-datepicker-placeholder":    p.Placeholder,
+					"data-tui-datepicker-required":       required,
 					"aria-invalid":                       utils.If(p.HasError, "true"),
 				}),
 			}) {
@@ -147,6 +155,18 @@ templ DatePicker(props ...Props) {
 						Value:             valuePtr,                        // Pass pointer to value
 						RenderHiddenInput: false,                           // Don't render hidden input inside popover
 					})
+					if p.Clearable {
+						@button.Button(button.Props{
+							ID:      p.ID + "-clear-button",
+							Class:   "mt-4 w-full",
+							Variant: button.VariantOutline,
+							Attributes: templ.Attributes{
+								"data-tui-datepicker-clear": "true",
+							},
+						}) {
+							Clear
+						}
+					}
 				}
 			}
 		}
@@ -154,5 +174,5 @@ templ DatePicker(props ...Props) {
 }
 
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/datepicker.min.js") }></script>
+	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/datepicker.js") }></script>
 }
