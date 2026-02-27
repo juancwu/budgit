@@ -45,7 +45,9 @@
 	}
 
 	function setDefaultToday(input) {
-		input.value = todayISO();
+		if (!input.value) {
+			input.value = todayISO();
+		}
 		const form = input.closest("form");
 		if (form) {
 			form.addEventListener("reset", function () {
