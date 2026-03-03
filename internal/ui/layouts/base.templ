@@ -63,10 +63,6 @@ templ Base(props ...SEOProps) {
 			@htmxCSRFScript()
 			// Form submit spinner for non-HTMX forms
 			@formSubmitScript()
-			// Google Analytics
-			if cfg := ctxkeys.Config(ctx); cfg != nil && cfg.GoogleMeasuringID != "" {
-				@googleAnalyticsScript(cfg.GoogleMeasuringID)
-			}
 		</head>
 		<body class="min-h-screen">
 			{ children... }
@@ -127,15 +123,4 @@ templ htmxCSRFScript() {
 
 templ formSubmitScript() {
 	<script src="/assets/js/form-submit.js"></script>
-}
-
-templ googleAnalyticsScript(id string) {
-	<script async src={ "https://www.googletagmanager.com/gtag/js?id=" + id }></script>
-	<script type="text/javascript">
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        window.gtag = gtag;
-        gtag('js', new Date());
-        gtag('config', {{ id }});
-    </script>
 }

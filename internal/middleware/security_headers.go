@@ -13,10 +13,8 @@ func SecurityHeaders() func(http.Handler) http.Handler {
 
 			h.Set("Content-Security-Policy",
 				"default-src 'self'; "+
-					"script-src 'self' 'unsafe-inline' https://www.googletagmanager.com; "+
 					"style-src 'self' 'unsafe-inline'; "+
 					"img-src 'self' data:; "+
-					"connect-src 'self' https://www.google-analytics.com; "+
 					"font-src 'self'; "+
 					"frame-ancestors 'none'; "+
 					"base-uri 'self'; "+
