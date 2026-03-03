@@ -13,7 +13,7 @@ import (
 func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	home := handler.NewHomeHandler()
-	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
+	settings := handler.NewSettingsHandler(a.AuthService, a.UserService, a.ProfileService)
 	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.RecurringDepositService, a.BudgetService, a.ReportService)
 
 	mux := http.NewServeMux()
@@ -59,6 +59,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	mux.Handle("POST /app/spaces", crudLimiter(middleware.RequireAuth(space.CreateSpace)))
 	mux.HandleFunc("GET /app/settings", middleware.RequireAuth(settings.SettingsPage))
 	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
+	mux.HandleFunc("POST /app/settings/timezone", middleware.RequireAuth(settings.SetTimezone))
 
 	// Space routes — wrapping order: Auth(SpaceAccess(handler))
 	// Auth runs first (outer), then SpaceAccess (inner), then the handler.

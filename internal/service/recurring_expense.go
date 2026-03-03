@@ -38,12 +38,14 @@ type UpdateRecurringExpenseDTO struct {
 type RecurringExpenseService struct {
 	recurringRepo repository.RecurringExpenseRepository
 	expenseRepo   repository.ExpenseRepository
+	profileRepo   repository.ProfileRepository
 }
 
-func NewRecurringExpenseService(recurringRepo repository.RecurringExpenseRepository, expenseRepo repository.ExpenseRepository) *RecurringExpenseService {
+func NewRecurringExpenseService(recurringRepo repository.RecurringExpenseRepository, expenseRepo repository.ExpenseRepository, profileRepo repository.ProfileRepository) *RecurringExpenseService {
 	return &RecurringExpenseService{
 		recurringRepo: recurringRepo,
 		expenseRepo:   expenseRepo,
+		profileRepo:   profileRepo,
 	}
 }
 
@@ -176,8 +178,10 @@ func (s *RecurringExpenseService) ProcessDueRecurrences(now time.Time) error {
 		return fmt.Errorf("failed to get due recurrences: %w", err)
 	}
 
+	tzCache := make(map[string]*time.Location)
 	for _, re := range dues {
-		if err := s.processRecurrence(re, now); err != nil {
+		userNow := s.getUserNow(re.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(re, userNow); err != nil {
 			slog.Error("failed to process recurring expense", "id", re.ID, "error", err)
 		}
 	}
@@ -190,8 +194,10 @@ func (s *RecurringExpenseService) ProcessDueRecurrencesForSpace(spaceID string, 
 		return fmt.Errorf("failed to get due recurrences for space: %w", err)
 	}
 
+	tzCache := make(map[string]*time.Location)
 	for _, re := range dues {
-		if err := s.processRecurrence(re, now); err != nil {
+		userNow := s.getUserNow(re.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(re, userNow); err != nil {
 			slog.Error("failed to process recurring expense", "id", re.ID, "error", err)
 		}
 	}
@@ -245,6 +251,22 @@ func (s *RecurringExpenseService) processRecurrence(re *model.RecurringExpense, 
 	}
 
 	return s.recurringRepo.UpdateNextOccurrence(re.ID, re.NextOccurrence)
+}
+
+// getUserNow converts the server time to the user's local time based on their
+// profile timezone setting. Falls back to UTC if no timezone is set.
+func (s *RecurringExpenseService) getUserNow(userID string, now time.Time, cache map[string]*time.Location) time.Time {
+	if loc, ok := cache[userID]; ok {
+		return now.In(loc)
+	}
+
+	loc := time.UTC
+	profile, err := s.profileRepo.ByUserID(userID)
+	if err == nil && profile != nil {
+		loc = profile.Location()
+	}
+	cache[userID] = loc
+	return now.In(loc)
 }
 
 func AdvanceDate(date time.Time, freq model.Frequency) time.Time {

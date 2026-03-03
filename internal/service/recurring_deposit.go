@@ -36,13 +36,15 @@ type RecurringDepositService struct {
 	recurringRepo  repository.RecurringDepositRepository
 	accountRepo    repository.MoneyAccountRepository
 	expenseService *ExpenseService
+	profileRepo    repository.ProfileRepository
 }
 
-func NewRecurringDepositService(recurringRepo repository.RecurringDepositRepository, accountRepo repository.MoneyAccountRepository, expenseService *ExpenseService) *RecurringDepositService {
+func NewRecurringDepositService(recurringRepo repository.RecurringDepositRepository, accountRepo repository.MoneyAccountRepository, expenseService *ExpenseService, profileRepo repository.ProfileRepository) *RecurringDepositService {
 	return &RecurringDepositService{
 		recurringRepo:  recurringRepo,
 		accountRepo:    accountRepo,
 		expenseService: expenseService,
+		profileRepo:    profileRepo,
 	}
 }
 
@@ -161,8 +163,10 @@ func (s *RecurringDepositService) ProcessDueRecurrences(now time.Time) error {
 		return fmt.Errorf("failed to get due recurring deposits: %w", err)
 	}
 
+	tzCache := make(map[string]*time.Location)
 	for _, rd := range dues {
-		if err := s.processRecurrence(rd, now); err != nil {
+		userNow := s.getUserNow(rd.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(rd, userNow); err != nil {
 			slog.Error("failed to process recurring deposit", "id", rd.ID, "error", err)
 		}
 	}
@@ -175,12 +179,28 @@ func (s *RecurringDepositService) ProcessDueRecurrencesForSpace(spaceID string, 
 		return fmt.Errorf("failed to get due recurring deposits for space: %w", err)
 	}
 
+	tzCache := make(map[string]*time.Location)
 	for _, rd := range dues {
-		if err := s.processRecurrence(rd, now); err != nil {
+		userNow := s.getUserNow(rd.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(rd, userNow); err != nil {
 			slog.Error("failed to process recurring deposit", "id", rd.ID, "error", err)
 		}
 	}
 	return nil
+}
+
+func (s *RecurringDepositService) getUserNow(userID string, now time.Time, cache map[string]*time.Location) time.Time {
+	if loc, ok := cache[userID]; ok {
+		return now.In(loc)
+	}
+
+	loc := time.UTC
+	profile, err := s.profileRepo.ByUserID(userID)
+	if err == nil && profile != nil {
+		loc = profile.Location()
+	}
+	cache[userID] = loc
+	return now.In(loc)
 }
 
 func (s *RecurringDepositService) getAvailableBalance(spaceID string) (int, error) {

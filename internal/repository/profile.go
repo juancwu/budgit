@@ -18,6 +18,7 @@ type ProfileRepository interface {
 	Create(profile *model.Profile) (string, error)
 	ByUserID(userID string) (*model.Profile, error)
 	UpdateName(userID, name string) error
+	UpdateTimezone(userID, timezone string) error
 }
 
 type profileRepository struct {
@@ -59,6 +60,28 @@ func (r *profileRepository) ByUserID(userID string) (*model.Profile, error) {
 	}
 
 	return &profile, nil
+}
+
+func (r *profileRepository) UpdateTimezone(userID, timezone string) error {
+	result, err := r.db.Exec(`
+		UPDATE profiles
+		SET timezone = $1, updated_at = $2
+		WHERE user_id = $3
+		`, timezone, time.Now(), userID)
+
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return fmt.Errorf("no profile found for user_id: %s", userID)
+	}
+
+	return nil
 }
 
 func (r *profileRepository) UpdateName(userID, name string) error {
