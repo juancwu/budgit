@@ -22,7 +22,8 @@ func newTestSettingsHandler(dbi testutil.DBInfo) (*settingsHandler, *service.Aut
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
 	authSvc := service.NewAuthService(emailSvc, userRepo, profileRepo, tokenRepo, spaceSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false)
 	userSvc := service.NewUserService(userRepo)
-	return NewSettingsHandler(authSvc, userSvc), authSvc
+	profileSvc := service.NewProfileService(profileRepo)
+	return NewSettingsHandler(authSvc, userSvc, profileSvc), authSvc
 }
 
 func TestSettingsHandler_SettingsPage(t *testing.T) {

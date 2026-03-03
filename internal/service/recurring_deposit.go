@@ -37,14 +37,16 @@ type RecurringDepositService struct {
 	accountRepo    repository.MoneyAccountRepository
 	expenseService *ExpenseService
 	profileRepo    repository.ProfileRepository
+	spaceRepo      repository.SpaceRepository
 }
 
-func NewRecurringDepositService(recurringRepo repository.RecurringDepositRepository, accountRepo repository.MoneyAccountRepository, expenseService *ExpenseService, profileRepo repository.ProfileRepository) *RecurringDepositService {
+func NewRecurringDepositService(recurringRepo repository.RecurringDepositRepository, accountRepo repository.MoneyAccountRepository, expenseService *ExpenseService, profileRepo repository.ProfileRepository, spaceRepo repository.SpaceRepository) *RecurringDepositService {
 	return &RecurringDepositService{
 		recurringRepo:  recurringRepo,
 		accountRepo:    accountRepo,
 		expenseService: expenseService,
 		profileRepo:    profileRepo,
+		spaceRepo:      spaceRepo,
 	}
 }
 
@@ -165,8 +167,8 @@ func (s *RecurringDepositService) ProcessDueRecurrences(now time.Time) error {
 
 	tzCache := make(map[string]*time.Location)
 	for _, rd := range dues {
-		userNow := s.getUserNow(rd.CreatedBy, now, tzCache)
-		if err := s.processRecurrence(rd, userNow); err != nil {
+		localNow := s.getLocalNow(rd.SpaceID, rd.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(rd, localNow); err != nil {
 			slog.Error("failed to process recurring deposit", "id", rd.ID, "error", err)
 		}
 	}
@@ -181,16 +183,32 @@ func (s *RecurringDepositService) ProcessDueRecurrencesForSpace(spaceID string, 
 
 	tzCache := make(map[string]*time.Location)
 	for _, rd := range dues {
-		userNow := s.getUserNow(rd.CreatedBy, now, tzCache)
-		if err := s.processRecurrence(rd, userNow); err != nil {
+		localNow := s.getLocalNow(rd.SpaceID, rd.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(rd, localNow); err != nil {
 			slog.Error("failed to process recurring deposit", "id", rd.ID, "error", err)
 		}
 	}
 	return nil
 }
 
-func (s *RecurringDepositService) getUserNow(userID string, now time.Time, cache map[string]*time.Location) time.Time {
-	if loc, ok := cache[userID]; ok {
+// getLocalNow resolves the effective timezone for a recurring deposit.
+// Resolution order: space timezone → user profile timezone → UTC.
+func (s *RecurringDepositService) getLocalNow(spaceID, userID string, now time.Time, cache map[string]*time.Location) time.Time {
+	spaceKey := "space:" + spaceID
+	if loc, ok := cache[spaceKey]; ok {
+		return now.In(loc)
+	}
+
+	space, err := s.spaceRepo.ByID(spaceID)
+	if err == nil && space != nil {
+		if loc := space.Location(); loc != nil {
+			cache[spaceKey] = loc
+			return now.In(loc)
+		}
+	}
+
+	userKey := "user:" + userID
+	if loc, ok := cache[userKey]; ok {
 		return now.In(loc)
 	}
 
@@ -199,7 +217,7 @@ func (s *RecurringDepositService) getUserNow(userID string, now time.Time, cache
 	if err == nil && profile != nil {
 		loc = profile.Location()
 	}
-	cache[userID] = loc
+	cache[userKey] = loc
 	return now.In(loc)
 }
 

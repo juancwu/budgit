@@ -110,3 +110,11 @@ func (s *SpaceService) UpdateSpaceName(spaceID, name string) error {
 	}
 	return s.spaceRepo.UpdateName(spaceID, name)
 }
+
+// UpdateSpaceTimezone updates the timezone of a space.
+func (s *SpaceService) UpdateSpaceTimezone(spaceID, timezone string) error {
+	if _, err := time.LoadLocation(timezone); err != nil {
+		return ErrInvalidTimezone
+	}
+	return s.spaceRepo.UpdateTimezone(spaceID, timezone)
+}

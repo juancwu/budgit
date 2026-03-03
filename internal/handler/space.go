@@ -1177,6 +1177,46 @@ func (h *SpaceHandler) UpdateSpaceName(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *SpaceHandler) UpdateSpaceTimezone(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
+		return
+	}
+
+	tz := r.FormValue("timezone")
+	if tz == "" {
+		ui.RenderError(w, r, "Timezone is required", http.StatusUnprocessableEntity)
+		return
+	}
+
+	if err := h.spaceService.UpdateSpaceTimezone(spaceID, tz); err != nil {
+		if err == service.ErrInvalidTimezone {
+			ui.RenderError(w, r, "Invalid timezone", http.StatusUnprocessableEntity)
+			return
+		}
+		slog.Error("failed to update space timezone", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *SpaceHandler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	userID := r.PathValue("userID")

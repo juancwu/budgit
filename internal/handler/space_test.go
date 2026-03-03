@@ -19,6 +19,7 @@ func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
 	listRepo := repository.NewShoppingListRepository(dbi.DB)
 	itemRepo := repository.NewListItemRepository(dbi.DB)
 	expenseRepo := repository.NewExpenseRepository(dbi.DB)
+	profileRepo := repository.NewProfileRepository(dbi.DB)
 	inviteRepo := repository.NewInvitationRepository(dbi.DB)
 	accountRepo := repository.NewMoneyAccountRepository(dbi.DB)
 	methodRepo := repository.NewPaymentMethodRepository(dbi.DB)
@@ -36,8 +37,8 @@ func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
 		service.NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc),
 		service.NewMoneyAccountService(accountRepo),
 		service.NewPaymentMethodService(methodRepo),
-		service.NewRecurringExpenseService(recurringRepo, expenseRepo),
-		service.NewRecurringDepositService(recurringDepositRepo, accountRepo, expenseSvc),
+		service.NewRecurringExpenseService(recurringRepo, expenseRepo, profileRepo, spaceRepo),
+		service.NewRecurringDepositService(recurringDepositRepo, accountRepo, expenseSvc, profileRepo, spaceRepo),
 		service.NewBudgetService(budgetRepo),
 		service.NewReportService(expenseRepo),
 	)

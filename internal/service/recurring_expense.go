@@ -39,13 +39,15 @@ type RecurringExpenseService struct {
 	recurringRepo repository.RecurringExpenseRepository
 	expenseRepo   repository.ExpenseRepository
 	profileRepo   repository.ProfileRepository
+	spaceRepo     repository.SpaceRepository
 }
 
-func NewRecurringExpenseService(recurringRepo repository.RecurringExpenseRepository, expenseRepo repository.ExpenseRepository, profileRepo repository.ProfileRepository) *RecurringExpenseService {
+func NewRecurringExpenseService(recurringRepo repository.RecurringExpenseRepository, expenseRepo repository.ExpenseRepository, profileRepo repository.ProfileRepository, spaceRepo repository.SpaceRepository) *RecurringExpenseService {
 	return &RecurringExpenseService{
 		recurringRepo: recurringRepo,
 		expenseRepo:   expenseRepo,
 		profileRepo:   profileRepo,
+		spaceRepo:     spaceRepo,
 	}
 }
 
@@ -180,8 +182,8 @@ func (s *RecurringExpenseService) ProcessDueRecurrences(now time.Time) error {
 
 	tzCache := make(map[string]*time.Location)
 	for _, re := range dues {
-		userNow := s.getUserNow(re.CreatedBy, now, tzCache)
-		if err := s.processRecurrence(re, userNow); err != nil {
+		localNow := s.getLocalNow(re.SpaceID, re.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(re, localNow); err != nil {
 			slog.Error("failed to process recurring expense", "id", re.ID, "error", err)
 		}
 	}
@@ -196,8 +198,8 @@ func (s *RecurringExpenseService) ProcessDueRecurrencesForSpace(spaceID string, 
 
 	tzCache := make(map[string]*time.Location)
 	for _, re := range dues {
-		userNow := s.getUserNow(re.CreatedBy, now, tzCache)
-		if err := s.processRecurrence(re, userNow); err != nil {
+		localNow := s.getLocalNow(re.SpaceID, re.CreatedBy, now, tzCache)
+		if err := s.processRecurrence(re, localNow); err != nil {
 			slog.Error("failed to process recurring expense", "id", re.ID, "error", err)
 		}
 	}
@@ -253,10 +255,24 @@ func (s *RecurringExpenseService) processRecurrence(re *model.RecurringExpense, 
 	return s.recurringRepo.UpdateNextOccurrence(re.ID, re.NextOccurrence)
 }
 
-// getUserNow converts the server time to the user's local time based on their
-// profile timezone setting. Falls back to UTC if no timezone is set.
-func (s *RecurringExpenseService) getUserNow(userID string, now time.Time, cache map[string]*time.Location) time.Time {
-	if loc, ok := cache[userID]; ok {
+// getLocalNow resolves the effective timezone for a recurring expense.
+// Resolution order: space timezone → user profile timezone → UTC.
+func (s *RecurringExpenseService) getLocalNow(spaceID, userID string, now time.Time, cache map[string]*time.Location) time.Time {
+	spaceKey := "space:" + spaceID
+	if loc, ok := cache[spaceKey]; ok {
+		return now.In(loc)
+	}
+
+	space, err := s.spaceRepo.ByID(spaceID)
+	if err == nil && space != nil {
+		if loc := space.Location(); loc != nil {
+			cache[spaceKey] = loc
+			return now.In(loc)
+		}
+	}
+
+	userKey := "user:" + userID
+	if loc, ok := cache[userKey]; ok {
 		return now.In(loc)
 	}
 
@@ -265,7 +281,7 @@ func (s *RecurringExpenseService) getUserNow(userID string, now time.Time, cache
 	if err == nil && profile != nil {
 		loc = profile.Location()
 	}
-	cache[userID] = loc
+	cache[userKey] = loc
 	return now.In(loc)
 }
 

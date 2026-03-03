@@ -273,6 +273,10 @@ func SetupRoutes(a *app.App) http.Handler {
 	updateSpaceNameWithAuth := middleware.RequireAuth(updateSpaceNameHandler)
 	mux.Handle("PATCH /app/spaces/{spaceID}/settings/name", crudLimiter(updateSpaceNameWithAuth))
 
+	updateSpaceTimezoneHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateSpaceTimezone)
+	updateSpaceTimezoneWithAuth := middleware.RequireAuth(updateSpaceTimezoneHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/settings/timezone", crudLimiter(updateSpaceTimezoneWithAuth))
+
 	removeMemberHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.RemoveMember)
 	removeMemberWithAuth := middleware.RequireAuth(removeMemberHandler)
 	mux.Handle("DELETE /app/spaces/{spaceID}/members/{userID}", crudLimiter(removeMemberWithAuth))

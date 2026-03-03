@@ -87,8 +87,8 @@ func New(cfg *config.Config) (*App, error) {
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
 	moneyAccountService := service.NewMoneyAccountService(moneyAccountRepository)
 	paymentMethodService := service.NewPaymentMethodService(paymentMethodRepository)
-	recurringExpenseService := service.NewRecurringExpenseService(recurringExpenseRepository, expenseRepository, profileRepository)
-	recurringDepositService := service.NewRecurringDepositService(recurringDepositRepository, moneyAccountRepository, expenseService, profileRepository)
+	recurringExpenseService := service.NewRecurringExpenseService(recurringExpenseRepository, expenseRepository, profileRepository, spaceRepository)
+	recurringDepositService := service.NewRecurringDepositService(recurringDepositRepository, moneyAccountRepository, expenseService, profileRepository, spaceRepository)
 	budgetService := service.NewBudgetService(budgetRepository)
 	reportService := service.NewReportService(expenseRepository)
 

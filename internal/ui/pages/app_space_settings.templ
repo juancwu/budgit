@@ -3,13 +3,17 @@ package pages
 import (
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/timezone"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
@@ -52,6 +56,61 @@ templ SpaceSettingsPage(space *model.Space, members []*model.SpaceMemberWithProf
 						</form>
 					} else {
 						<p class="text-sm">{ space.Name }</p>
+					}
+				}
+			}
+			// Timezone Section
+			@card.Card() {
+				@card.Header() {
+					@card.Title() {
+						Timezone
+					}
+					@card.Description() {
+						if isOwner {
+							Set a timezone for this space. Recurring expenses and reports will use this timezone.
+						} else {
+							The timezone used for recurring expenses and reports in this space.
+						}
+					}
+				}
+				@card.Content() {
+					if isOwner {
+						<form
+							hx-patch={ "/app/spaces/" + space.ID + "/settings/timezone" }
+							hx-swap="none"
+							class="space-y-4"
+						>
+							@csrf.Token()
+							@form.Item() {
+								@label.Label(label.Props{
+									For:   "timezone",
+									Class: "block mb-2",
+								}) {
+									Timezone
+								}
+								@selectbox.SelectBox(selectbox.Props{ID: "space-timezone-select"}) {
+									@selectbox.Trigger(selectbox.TriggerProps{Name: "timezone"}) {
+										@selectbox.Value(selectbox.ValueProps{Placeholder: "Select timezone"})
+									}
+									@selectbox.Content(selectbox.ContentProps{SearchPlaceholder: "Search timezones..."}) {
+										for _, tz := range timezone.CommonTimezones() {
+											@selectbox.Item(selectbox.ItemProps{Value: tz.Value, Selected: space.Timezone != nil && tz.Value == *space.Timezone}) {
+												{ tz.Label }
+											}
+										}
+									}
+								}
+							}
+							@button.Submit() {
+								Save Timezone
+							}
+						</form>
+					} else {
+						if space.Timezone != nil && *space.Timezone != "" {
+							<p class="text-sm">{ *space.Timezone }</p>
+						} else {
+							<p class="text-sm text-muted-foreground">Not set (uses your timezone)</p>
+						}
 					}
 				}
 			}
