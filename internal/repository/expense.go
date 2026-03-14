@@ -273,13 +273,22 @@ func (r *expenseRepository) GetDailySpending(spaceID string, from, to time.Time)
 
 func (r *expenseRepository) GetMonthlySpending(spaceID string, from, to time.Time) ([]*model.MonthlySpending, error) {
 	var results []*model.MonthlySpending
-	query := `
-		SELECT TO_CHAR(date, 'YYYY-MM') as month, SUM(amount_cents) as total_cents
-		FROM expenses
-		WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
-		GROUP BY TO_CHAR(date, 'YYYY-MM')
-		ORDER BY month ASC;
-	`
+	var query string
+	if r.db.DriverName() == "sqlite" {
+		query = `
+			SELECT strftime('%Y-%m', date) as month, SUM(amount_cents) as total_cents
+			FROM expenses
+			WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
+			GROUP BY strftime('%Y-%m', date)
+			ORDER BY month ASC;`
+	} else {
+		query = `
+			SELECT TO_CHAR(date, 'YYYY-MM') as month, SUM(amount_cents) as total_cents
+			FROM expenses
+			WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
+			GROUP BY TO_CHAR(date, 'YYYY-MM')
+			ORDER BY month ASC;`
+	}
 	err := r.db.Select(&results, query, spaceID, from, to)
 	return results, err
 }
