@@ -27,8 +27,14 @@ func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
 	recurringDepositRepo := repository.NewRecurringDepositRepository(dbi.DB)
 	budgetRepo := repository.NewBudgetRepository(dbi.DB)
 	userRepo := repository.NewUserRepository(dbi.DB)
+	loanRepo := repository.NewLoanRepository(dbi.DB)
+	receiptRepo := repository.NewReceiptRepository(dbi.DB)
+	recurringReceiptRepo := repository.NewRecurringReceiptRepository(dbi.DB)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
 	expenseSvc := service.NewExpenseService(expenseRepo)
+	loanSvc := service.NewLoanService(loanRepo, receiptRepo)
+	receiptSvc := service.NewReceiptService(receiptRepo, loanRepo, accountRepo)
+	recurringReceiptSvc := service.NewRecurringReceiptService(recurringReceiptRepo, receiptSvc, loanRepo, profileRepo, spaceRepo)
 	return NewSpaceHandler(
 		service.NewSpaceService(spaceRepo),
 		service.NewTagService(tagRepo),
@@ -41,6 +47,9 @@ func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
 		service.NewRecurringDepositService(recurringDepositRepo, accountRepo, expenseSvc, profileRepo, spaceRepo),
 		service.NewBudgetService(budgetRepo),
 		service.NewReportService(expenseRepo),
+		loanSvc,
+		receiptSvc,
+		recurringReceiptSvc,
 	)
 }
 

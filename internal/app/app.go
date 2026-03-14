@@ -28,6 +28,9 @@ type App struct {
 	RecurringDepositService *service.RecurringDepositService
 	BudgetService           *service.BudgetService
 	ReportService           *service.ReportService
+	LoanService             *service.LoanService
+	ReceiptService          *service.ReceiptService
+	RecurringReceiptService *service.RecurringReceiptService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -58,6 +61,9 @@ func New(cfg *config.Config) (*App, error) {
 	recurringExpenseRepository := repository.NewRecurringExpenseRepository(database)
 	recurringDepositRepository := repository.NewRecurringDepositRepository(database)
 	budgetRepository := repository.NewBudgetRepository(database)
+	loanRepository := repository.NewLoanRepository(database)
+	receiptRepository := repository.NewReceiptRepository(database)
+	recurringReceiptRepository := repository.NewRecurringReceiptRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
@@ -91,6 +97,9 @@ func New(cfg *config.Config) (*App, error) {
 	recurringDepositService := service.NewRecurringDepositService(recurringDepositRepository, moneyAccountRepository, expenseService, profileRepository, spaceRepository)
 	budgetService := service.NewBudgetService(budgetRepository)
 	reportService := service.NewReportService(expenseRepository)
+	loanService := service.NewLoanService(loanRepository, receiptRepository)
+	receiptService := service.NewReceiptService(receiptRepository, loanRepository, moneyAccountRepository)
+	recurringReceiptService := service.NewRecurringReceiptService(recurringReceiptRepository, receiptService, loanRepository, profileRepository, spaceRepository)
 
 	return &App{
 		Cfg:                     cfg,
@@ -110,6 +119,9 @@ func New(cfg *config.Config) (*App, error) {
 		RecurringDepositService: recurringDepositService,
 		BudgetService:           budgetService,
 		ReportService:           reportService,
+		LoanService:             loanService,
+		ReceiptService:          receiptService,
+		RecurringReceiptService: recurringReceiptService,
 	}, nil
 }
 func (a *App) Close() error {
