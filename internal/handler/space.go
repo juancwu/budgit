@@ -1334,9 +1334,6 @@ func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Lazy process recurring deposits
-	h.recurringDepositService.ProcessDueRecurrencesForSpace(spaceID, time.Now())
-
 	accounts, err := h.accountService.GetAccountsForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get accounts for space", "error", err, "space_id", spaceID)
@@ -1360,12 +1357,6 @@ func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 
 	availableBalance := totalBalance - totalAllocated
 
-	recurringDeposits, err := h.recurringDepositService.GetRecurringDepositsWithAccountsForSpace(spaceID)
-	if err != nil {
-		slog.Error("failed to get recurring deposits", "error", err, "space_id", spaceID)
-		recurringDeposits = nil
-	}
-
 	transfers, totalPages, err := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
 	if err != nil {
 		slog.Error("failed to get transfers", "error", err, "space_id", spaceID)
@@ -1373,7 +1364,7 @@ func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 		totalPages = 1
 	}
 
-	ui.Render(w, r, pages.SpaceAccountsPage(space, accounts, totalBalance, availableBalance, recurringDeposits, transfers, 1, totalPages))
+	ui.Render(w, r, pages.SpaceAccountsPage(space, accounts, totalBalance, availableBalance, transfers, 1, totalPages))
 }
 
 func (h *SpaceHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
