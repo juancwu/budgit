@@ -36,9 +36,12 @@ type SpaceHandler struct {
 	recurringDepositService *service.RecurringDepositService
 	budgetService           *service.BudgetService
 	reportService           *service.ReportService
+	loanService             *service.LoanService
+	receiptService          *service.ReceiptService
+	recurringReceiptService *service.RecurringReceiptService
 }
 
-func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService, pms *service.PaymentMethodService, rs *service.RecurringExpenseService, rds *service.RecurringDepositService, bs *service.BudgetService, rps *service.ReportService) *SpaceHandler {
+func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *service.ShoppingListService, es *service.ExpenseService, is *service.InviteService, mas *service.MoneyAccountService, pms *service.PaymentMethodService, rs *service.RecurringExpenseService, rds *service.RecurringDepositService, bs *service.BudgetService, rps *service.ReportService, ls *service.LoanService, rcs *service.ReceiptService, rrs *service.RecurringReceiptService) *SpaceHandler {
 	return &SpaceHandler{
 		spaceService:            ss,
 		tagService:              ts,
@@ -51,6 +54,9 @@ func NewSpaceHandler(ss *service.SpaceService, ts *service.TagService, sls *serv
 		recurringDepositService: rds,
 		budgetService:           bs,
 		reportService:           rps,
+		loanService:             ls,
+		receiptService:          rcs,
+		recurringReceiptService: rrs,
 	}
 }
 

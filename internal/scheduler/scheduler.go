@@ -9,14 +9,16 @@ import (
 )
 
 type Scheduler struct {
-	recurringService *service.RecurringExpenseService
-	interval         time.Duration
+	recurringService        *service.RecurringExpenseService
+	recurringReceiptService *service.RecurringReceiptService
+	interval                time.Duration
 }
 
-func New(recurringService *service.RecurringExpenseService) *Scheduler {
+func New(recurringService *service.RecurringExpenseService, recurringReceiptService *service.RecurringReceiptService) *Scheduler {
 	return &Scheduler{
-		recurringService: recurringService,
-		interval:         1 * time.Hour,
+		recurringService:        recurringService,
+		recurringReceiptService: recurringReceiptService,
+		interval:                1 * time.Hour,
 	}
 }
 
@@ -44,5 +46,10 @@ func (s *Scheduler) run() {
 	slog.Info("scheduler: processing due recurring expenses")
 	if err := s.recurringService.ProcessDueRecurrences(now); err != nil {
 		slog.Error("scheduler: failed to process recurring expenses", "error", err)
+	}
+
+	slog.Info("scheduler: processing due recurring receipts")
+	if err := s.recurringReceiptService.ProcessDueRecurrences(now); err != nil {
+		slog.Error("scheduler: failed to process recurring receipts", "error", err)
 	}
 }

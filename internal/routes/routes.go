@@ -14,7 +14,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	home := handler.NewHomeHandler()
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService, a.ProfileService)
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.RecurringDepositService, a.BudgetService, a.ReportService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.RecurringDepositService, a.BudgetService, a.ReportService, a.LoanService, a.ReceiptService, a.RecurringReceiptService)
 
 	mux := http.NewServeMux()
 
@@ -216,6 +216,61 @@ func SetupRoutes(a *app.App) http.Handler {
 	budgetsListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetBudgetsList)
 	budgetsListWithAuth := middleware.RequireAuth(budgetsListHandler)
 	mux.HandleFunc("GET /app/spaces/{spaceID}/components/budgets", budgetsListWithAuth)
+
+	// Loan routes
+	loansPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.LoansPage)
+	loansPageWithAuth := middleware.RequireAuth(loansPageHandler)
+	mux.HandleFunc("GET /app/spaces/{spaceID}/loans", loansPageWithAuth)
+
+	createLoanHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateLoan)
+	createLoanWithAuth := middleware.RequireAuth(createLoanHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/loans", crudLimiter(createLoanWithAuth))
+
+	loanDetailHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.LoanDetailPage)
+	loanDetailWithAuth := middleware.RequireAuth(loanDetailHandler)
+	mux.HandleFunc("GET /app/spaces/{spaceID}/loans/{loanID}", loanDetailWithAuth)
+
+	updateLoanHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateLoan)
+	updateLoanWithAuth := middleware.RequireAuth(updateLoanHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/loans/{loanID}", crudLimiter(updateLoanWithAuth))
+
+	deleteLoanHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteLoan)
+	deleteLoanWithAuth := middleware.RequireAuth(deleteLoanHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/loans/{loanID}", crudLimiter(deleteLoanWithAuth))
+
+	// Receipt routes
+	createReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateReceipt)
+	createReceiptWithAuth := middleware.RequireAuth(createReceiptHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/loans/{loanID}/receipts", crudLimiter(createReceiptWithAuth))
+
+	updateReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateReceipt)
+	updateReceiptWithAuth := middleware.RequireAuth(updateReceiptHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/loans/{loanID}/receipts/{receiptID}", crudLimiter(updateReceiptWithAuth))
+
+	deleteReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteReceipt)
+	deleteReceiptWithAuth := middleware.RequireAuth(deleteReceiptHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/loans/{loanID}/receipts/{receiptID}", crudLimiter(deleteReceiptWithAuth))
+
+	receiptsListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetReceiptsList)
+	receiptsListWithAuth := middleware.RequireAuth(receiptsListHandler)
+	mux.HandleFunc("GET /app/spaces/{spaceID}/loans/{loanID}/components/receipts", receiptsListWithAuth)
+
+	// Recurring receipt routes
+	createRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateRecurringReceipt)
+	createRecurringReceiptWithAuth := middleware.RequireAuth(createRecurringReceiptHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/loans/{loanID}/recurring", crudLimiter(createRecurringReceiptWithAuth))
+
+	updateRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateRecurringReceipt)
+	updateRecurringReceiptWithAuth := middleware.RequireAuth(updateRecurringReceiptHandler)
+	mux.Handle("PATCH /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}", crudLimiter(updateRecurringReceiptWithAuth))
+
+	deleteRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteRecurringReceipt)
+	deleteRecurringReceiptWithAuth := middleware.RequireAuth(deleteRecurringReceiptHandler)
+	mux.Handle("DELETE /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}", crudLimiter(deleteRecurringReceiptWithAuth))
+
+	toggleRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ToggleRecurringReceipt)
+	toggleRecurringReceiptWithAuth := middleware.RequireAuth(toggleRecurringReceiptHandler)
+	mux.Handle("POST /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}/toggle", crudLimiter(toggleRecurringReceiptWithAuth))
 
 	// Report routes
 	reportChartsHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetReportCharts)
