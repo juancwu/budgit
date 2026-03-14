@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"strconv"
+	"github.com/shopspring/decimal"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
@@ -14,7 +15,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks/dialogs"
 )
 
-templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTagsAndMethod, balance int, allocated int, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, methods []*model.PaymentMethod, currentPage, totalPages int) {
+templ SpaceExpensesPage(space *model.Space, expenses []*model.ExpenseWithTagsAndMethod, balance decimal.Decimal, allocated decimal.Decimal, tags []*model.Tag, listsWithItems []model.ListWithUncheckedItems, methods []*model.PaymentMethod, currentPage, totalPages int) {
 	@layouts.Space("Expenses", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">
@@ -121,11 +122,11 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 		<div class="flex items-center gap-1 shrink-0">
 			if exp.Type == model.ExpenseTypeExpense {
 				<p class="font-bold text-destructive">
-					- { fmt.Sprintf("$%.2f", float64(exp.AmountCents)/100.0) }
+					- { model.FormatMoney(exp.Amount) }
 				</p>
 			} else {
 				<p class="font-bold text-green-500">
-					+ { fmt.Sprintf("$%.2f", float64(exp.AmountCents)/100.0) }
+					+ { model.FormatMoney(exp.Amount) }
 				</p>
 			}
 			// Edit button
@@ -186,12 +187,12 @@ templ ExpenseListItem(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 	</div>
 }
 
-templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, balance int, allocated int, tags []*model.Tag, currentPage, totalPages int) {
+templ ExpenseCreatedResponse(spaceID string, expenses []*model.ExpenseWithTagsAndMethod, balance decimal.Decimal, allocated decimal.Decimal, tags []*model.Tag, currentPage, totalPages int) {
 	@ExpensesListContent(spaceID, expenses, nil, tags, currentPage, totalPages)
 	@expense.BalanceCard(spaceID, balance, allocated, true)
 }
 
-templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTagsAndMethod, balance int, allocated int, methods []*model.PaymentMethod, tags []*model.Tag) {
+templ ExpenseUpdatedResponse(spaceID string, exp *model.ExpenseWithTagsAndMethod, balance decimal.Decimal, allocated decimal.Decimal, methods []*model.PaymentMethod, tags []*model.Tag) {
 	@ExpenseListItem(spaceID, exp, methods, tags)
 	@expense.BalanceCard(exp.SpaceID, balance, allocated, true)
 }

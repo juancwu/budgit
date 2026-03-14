@@ -1,15 +1,19 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type DailySpending struct {
-	Date       time.Time `db:"date"`
-	TotalCents int       `db:"total_cents"`
+	Date  time.Time       `db:"date"`
+	Total decimal.Decimal `db:"total"`
 }
 
 type MonthlySpending struct {
-	Month      string `db:"month"`
-	TotalCents int    `db:"total_cents"`
+	Month string          `db:"month"`
+	Total decimal.Decimal `db:"total"`
 }
 
 type SpendingReport struct {
@@ -17,7 +21,7 @@ type SpendingReport struct {
 	DailySpending   []*DailySpending
 	MonthlySpending []*MonthlySpending
 	TopExpenses     []*ExpenseWithTagsAndMethod
-	TotalIncome     int
-	TotalExpenses   int
-	NetBalance      int
+	TotalIncome     decimal.Decimal
+	TotalExpenses   decimal.Decimal
+	NetBalance      decimal.Decimal
 }

@@ -73,7 +73,7 @@ func (h *AccountHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	availableBalance := totalBalance - totalAllocated
+	availableBalance := totalBalance.Sub(totalAllocated)
 
 	transfers, totalPages, err := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
 	if err != nil {
@@ -113,7 +113,7 @@ func (h *AccountHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *account,
-		BalanceCents: 0,
+		Balance:      decimal.Zero,
 	}
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance))
@@ -157,7 +157,7 @@ func (h *AccountHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *updatedAccount,
-		BalanceCents: balance,
+		Balance:      balance,
 	}
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance))
@@ -188,7 +188,7 @@ func (h *AccountHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
 	}
 
-	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance.Sub(totalAllocated), true))
 	ui.RenderToast(w, r, toast.Toast(toast.Props{
 		Title:       "Account deleted",
 		Variant:     toast.VariantSuccess,
@@ -221,7 +221,7 @@ func (h *AccountHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) 
 		ui.RenderError(w, r, "Invalid amount", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
+	amount := amountDecimal
 
 	// Calculate available space balance for deposit validation
 	totalBalance, err := h.expenseService.GetBalanceForSpace(spaceID)
@@ -236,11 +236,11 @@ func (h *AccountHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	availableBalance := totalBalance - totalAllocated
+	availableBalance := totalBalance.Sub(totalAllocated)
 
 	// Validate balance limits before creating transfer
-	if direction == model.TransferDirectionDeposit && amountCents > availableBalance {
-		ui.RenderError(w, r, fmt.Sprintf("Insufficient available balance. You can deposit up to $%.2f.", float64(availableBalance)/100.0), http.StatusUnprocessableEntity)
+	if direction == model.TransferDirectionDeposit && amount.GreaterThan(availableBalance) {
+		ui.RenderError(w, r, fmt.Sprintf("Insufficient available balance. You can deposit up to %s.", model.FormatMoney(availableBalance)), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -251,15 +251,15 @@ func (h *AccountHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) 
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		if amountCents > acctBalance {
-			ui.RenderError(w, r, fmt.Sprintf("Insufficient account balance. You can withdraw up to $%.2f.", float64(acctBalance)/100.0), http.StatusUnprocessableEntity)
+		if amount.GreaterThan(acctBalance) {
+			ui.RenderError(w, r, fmt.Sprintf("Insufficient account balance. You can withdraw up to %s.", model.FormatMoney(acctBalance)), http.StatusUnprocessableEntity)
 			return
 		}
 	}
 
 	_, err = h.accountService.CreateTransfer(service.CreateTransferDTO{
 		AccountID: accountID,
-		Amount:    amountCents,
+		Amount:    amount,
 		Direction: direction,
 		Note:      note,
 		CreatedBy: user.ID,
@@ -281,12 +281,12 @@ func (h *AccountHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) 
 	account, _ := h.accountService.GetAccount(accountID)
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *account,
-		BalanceCents: accountBalance,
+		Balance:      accountBalance,
 	}
 
 	// Recalculate available balance after transfer
 	totalAllocated, _ = h.accountService.GetTotalAllocatedForSpace(spaceID)
-	newAvailable := totalBalance - totalAllocated
+	newAvailable := totalBalance.Sub(totalAllocated)
 
 	w.Header().Set("HX-Trigger", "transferSuccess")
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
@@ -323,14 +323,14 @@ func (h *AccountHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) 
 	account, _ := h.accountService.GetAccount(accountID)
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *account,
-		BalanceCents: accountBalance,
+		Balance:      accountBalance,
 	}
 
 	totalBalance, _ := h.expenseService.GetBalanceForSpace(spaceID)
 	totalAllocated, _ := h.accountService.GetTotalAllocatedForSpace(spaceID)
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
-	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance.Sub(totalAllocated), true))
 
 	transfers, transferTotalPages, _ := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
 	ui.Render(w, r, moneyaccount.TransferHistoryContent(spaceID, transfers, 1, transferTotalPages, true))

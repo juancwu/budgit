@@ -7,6 +7,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 // CreateTestUser inserts a user directly into the database.
@@ -152,7 +153,7 @@ func CreateTestListItem(t *testing.T, db *sqlx.DB, listID, name, createdBy strin
 }
 
 // CreateTestExpense inserts an expense directly into the database.
-func CreateTestExpense(t *testing.T, db *sqlx.DB, spaceID, userID, desc string, amount int, typ model.ExpenseType) *model.Expense {
+func CreateTestExpense(t *testing.T, db *sqlx.DB, spaceID, userID, desc string, amount decimal.Decimal, typ model.ExpenseType) *model.Expense {
 	t.Helper()
 	now := time.Now()
 	expense := &model.Expense{
@@ -160,15 +161,15 @@ func CreateTestExpense(t *testing.T, db *sqlx.DB, spaceID, userID, desc string, 
 		SpaceID:     spaceID,
 		CreatedBy:   userID,
 		Description: desc,
-		AmountCents: amount,
+		Amount:      amount,
 		Type:        typ,
 		Date:        now,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
 	_, err := db.Exec(
-		`INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-		expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents,
+		`INSERT INTO expenses (id, space_id, created_by, description, amount, type, date, payment_method_id, created_at, updated_at, amount_cents) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0)`,
+		expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.Amount,
 		expense.Type, expense.Date, expense.PaymentMethodID, expense.CreatedAt, expense.UpdatedAt,
 	)
 	if err != nil {
@@ -200,20 +201,20 @@ func CreateTestMoneyAccount(t *testing.T, db *sqlx.DB, spaceID, name, createdBy 
 }
 
 // CreateTestTransfer inserts an account transfer directly into the database.
-func CreateTestTransfer(t *testing.T, db *sqlx.DB, accountID string, amount int, direction model.TransferDirection, createdBy string) *model.AccountTransfer {
+func CreateTestTransfer(t *testing.T, db *sqlx.DB, accountID string, amount decimal.Decimal, direction model.TransferDirection, createdBy string) *model.AccountTransfer {
 	t.Helper()
 	transfer := &model.AccountTransfer{
-		ID:          uuid.NewString(),
-		AccountID:   accountID,
-		AmountCents: amount,
-		Direction:   direction,
-		Note:        "test transfer",
-		CreatedBy:   createdBy,
-		CreatedAt:   time.Now(),
+		ID:        uuid.NewString(),
+		AccountID: accountID,
+		Amount:    amount,
+		Direction: direction,
+		Note:      "test transfer",
+		CreatedBy: createdBy,
+		CreatedAt: time.Now(),
 	}
 	_, err := db.Exec(
-		`INSERT INTO account_transfers (id, account_id, amount_cents, direction, note, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		transfer.ID, transfer.AccountID, transfer.AmountCents, transfer.Direction, transfer.Note, transfer.CreatedBy, transfer.CreatedAt,
+		`INSERT INTO account_transfers (id, account_id, amount, direction, note, created_by, created_at, amount_cents) VALUES ($1, $2, $3, $4, $5, $6, $7, 0)`,
+		transfer.ID, transfer.AccountID, transfer.Amount, transfer.Direction, transfer.Note, transfer.CreatedBy, transfer.CreatedAt,
 	)
 	if err != nil {
 		t.Fatalf("CreateTestTransfer: %v", err)

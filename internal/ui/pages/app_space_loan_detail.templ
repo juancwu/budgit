@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"strconv"
+	"github.com/shopspring/decimal"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
@@ -17,7 +18,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ SpaceLoanDetailPage(space *model.Space, loan *model.LoanWithPaymentSummary, receipts []*model.ReceiptWithSourcesAndAccounts, currentPage, totalPages int, recurringReceipts []*model.RecurringReceiptWithSources, accounts []model.MoneyAccountWithBalance, availableBalance int) {
+templ SpaceLoanDetailPage(space *model.Space, loan *model.LoanWithPaymentSummary, receipts []*model.ReceiptWithSourcesAndAccounts, currentPage, totalPages int, recurringReceipts []*model.RecurringReceiptWithSources, accounts []model.MoneyAccountWithBalance, availableBalance decimal.Decimal) {
 	@layouts.Space(loan.Name, space) {
 		<div class="space-y-6">
 			// Loan Summary Card
@@ -94,8 +95,8 @@ templ SpaceLoanDetailPage(space *model.Space, loan *model.LoanWithPaymentSummary
 
 templ LoanSummaryCard(spaceID string, loan *model.LoanWithPaymentSummary) {
 	{{ progressPct := 0 }}
-	if loan.OriginalAmountCents > 0 {
-		{{ progressPct = (loan.TotalPaidCents * 100) / loan.OriginalAmountCents }}
+	if !loan.OriginalAmount.IsZero() {
+		{{ progressPct = int(loan.TotalPaid.Div(loan.OriginalAmount).Mul(decimal.NewFromInt(100)).IntPart()) }}
 		if progressPct > 100 {
 			{{ progressPct = 100 }}
 		}
@@ -154,17 +155,17 @@ templ LoanSummaryCard(spaceID string, loan *model.LoanWithPaymentSummary) {
 				<div class="grid grid-cols-3 gap-4 text-center">
 					<div>
 						<p class="text-sm text-muted-foreground">Original</p>
-						<p class="text-lg font-semibold">{ fmt.Sprintf("$%.2f", float64(loan.OriginalAmountCents)/100.0) }</p>
+						<p class="text-lg font-semibold">{ model.FormatMoney(loan.OriginalAmount) }</p>
 					</div>
 					<div>
 						<p class="text-sm text-muted-foreground">Paid</p>
-						<p class="text-lg font-semibold text-green-600">{ fmt.Sprintf("$%.2f", float64(loan.TotalPaidCents)/100.0) }</p>
+						<p class="text-lg font-semibold text-green-600">{ model.FormatMoney(loan.TotalPaid) }</p>
 					</div>
 					<div>
 						<p class="text-sm text-muted-foreground">Remaining</p>
 						<p class="text-lg font-semibold">
-							if loan.RemainingCents > 0 {
-								{ fmt.Sprintf("$%.2f", float64(loan.RemainingCents)/100.0) }
+							if loan.Remaining.GreaterThan(decimal.Zero) {
+								{ model.FormatMoney(loan.Remaining) }
 							} else {
 								$0.00
 							}
@@ -244,7 +245,7 @@ templ ReceiptListItem(spaceID, loanID string, receipt *model.ReceiptWithSourcesA
 	<div id={ "receipt-" + receipt.ID } class="p-4 flex justify-between items-start">
 		<div class="space-y-1">
 			<div class="flex items-center gap-2">
-				<span class="font-medium">{ fmt.Sprintf("$%.2f", float64(receipt.TotalAmountCents)/100.0) }</span>
+				<span class="font-medium">{ model.FormatMoney(receipt.TotalAmount) }</span>
 				<span class="text-sm text-muted-foreground">{ receipt.Date.Format("Jan 2, 2006") }</span>
 				if receipt.RecurringReceiptID != nil {
 					@icon.Repeat(icon.Props{Class: "size-3 text-muted-foreground"})
@@ -257,11 +258,11 @@ templ ReceiptListItem(spaceID, loanID string, receipt *model.ReceiptWithSourcesA
 				for _, src := range receipt.Sources {
 					if src.SourceType == "balance" {
 						@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "text-xs"}) {
-							{ fmt.Sprintf("Balance $%.2f", float64(src.AmountCents)/100.0) }
+							{ fmt.Sprintf("Balance %s", model.FormatMoney(src.Amount)) }
 						}
 					} else {
 						@badge.Badge(badge.Props{Variant: badge.VariantOutline, Class: "text-xs"}) {
-							{ fmt.Sprintf("%s $%.2f", src.AccountName, float64(src.AmountCents)/100.0) }
+							{ fmt.Sprintf("%s %s", src.AccountName, model.FormatMoney(src.Amount)) }
 						}
 					}
 				}
@@ -304,7 +305,7 @@ templ RecurringReceiptItem(spaceID, loanID string, rr *model.RecurringReceiptWit
 		<div class="space-y-1">
 			<div class="flex items-center gap-2">
 				@icon.Repeat(icon.Props{Class: "size-4"})
-				<span class="font-medium">{ fmt.Sprintf("$%.2f", float64(rr.TotalAmountCents)/100.0) }</span>
+				<span class="font-medium">{ model.FormatMoney(rr.TotalAmount) }</span>
 				<span class="text-sm text-muted-foreground">{ string(rr.Frequency) }</span>
 				if !rr.IsActive {
 					@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
@@ -322,12 +323,12 @@ templ RecurringReceiptItem(spaceID, loanID string, rr *model.RecurringReceiptWit
 				for _, src := range rr.Sources {
 					if src.SourceType == "balance" {
 						@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "text-xs"}) {
-							{ fmt.Sprintf("Balance $%.2f", float64(src.AmountCents)/100.0) }
+							{ fmt.Sprintf("Balance %s", model.FormatMoney(src.Amount)) }
 						}
 					} else {
 						@badge.Badge(badge.Props{Variant: badge.VariantOutline, Class: "text-xs"}) {
 							if src.AccountID != nil {
-								{ fmt.Sprintf("Account $%.2f", float64(src.AmountCents)/100.0) }
+								{ fmt.Sprintf("Account %s", model.FormatMoney(src.Amount)) }
 							}
 						}
 					}
@@ -379,7 +380,7 @@ templ RecurringReceiptItem(spaceID, loanID string, rr *model.RecurringReceiptWit
 	</div>
 }
 
-templ CreateReceiptForm(spaceID, loanID string, accounts []model.MoneyAccountWithBalance, availableBalance int) {
+templ CreateReceiptForm(spaceID, loanID string, accounts []model.MoneyAccountWithBalance, availableBalance decimal.Decimal) {
 	<form
 		hx-post={ fmt.Sprintf("/app/spaces/%s/loans/%s/receipts", spaceID, loanID) }
 		hx-swap="none"
@@ -423,7 +424,7 @@ templ CreateReceiptForm(spaceID, loanID string, accounts []model.MoneyAccountWit
 		<div class="space-y-2">
 			<label class="text-sm font-medium">Funding Sources</label>
 			<p class="text-xs text-muted-foreground">
-				Available balance: { fmt.Sprintf("$%.2f", float64(availableBalance)/100.0) }
+				Available balance: { model.FormatMoney(availableBalance) }
 			</p>
 			<div id="funding-sources" class="space-y-2">
 				<div class="flex gap-2 items-center source-row">
@@ -431,7 +432,7 @@ templ CreateReceiptForm(spaceID, loanID string, accounts []model.MoneyAccountWit
 						<option value="balance">General Balance</option>
 						for _, acct := range accounts {
 							<option value="account" data-account-id={ acct.ID }>
-								{ acct.Name } ({ fmt.Sprintf("$%.2f", float64(acct.BalanceCents)/100.0) })
+								{ acct.Name } ({ model.FormatMoney(acct.Balance) })
 							</option>
 						}
 					</select>
@@ -483,7 +484,7 @@ templ CreateReceiptForm(spaceID, loanID string, accounts []model.MoneyAccountWit
 	</script>
 }
 
-templ CreateRecurringReceiptForm(spaceID, loanID string, accounts []model.MoneyAccountWithBalance, availableBalance int) {
+templ CreateRecurringReceiptForm(spaceID, loanID string, accounts []model.MoneyAccountWithBalance, availableBalance decimal.Decimal) {
 	<form
 		hx-post={ fmt.Sprintf("/app/spaces/%s/loans/%s/recurring", spaceID, loanID) }
 		hx-swap="none"
@@ -547,7 +548,7 @@ templ CreateRecurringReceiptForm(spaceID, loanID string, accounts []model.MoneyA
 		<div class="space-y-2">
 			<label class="text-sm font-medium">Funding Sources</label>
 			<p class="text-xs text-muted-foreground">
-				Current balance: { fmt.Sprintf("$%.2f", float64(availableBalance)/100.0) }
+				Current balance: { model.FormatMoney(availableBalance) }
 			</p>
 			<div id="recurring-funding-sources" class="space-y-2">
 				<div class="flex gap-2 items-center recurring-source-row">
@@ -555,7 +556,7 @@ templ CreateRecurringReceiptForm(spaceID, loanID string, accounts []model.MoneyA
 						<option value="balance">General Balance</option>
 						for _, acct := range accounts {
 							<option value="account" data-account-id={ acct.ID }>
-								{ acct.Name } ({ fmt.Sprintf("$%.2f", float64(acct.BalanceCents)/100.0) })
+								{ acct.Name } ({ model.FormatMoney(acct.Balance) })
 							</option>
 						}
 					</select>

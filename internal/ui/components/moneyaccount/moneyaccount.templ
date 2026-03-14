@@ -11,9 +11,10 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
+	"github.com/shopspring/decimal"
 )
 
-templ BalanceSummaryCard(spaceID string, totalBalance int, availableBalance int, oob bool) {
+templ BalanceSummaryCard(spaceID string, totalBalance decimal.Decimal, availableBalance decimal.Decimal, oob bool) {
 	<div
 		id="accounts-balance-summary"
 		class="border rounded-lg p-4 bg-card text-card-foreground"
@@ -25,20 +26,20 @@ templ BalanceSummaryCard(spaceID string, totalBalance int, availableBalance int,
 		<div class="grid grid-cols-3 gap-4">
 			<div>
 				<p class="text-sm text-muted-foreground">Total Balance</p>
-				<p class={ "text-xl font-bold", templ.KV("text-destructive", totalBalance < 0) }>
-					{ fmt.Sprintf("$%.2f", float64(totalBalance)/100.0) }
+				<p class={ "text-xl font-bold", templ.KV("text-destructive", totalBalance.LessThan(decimal.Zero)) }>
+					{ model.FormatMoney(totalBalance) }
 				</p>
 			</div>
 			<div>
 				<p class="text-sm text-muted-foreground">Allocated</p>
 				<p class="text-xl font-bold">
-					{ fmt.Sprintf("$%.2f", float64(totalBalance-availableBalance)/100.0) }
+					{ model.FormatMoney(totalBalance.Sub(availableBalance)) }
 				</p>
 			</div>
 			<div>
 				<p class="text-sm text-muted-foreground">Available</p>
-				<p class={ "text-xl font-bold", templ.KV("text-destructive", availableBalance < 0) }>
-					{ fmt.Sprintf("$%.2f", float64(availableBalance)/100.0) }
+				<p class={ "text-xl font-bold", templ.KV("text-destructive", availableBalance.LessThan(decimal.Zero)) }>
+					{ model.FormatMoney(availableBalance) }
 				</p>
 			</div>
 		</div>
@@ -60,8 +61,8 @@ templ AccountCard(spaceID string, acct *model.MoneyAccountWithBalance, oob ...bo
 		<div class="flex justify-between items-start mb-3">
 			<div>
 				<h3 class="font-semibold text-lg">{ acct.Name }</h3>
-				<p class={ "text-2xl font-bold", templ.KV("text-destructive", acct.BalanceCents < 0) }>
-					{ fmt.Sprintf("$%.2f", float64(acct.BalanceCents)/100.0) }
+				<p class={ "text-2xl font-bold", templ.KV("text-destructive", acct.Balance.LessThan(decimal.Zero)) }>
+					{ model.FormatMoney(acct.Balance) }
 				</p>
 			</div>
 			<div class="flex gap-1">
@@ -359,11 +360,11 @@ templ TransferHistoryItem(spaceID string, t *model.AccountTransferWithAccount) {
 		<div class="flex items-center gap-2">
 			if t.Direction == model.TransferDirectionDeposit {
 				<span class="font-bold text-green-600 whitespace-nowrap">
-					+{ fmt.Sprintf("$%.2f", float64(t.AmountCents)/100.0) }
+					+{ model.FormatMoney(t.Amount) }
 				</span>
 			} else {
 				<span class="font-bold text-destructive whitespace-nowrap">
-					-{ fmt.Sprintf("$%.2f", float64(t.AmountCents)/100.0) }
+					-{ model.FormatMoney(t.Amount) }
 				</span>
 			}
 			@button.Button(button.Props{
@@ -382,4 +383,3 @@ templ TransferHistoryItem(spaceID string, t *model.AccountTransferWithAccount) {
 		</div>
 	</div>
 }
-

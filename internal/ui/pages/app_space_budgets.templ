@@ -159,14 +159,14 @@ templ BudgetCard(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag) {
 		// Progress bar
 		<div class="space-y-1">
 			<div class="flex justify-between text-sm">
-				<span>{ fmt.Sprintf("$%.2f", float64(b.SpentCents)/100.0) } spent</span>
-				<span>of { fmt.Sprintf("$%.2f", float64(b.AmountCents)/100.0) }</span>
+				<span>{ model.FormatMoney(b.Spent) } spent</span>
+				<span>of { model.FormatMoney(b.Amount) }</span>
 			</div>
 			<div class="w-full bg-muted rounded-full h-2.5">
 				<div class={ "h-2.5 rounded-full transition-all", progressBarColor(b.Status) } style={ fmt.Sprintf("width: %.1f%%", pct) }></div>
 			</div>
 			if b.Status == model.BudgetStatusOver {
-				<p class="text-xs text-destructive font-medium">Over budget by { fmt.Sprintf("$%.2f", float64(b.SpentCents-b.AmountCents)/100.0) }</p>
+				<p class="text-xs text-destructive font-medium">Over budget by { model.FormatMoney(b.Spent.Sub(b.Amount)) }</p>
 			}
 		</div>
 	</div>
@@ -311,7 +311,7 @@ templ EditBudgetForm(spaceID string, b *model.BudgetWithSpent, tags []*model.Tag
 				Name:       "amount",
 				ID:         "edit-budget-amount-" + b.ID,
 				Type:       "number",
-				Value:      fmt.Sprintf("%.2f", float64(b.AmountCents)/100.0),
+				Value:      model.FormatDecimal(b.Amount),
 				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
 			})
 		</div>

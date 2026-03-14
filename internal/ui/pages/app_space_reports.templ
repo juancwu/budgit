@@ -9,6 +9,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/chart"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"github.com/shopspring/decimal"
 )
 
 var defaultChartColors = []string{
@@ -72,17 +73,17 @@ templ ReportCharts(spaceID string, report *model.SpendingReport, from, to time.T
 			<div class="space-y-1">
 				<div class="flex justify-between">
 					<span class="text-green-500 font-medium">Income</span>
-					<span class="font-bold text-green-500">{ fmt.Sprintf("$%.2f", float64(report.TotalIncome)/100.0) }</span>
+					<span class="font-bold text-green-500">{ model.FormatMoney(report.TotalIncome) }</span>
 				</div>
 				<div class="flex justify-between">
 					<span class="text-destructive font-medium">Expenses</span>
-					<span class="font-bold text-destructive">{ fmt.Sprintf("$%.2f", float64(report.TotalExpenses)/100.0) }</span>
+					<span class="font-bold text-destructive">{ model.FormatMoney(report.TotalExpenses) }</span>
 				</div>
 				<hr class="border-border"/>
 				<div class="flex justify-between">
 					<span class="font-medium">Net</span>
-					<span class={ "font-bold", templ.KV("text-green-500", report.NetBalance >= 0), templ.KV("text-destructive", report.NetBalance < 0) }>
-						{ fmt.Sprintf("$%.2f", float64(report.NetBalance)/100.0) }
+					<span class={ "font-bold", templ.KV("text-green-500", report.NetBalance.GreaterThanOrEqual(decimal.Zero)), templ.KV("text-destructive", report.NetBalance.LessThan(decimal.Zero)) }>
+						{ model.FormatMoney(report.NetBalance) }
 					</span>
 				</div>
 			</div>
@@ -97,7 +98,7 @@ templ ReportCharts(spaceID string, report *model.SpendingReport, from, to time.T
 					tagColors := make([]string, len(report.ByTag))
 					for i, t := range report.ByTag {
 						tagLabels[i] = t.TagName
-						tagData[i] = float64(t.TotalAmount) / 100.0
+						tagData[i] = t.TotalAmount.InexactFloat64()
 						tagColors[i] = chartColor(i, t.TagColor)
 					}
 				}}
@@ -133,12 +134,12 @@ templ ReportCharts(spaceID string, report *model.SpendingReport, from, to time.T
 					if days <= 31 {
 						for _, d := range report.DailySpending {
 							timeLabels = append(timeLabels, d.Date.Format("Jan 02"))
-							timeData = append(timeData, float64(d.TotalCents)/100.0)
+							timeData = append(timeData, d.Total.InexactFloat64())
 						}
 					} else {
 						for _, m := range report.MonthlySpending {
 							timeLabels = append(timeLabels, m.Month)
-							timeData = append(timeData, float64(m.TotalCents)/100.0)
+							timeData = append(timeData, m.Total.InexactFloat64())
 						}
 					}
 				}}
@@ -189,7 +190,7 @@ templ ReportCharts(spaceID string, report *model.SpendingReport, from, to time.T
 								}
 							</div>
 							<p class="font-bold text-destructive text-sm shrink-0">
-								{ fmt.Sprintf("$%.2f", float64(exp.AmountCents)/100.0) }
+								{ model.FormatMoney(exp.Amount) }
 							</p>
 						</div>
 					}

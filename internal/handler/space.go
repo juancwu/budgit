@@ -7,6 +7,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
@@ -112,9 +114,9 @@ func (h *SpaceHandler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 	allocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		allocated = 0
+		allocated = decimal.Zero
 	}
-	balance -= allocated
+	balance = balance.Sub(allocated)
 
 	// This month's report
 	now := time.Now()

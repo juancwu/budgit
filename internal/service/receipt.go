@@ -7,12 +7,13 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type FundingSourceDTO struct {
 	SourceType model.FundingSourceType
 	AccountID  string
-	Amount     int
+	Amount     decimal.Decimal
 }
 
 type CreateReceiptDTO struct {
@@ -20,7 +21,7 @@ type CreateReceiptDTO struct {
 	SpaceID            string
 	UserID             string
 	Description        string
-	TotalAmount        int
+	TotalAmount        decimal.Decimal
 	Date               time.Time
 	FundingSources     []FundingSourceDTO
 	RecurringReceiptID *string
@@ -31,7 +32,7 @@ type UpdateReceiptDTO struct {
 	SpaceID        string
 	UserID         string
 	Description    string
-	TotalAmount    int
+	TotalAmount    decimal.Decimal
 	Date           time.Time
 	FundingSources []FundingSourceDTO
 }
@@ -57,7 +58,7 @@ func NewReceiptService(
 }
 
 func (s *ReceiptService) CreateReceipt(dto CreateReceiptDTO) (*model.ReceiptWithSources, error) {
-	if dto.TotalAmount <= 0 {
+	if dto.TotalAmount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 	if len(dto.FundingSources) == 0 {
@@ -65,15 +66,15 @@ func (s *ReceiptService) CreateReceipt(dto CreateReceiptDTO) (*model.ReceiptWith
 	}
 
 	// Validate funding sources sum to total
-	var sum int
+	sum := decimal.Zero
 	for _, src := range dto.FundingSources {
-		if src.Amount <= 0 {
+		if src.Amount.LessThanOrEqual(decimal.Zero) {
 			return nil, fmt.Errorf("each funding source amount must be positive")
 		}
-		sum += src.Amount
+		sum = sum.Add(src.Amount)
 	}
-	if sum != dto.TotalAmount {
-		return nil, fmt.Errorf("funding source amounts (%d) must equal total amount (%d)", sum, dto.TotalAmount)
+	if !sum.Equal(dto.TotalAmount) {
+		return nil, fmt.Errorf("funding source amounts (%s) must equal total amount (%s)", sum, dto.TotalAmount)
 	}
 
 	// Validate loan exists and is not paid off
@@ -91,7 +92,7 @@ func (s *ReceiptService) CreateReceipt(dto CreateReceiptDTO) (*model.ReceiptWith
 		LoanID:             dto.LoanID,
 		SpaceID:            dto.SpaceID,
 		Description:        dto.Description,
-		TotalAmountCents:   dto.TotalAmount,
+		TotalAmount:        dto.TotalAmount,
 		Date:               dto.Date,
 		RecurringReceiptID: dto.RecurringReceiptID,
 		CreatedBy:          dto.UserID,
@@ -107,7 +108,7 @@ func (s *ReceiptService) CreateReceipt(dto CreateReceiptDTO) (*model.ReceiptWith
 
 	// Check if loan is now fully paid off
 	totalPaid, err := s.loanRepo.GetTotalPaidForLoan(dto.LoanID)
-	if err == nil && totalPaid >= loan.OriginalAmountCents {
+	if err == nil && totalPaid.GreaterThanOrEqual(loan.OriginalAmount) {
 		_ = s.loanRepo.SetPaidOff(loan.ID, true)
 	}
 
@@ -127,10 +128,10 @@ func (s *ReceiptService) buildLinkedRecords(
 
 	for _, src := range fundingSources {
 		fs := model.ReceiptFundingSource{
-			ID:          uuid.NewString(),
-			ReceiptID:   receipt.ID,
-			SourceType:  src.SourceType,
-			AmountCents: src.Amount,
+			ID:         uuid.NewString(),
+			ReceiptID:  receipt.ID,
+			SourceType: src.SourceType,
+			Amount:     src.Amount,
 		}
 
 		if src.SourceType == model.FundingSourceBalance {
@@ -139,7 +140,7 @@ func (s *ReceiptService) buildLinkedRecords(
 				SpaceID:     spaceID,
 				CreatedBy:   userID,
 				Description: fmt.Sprintf("Loan payment: %s", description),
-				AmountCents: src.Amount,
+				Amount:      src.Amount,
 				Type:        model.ExpenseTypeExpense,
 				Date:        date,
 				CreatedAt:   now,
@@ -151,13 +152,13 @@ func (s *ReceiptService) buildLinkedRecords(
 			acctID := src.AccountID
 			fs.AccountID = &acctID
 			transfer := &model.AccountTransfer{
-				ID:          uuid.NewString(),
-				AccountID:   src.AccountID,
-				AmountCents: src.Amount,
-				Direction:   model.TransferDirectionWithdrawal,
-				Note:        fmt.Sprintf("Loan payment: %s", description),
-				CreatedBy:   userID,
-				CreatedAt:   now,
+				ID:        uuid.NewString(),
+				AccountID: src.AccountID,
+				Amount:    src.Amount,
+				Direction: model.TransferDirectionWithdrawal,
+				Note:      fmt.Sprintf("Loan payment: %s", description),
+				CreatedBy: userID,
+				CreatedAt: now,
 			}
 			accountTransfers = append(accountTransfers, transfer)
 			fs.LinkedTransferID = &transfer.ID
@@ -255,7 +256,7 @@ func (s *ReceiptService) DeleteReceipt(id string, spaceID string) error {
 	if err != nil {
 		return nil
 	}
-	if loan.IsPaidOff && totalPaid < loan.OriginalAmountCents {
+	if loan.IsPaidOff && totalPaid.LessThan(loan.OriginalAmount) {
 		_ = s.loanRepo.SetPaidOff(loan.ID, false)
 	}
 
@@ -263,22 +264,22 @@ func (s *ReceiptService) DeleteReceipt(id string, spaceID string) error {
 }
 
 func (s *ReceiptService) UpdateReceipt(dto UpdateReceiptDTO) (*model.ReceiptWithSources, error) {
-	if dto.TotalAmount <= 0 {
+	if dto.TotalAmount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 	if len(dto.FundingSources) == 0 {
 		return nil, fmt.Errorf("at least one funding source is required")
 	}
 
-	var sum int
+	sum := decimal.Zero
 	for _, src := range dto.FundingSources {
-		if src.Amount <= 0 {
+		if src.Amount.LessThanOrEqual(decimal.Zero) {
 			return nil, fmt.Errorf("each funding source amount must be positive")
 		}
-		sum += src.Amount
+		sum = sum.Add(src.Amount)
 	}
-	if sum != dto.TotalAmount {
-		return nil, fmt.Errorf("funding source amounts (%d) must equal total amount (%d)", sum, dto.TotalAmount)
+	if !sum.Equal(dto.TotalAmount) {
+		return nil, fmt.Errorf("funding source amounts (%s) must equal total amount (%s)", sum, dto.TotalAmount)
 	}
 
 	existing, err := s.receiptRepo.GetByID(dto.ID)
@@ -290,7 +291,7 @@ func (s *ReceiptService) UpdateReceipt(dto UpdateReceiptDTO) (*model.ReceiptWith
 	}
 
 	existing.Description = dto.Description
-	existing.TotalAmountCents = dto.TotalAmount
+	existing.TotalAmount = dto.TotalAmount
 	existing.Date = dto.Date
 	existing.UpdatedAt = time.Now()
 
@@ -305,9 +306,9 @@ func (s *ReceiptService) UpdateReceipt(dto UpdateReceiptDTO) (*model.ReceiptWith
 	if err == nil {
 		totalPaid, err := s.loanRepo.GetTotalPaidForLoan(existing.LoanID)
 		if err == nil {
-			if totalPaid >= loan.OriginalAmountCents && !loan.IsPaidOff {
+			if totalPaid.GreaterThanOrEqual(loan.OriginalAmount) && !loan.IsPaidOff {
 				_ = s.loanRepo.SetPaidOff(loan.ID, true)
-			} else if totalPaid < loan.OriginalAmountCents && loan.IsPaidOff {
+			} else if totalPaid.LessThan(loan.OriginalAmount) && loan.IsPaidOff {
 				_ = s.loanRepo.SetPaidOff(loan.ID, false)
 			}
 		}

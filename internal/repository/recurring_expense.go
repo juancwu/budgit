@@ -38,9 +38,9 @@ func NewRecurringExpenseRepository(db *sqlx.DB) RecurringExpenseRepository {
 
 func (r *recurringExpenseRepository) Create(re *model.RecurringExpense, tagIDs []string) error {
 	return WithTx(r.db, func(tx *sqlx.Tx) error {
-		query := `INSERT INTO recurring_expenses (id, space_id, created_by, description, amount_cents, type, payment_method_id, frequency, start_date, end_date, next_occurrence, is_active, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14);`
-		if _, err := tx.Exec(query, re.ID, re.SpaceID, re.CreatedBy, re.Description, re.AmountCents, re.Type, re.PaymentMethodID, re.Frequency, re.StartDate, re.EndDate, re.NextOccurrence, re.IsActive, re.CreatedAt, re.UpdatedAt); err != nil {
+		query := `INSERT INTO recurring_expenses (id, space_id, created_by, description, amount, type, payment_method_id, frequency, start_date, end_date, next_occurrence, is_active, created_at, updated_at, amount_cents)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 0);`
+		if _, err := tx.Exec(query, re.ID, re.SpaceID, re.CreatedBy, re.Description, re.Amount, re.Type, re.PaymentMethodID, re.Frequency, re.StartDate, re.EndDate, re.NextOccurrence, re.IsActive, re.CreatedAt, re.UpdatedAt); err != nil {
 			return err
 		}
 
@@ -161,8 +161,8 @@ func (r *recurringExpenseRepository) GetPaymentMethodsByRecurringExpenseIDs(ids 
 
 func (r *recurringExpenseRepository) Update(re *model.RecurringExpense, tagIDs []string) error {
 	return WithTx(r.db, func(tx *sqlx.Tx) error {
-		query := `UPDATE recurring_expenses SET description = $1, amount_cents = $2, type = $3, payment_method_id = $4, frequency = $5, start_date = $6, end_date = $7, next_occurrence = $8, updated_at = $9 WHERE id = $10;`
-		if _, err := tx.Exec(query, re.Description, re.AmountCents, re.Type, re.PaymentMethodID, re.Frequency, re.StartDate, re.EndDate, re.NextOccurrence, re.UpdatedAt, re.ID); err != nil {
+		query := `UPDATE recurring_expenses SET description = $1, amount = $2, type = $3, payment_method_id = $4, frequency = $5, start_date = $6, end_date = $7, next_occurrence = $8, updated_at = $9 WHERE id = $10;`
+		if _, err := tx.Exec(query, re.Description, re.Amount, re.Type, re.PaymentMethodID, re.Frequency, re.StartDate, re.EndDate, re.NextOccurrence, re.UpdatedAt, re.ID); err != nil {
 			return err
 		}
 

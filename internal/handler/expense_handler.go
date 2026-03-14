@@ -81,9 +81,9 @@ func (h *ExpenseHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	tags, err := h.tagService.GetTagsForSpace(spaceID)
 	if err != nil {
@@ -147,7 +147,7 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
+	amount := amountDecimal
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -220,7 +220,7 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		SpaceID:         spaceID,
 		UserID:          user.ID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            expenseType,
 		Date:            date,
 		TagIDs:          finalTagIDs,
@@ -263,9 +263,9 @@ func (h *ExpenseHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	// Return the full paginated list for page 1 so the new expense appears
 	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsAndMethodsForSpacePaginated(spaceID, 1)
@@ -317,7 +317,7 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
+	amount := amountDecimal
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -377,7 +377,7 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		ID:              expenseID,
 		SpaceID:         spaceID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            expenseType,
 		Date:            date,
 		TagIDs:          finalTagIDs,
@@ -407,9 +407,9 @@ func (h *ExpenseHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	methods, _ := h.methodService.GetMethodsForSpace(spaceID)
 	updatedTags, _ := h.tagService.GetTagsForSpace(spaceID)
@@ -438,9 +438,9 @@ func (h *ExpenseHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	ui.Render(w, r, expense.BalanceCard(spaceID, balance, totalAllocated, true))
 	ui.RenderToast(w, r, toast.Toast(toast.Props{
@@ -485,9 +485,9 @@ func (h *ExpenseHandler) GetBalanceCard(w http.ResponseWriter, r *http.Request) 
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	ui.Render(w, r, expense.BalanceCard(spaceID, balance, totalAllocated, false))
 }

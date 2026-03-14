@@ -8,6 +8,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateRecurringReceiptDTO struct {
@@ -15,7 +16,7 @@ type CreateRecurringReceiptDTO struct {
 	SpaceID        string
 	UserID         string
 	Description    string
-	TotalAmount    int
+	TotalAmount    decimal.Decimal
 	Frequency      model.Frequency
 	StartDate      time.Time
 	EndDate        *time.Time
@@ -25,7 +26,7 @@ type CreateRecurringReceiptDTO struct {
 type UpdateRecurringReceiptDTO struct {
 	ID             string
 	Description    string
-	TotalAmount    int
+	TotalAmount    decimal.Decimal
 	Frequency      model.Frequency
 	StartDate      time.Time
 	EndDate        *time.Time
@@ -57,36 +58,36 @@ func NewRecurringReceiptService(
 }
 
 func (s *RecurringReceiptService) CreateRecurringReceipt(dto CreateRecurringReceiptDTO) (*model.RecurringReceiptWithSources, error) {
-	if dto.TotalAmount <= 0 {
+	if dto.TotalAmount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 	if len(dto.FundingSources) == 0 {
 		return nil, fmt.Errorf("at least one funding source is required")
 	}
 
-	var sum int
+	sum := decimal.Zero
 	for _, src := range dto.FundingSources {
-		sum += src.Amount
+		sum = sum.Add(src.Amount)
 	}
-	if sum != dto.TotalAmount {
+	if !sum.Equal(dto.TotalAmount) {
 		return nil, fmt.Errorf("funding source amounts must equal total amount")
 	}
 
 	now := time.Now()
 	rr := &model.RecurringReceipt{
-		ID:               uuid.NewString(),
-		LoanID:           dto.LoanID,
-		SpaceID:          dto.SpaceID,
-		Description:      dto.Description,
-		TotalAmountCents: dto.TotalAmount,
-		Frequency:        dto.Frequency,
-		StartDate:        dto.StartDate,
-		EndDate:          dto.EndDate,
-		NextOccurrence:   dto.StartDate,
-		IsActive:         true,
-		CreatedBy:        dto.UserID,
-		CreatedAt:        now,
-		UpdatedAt:        now,
+		ID:             uuid.NewString(),
+		LoanID:         dto.LoanID,
+		SpaceID:        dto.SpaceID,
+		Description:    dto.Description,
+		TotalAmount:    dto.TotalAmount,
+		Frequency:      dto.Frequency,
+		StartDate:      dto.StartDate,
+		EndDate:        dto.EndDate,
+		NextOccurrence: dto.StartDate,
+		IsActive:       true,
+		CreatedBy:      dto.UserID,
+		CreatedAt:      now,
+		UpdatedAt:      now,
 	}
 
 	sources := make([]model.RecurringReceiptSource, len(dto.FundingSources))
@@ -95,7 +96,7 @@ func (s *RecurringReceiptService) CreateRecurringReceipt(dto CreateRecurringRece
 			ID:                 uuid.NewString(),
 			RecurringReceiptID: rr.ID,
 			SourceType:         src.SourceType,
-			AmountCents:        src.Amount,
+			Amount:             src.Amount,
 		}
 		if src.SourceType == model.FundingSourceAccount {
 			acctID := src.AccountID
@@ -142,7 +143,7 @@ func (s *RecurringReceiptService) GetRecurringReceiptsWithSourcesForLoan(loanID 
 }
 
 func (s *RecurringReceiptService) UpdateRecurringReceipt(dto UpdateRecurringReceiptDTO) (*model.RecurringReceipt, error) {
-	if dto.TotalAmount <= 0 {
+	if dto.TotalAmount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -152,7 +153,7 @@ func (s *RecurringReceiptService) UpdateRecurringReceipt(dto UpdateRecurringRece
 	}
 
 	existing.Description = dto.Description
-	existing.TotalAmountCents = dto.TotalAmount
+	existing.TotalAmount = dto.TotalAmount
 	existing.Frequency = dto.Frequency
 	existing.StartDate = dto.StartDate
 	existing.EndDate = dto.EndDate
@@ -168,7 +169,7 @@ func (s *RecurringReceiptService) UpdateRecurringReceipt(dto UpdateRecurringRece
 			ID:                 uuid.NewString(),
 			RecurringReceiptID: existing.ID,
 			SourceType:         src.SourceType,
-			AmountCents:        src.Amount,
+			Amount:             src.Amount,
 		}
 		if src.SourceType == model.FundingSourceAccount {
 			acctID := src.AccountID
@@ -262,7 +263,7 @@ func (s *RecurringReceiptService) processRecurrence(rr *model.RecurringReceipt, 
 			fundingSources[i] = FundingSourceDTO{
 				SourceType: src.SourceType,
 				AccountID:  accountID,
-				Amount:     src.AmountCents,
+				Amount:     src.Amount,
 			}
 		}
 
@@ -272,7 +273,7 @@ func (s *RecurringReceiptService) processRecurrence(rr *model.RecurringReceipt, 
 			SpaceID:            rr.SpaceID,
 			UserID:             rr.CreatedBy,
 			Description:        rr.Description,
-			TotalAmount:        rr.TotalAmountCents,
+			TotalAmount:        rr.TotalAmount,
 			Date:               rr.NextOccurrence,
 			FundingSources:     fundingSources,
 			RecurringReceiptID: &rrID,

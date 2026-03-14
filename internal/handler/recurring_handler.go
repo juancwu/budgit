@@ -107,7 +107,7 @@ func (h *RecurringHandler) CreateRecurringExpense(w http.ResponseWriter, r *http
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
+	amount := amountDecimal
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -176,7 +176,7 @@ func (h *RecurringHandler) CreateRecurringExpense(w http.ResponseWriter, r *http
 		SpaceID:         spaceID,
 		UserID:          user.ID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            expenseType,
 		PaymentMethodID: paymentMethodID,
 		Frequency:       frequency,
@@ -235,7 +235,7 @@ func (h *RecurringHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
+	amount := amountDecimal
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -290,7 +290,7 @@ func (h *RecurringHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http
 	updated, err := h.recurringService.UpdateRecurringExpense(service.UpdateRecurringExpenseDTO{
 		ID:              recurringID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            model.ExpenseType(typeStr),
 		PaymentMethodID: paymentMethodID,
 		Frequency:       model.Frequency(frequencyStr),

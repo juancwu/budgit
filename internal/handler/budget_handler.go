@@ -106,7 +106,7 @@ func (h *BudgetHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
+	amount := amountDecimal
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -127,7 +127,7 @@ func (h *BudgetHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	_, err = h.budgetService.CreateBudget(service.CreateBudgetDTO{
 		SpaceID:   spaceID,
 		TagIDs:    tagIDs,
-		Amount:    amountCents,
+		Amount:    amount,
 		Period:    model.BudgetPeriod(periodStr),
 		StartDate: startDate,
 		EndDate:   endDate,
@@ -186,7 +186,7 @@ func (h *BudgetHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
+	amount := amountDecimal
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -207,7 +207,7 @@ func (h *BudgetHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 	_, err = h.budgetService.UpdateBudget(service.UpdateBudgetDTO{
 		ID:        budgetID,
 		TagIDs:    tagIDs,
-		Amount:    amountCents,
+		Amount:    amount,
 		Period:    model.BudgetPeriod(periodStr),
 		StartDate: startDate,
 		EndDate:   endDate,

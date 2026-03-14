@@ -7,13 +7,14 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateExpenseDTO struct {
 	SpaceID         string
 	UserID          string
 	Description     string
-	Amount          int
+	Amount          decimal.Decimal
 	Type            model.ExpenseType
 	Date            time.Time
 	TagIDs          []string
@@ -25,7 +26,7 @@ type UpdateExpenseDTO struct {
 	ID              string
 	SpaceID         string
 	Description     string
-	Amount          int
+	Amount          decimal.Decimal
 	Type            model.ExpenseType
 	Date            time.Time
 	TagIDs          []string
@@ -48,7 +49,7 @@ func (s *ExpenseService) CreateExpense(dto CreateExpenseDTO) (*model.Expense, er
 	if dto.Description == "" {
 		return nil, fmt.Errorf("expense description cannot be empty")
 	}
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -58,7 +59,7 @@ func (s *ExpenseService) CreateExpense(dto CreateExpenseDTO) (*model.Expense, er
 		SpaceID:         dto.SpaceID,
 		CreatedBy:       dto.UserID,
 		Description:     dto.Description,
-		AmountCents:     dto.Amount,
+		Amount:          dto.Amount,
 		Type:            dto.Type,
 		Date:            dto.Date,
 		PaymentMethodID: dto.PaymentMethodID,
@@ -78,18 +79,18 @@ func (s *ExpenseService) GetExpensesForSpace(spaceID string) ([]*model.Expense, 
 	return s.expenseRepo.GetBySpaceID(spaceID)
 }
 
-func (s *ExpenseService) GetBalanceForSpace(spaceID string) (int, error) {
+func (s *ExpenseService) GetBalanceForSpace(spaceID string) (decimal.Decimal, error) {
 	expenses, err := s.expenseRepo.GetBySpaceID(spaceID)
 	if err != nil {
-		return 0, err
+		return decimal.Zero, err
 	}
 
-	var balance int
+	balance := decimal.Zero
 	for _, expense := range expenses {
 		if expense.Type == model.ExpenseTypeExpense {
-			balance -= expense.AmountCents
+			balance = balance.Sub(expense.Amount)
 		} else if expense.Type == model.ExpenseTypeTopup {
-			balance += expense.AmountCents
+			balance = balance.Add(expense.Amount)
 		}
 	}
 
@@ -212,7 +213,7 @@ func (s *ExpenseService) UpdateExpense(dto UpdateExpenseDTO) (*model.Expense, er
 	if dto.Description == "" {
 		return nil, fmt.Errorf("expense description cannot be empty")
 	}
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -222,7 +223,7 @@ func (s *ExpenseService) UpdateExpense(dto UpdateExpenseDTO) (*model.Expense, er
 	}
 
 	existing.Description = dto.Description
-	existing.AmountCents = dto.Amount
+	existing.Amount = dto.Amount
 	existing.Type = dto.Type
 	existing.Date = dto.Date
 	existing.PaymentMethodID = dto.PaymentMethodID
