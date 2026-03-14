@@ -235,7 +235,7 @@ templ SpaceSettingsPage(space *model.Space, members []*model.SpaceMemberWithProf
 									<form
 										hx-delete={ "/app/spaces/" + space.ID }
 										hx-swap="none"
-										class="space-y-4 px-6 pb-6"
+										class="space-y-4"
 									>
 										@csrf.Token()
 										<div class="space-y-2">
@@ -248,7 +248,6 @@ templ SpaceSettingsPage(space *model.Space, members []*model.SpaceMemberWithProf
 												Attributes: templ.Attributes{
 													"id":           "confirmation_name",
 													"autocomplete": "off",
-													"_":            "on input if my value equals '" + space.Name + "' remove @disabled from #delete-space-confirm else add @disabled to #delete-space-confirm",
 												},
 											})
 										</div>
@@ -263,9 +262,9 @@ templ SpaceSettingsPage(space *model.Space, members []*model.SpaceMemberWithProf
 											}
 											@button.Button(button.Props{
 												Variant: button.VariantDestructive,
+                                                Type: button.TypeSubmit,
 												Attributes: templ.Attributes{
 													"id":       "delete-space-confirm",
-													"disabled": true,
 												},
 											}) {
 												Delete Space
