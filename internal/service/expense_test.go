@@ -25,7 +25,7 @@ func TestExpenseService_CreateExpense(t *testing.T) {
 			SpaceID:     space.ID,
 			UserID:      user.ID,
 			Description: "Lunch",
-			Amount:      decimal.RequireFromString("15.00"),
+			Amount:      decimal.RequireFromString("15.49"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        time.Now(),
 			TagIDs:      []string{tag.ID},
@@ -33,7 +33,7 @@ func TestExpenseService_CreateExpense(t *testing.T) {
 		require.NoError(t, err)
 		assert.NotEmpty(t, expense.ID)
 		assert.Equal(t, "Lunch", expense.Description)
-		assert.True(t, decimal.RequireFromString("15.00").Equal(expense.Amount))
+		assert.True(t, decimal.RequireFromString("15.49").Equal(expense.Amount))
 		assert.Equal(t, model.ExpenseTypeExpense, expense.Type)
 	})
 }
@@ -47,7 +47,7 @@ func TestExpenseService_CreateExpense_EmptyDescription(t *testing.T) {
 			SpaceID:     "some-space",
 			UserID:      "some-user",
 			Description: "",
-			Amount:      decimal.RequireFromString("10.00"),
+			Amount:      decimal.RequireFromString("10.75"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        time.Now(),
 		})
@@ -88,7 +88,7 @@ func TestExpenseService_GetExpensesWithTagsForSpacePaginated(t *testing.T) {
 			SpaceID:     space.ID,
 			UserID:      user.ID,
 			Description: "Bus fare",
-			Amount:      decimal.RequireFromString("2.50"),
+			Amount:      decimal.RequireFromString("2.49"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        time.Now(),
 			TagIDs:      []string{tag.ID},
@@ -100,7 +100,7 @@ func TestExpenseService_GetExpensesWithTagsForSpacePaginated(t *testing.T) {
 			SpaceID:     space.ID,
 			UserID:      user.ID,
 			Description: "Coffee",
-			Amount:      decimal.RequireFromString("5.00"),
+			Amount:      decimal.RequireFromString("5.01"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        time.Now(),
 		})
@@ -133,12 +133,12 @@ func TestExpenseService_GetBalanceForSpace(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "exp-svc-balance@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Expense Svc Balance Space")
 
-		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Topup", decimal.RequireFromString("100.00"), model.ExpenseTypeTopup)
-		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Groceries", decimal.RequireFromString("30.00"), model.ExpenseTypeExpense)
+		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Topup", decimal.RequireFromString("100.50"), model.ExpenseTypeTopup)
+		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Groceries", decimal.RequireFromString("30.75"), model.ExpenseTypeExpense)
 
 		balance, err := svc.GetBalanceForSpace(space.ID)
 		require.NoError(t, err)
-		assert.True(t, decimal.RequireFromString("70.00").Equal(balance))
+		assert.True(t, decimal.RequireFromString("69.75").Equal(balance))
 	})
 }
 
@@ -157,7 +157,7 @@ func TestExpenseService_GetExpensesByTag(t *testing.T) {
 			SpaceID:     space.ID,
 			UserID:      user.ID,
 			Description: "Dinner",
-			Amount:      decimal.RequireFromString("25.00"),
+			Amount:      decimal.RequireFromString("24.99"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        now,
 			TagIDs:      []string{tag.ID},
@@ -170,7 +170,7 @@ func TestExpenseService_GetExpensesByTag(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, summaries, 1)
 		assert.Equal(t, tag.ID, summaries[0].TagID)
-		assert.True(t, decimal.RequireFromString("25.00").Equal(summaries[0].TotalAmount))
+		assert.True(t, decimal.RequireFromString("24.99").Equal(summaries[0].TotalAmount))
 	})
 }
 
@@ -186,7 +186,7 @@ func TestExpenseService_UpdateExpense(t *testing.T) {
 			SpaceID:     space.ID,
 			UserID:      user.ID,
 			Description: "Old Description",
-			Amount:      decimal.RequireFromString("10.00"),
+			Amount:      decimal.RequireFromString("10.75"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        time.Now(),
 		})
@@ -196,13 +196,13 @@ func TestExpenseService_UpdateExpense(t *testing.T) {
 			ID:          created.ID,
 			SpaceID:     space.ID,
 			Description: "New Description",
-			Amount:      decimal.RequireFromString("20.00"),
+			Amount:      decimal.RequireFromString("19.49"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        time.Now(),
 		})
 		require.NoError(t, err)
 		assert.Equal(t, "New Description", updated.Description)
-		assert.True(t, decimal.RequireFromString("20.00").Equal(updated.Amount))
+		assert.True(t, decimal.RequireFromString("19.49").Equal(updated.Amount))
 	})
 }
 
@@ -218,7 +218,7 @@ func TestExpenseService_DeleteExpense(t *testing.T) {
 			SpaceID:     space.ID,
 			UserID:      user.ID,
 			Description: "Doomed Expense",
-			Amount:      decimal.RequireFromString("5.00"),
+			Amount:      decimal.RequireFromString("4.99"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        time.Now(),
 		})

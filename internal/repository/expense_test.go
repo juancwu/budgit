@@ -25,7 +25,7 @@ func TestExpenseRepository_Create(t *testing.T) {
 			SpaceID:     space.ID,
 			CreatedBy:   user.ID,
 			Description: "Lunch",
-			Amount:      decimal.RequireFromString("15.00"),
+			Amount:      decimal.RequireFromString("15.49"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        now,
 			CreatedAt:   now,
@@ -39,7 +39,7 @@ func TestExpenseRepository_Create(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, expense.ID, fetched.ID)
 		assert.Equal(t, "Lunch", fetched.Description)
-		assert.True(t, decimal.RequireFromString("15.00").Equal(fetched.Amount))
+		assert.True(t, decimal.RequireFromString("15.49").Equal(fetched.Amount))
 		assert.Equal(t, model.ExpenseTypeExpense, fetched.Type)
 	})
 }
@@ -50,9 +50,9 @@ func TestExpenseRepository_GetBySpaceIDPaginated(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 
-		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 1", decimal.RequireFromString("10.00"), model.ExpenseTypeExpense)
-		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 2", decimal.RequireFromString("20.00"), model.ExpenseTypeExpense)
-		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 3", decimal.RequireFromString("30.00"), model.ExpenseTypeExpense)
+		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 1", decimal.RequireFromString("10.75"), model.ExpenseTypeExpense)
+		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 2", decimal.RequireFromString("20.50"), model.ExpenseTypeExpense)
+		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 3", decimal.RequireFromString("30.25"), model.ExpenseTypeExpense)
 
 		expenses, err := repo.GetBySpaceIDPaginated(space.ID, 2, 0)
 		require.NoError(t, err)
@@ -66,8 +66,8 @@ func TestExpenseRepository_CountBySpaceID(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 
-		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 1", decimal.RequireFromString("10.00"), model.ExpenseTypeExpense)
-		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 2", decimal.RequireFromString("20.00"), model.ExpenseTypeExpense)
+		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 1", decimal.RequireFromString("10.75"), model.ExpenseTypeExpense)
+		testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "Expense 2", decimal.RequireFromString("20.50"), model.ExpenseTypeExpense)
 
 		count, err := repo.CountBySpaceID(space.ID)
 		require.NoError(t, err)
@@ -88,7 +88,7 @@ func TestExpenseRepository_GetTagsByExpenseIDs(t *testing.T) {
 			SpaceID:     space.ID,
 			CreatedBy:   user.ID,
 			Description: "Weekly groceries",
-			Amount:      decimal.RequireFromString("50.00"),
+			Amount:      decimal.RequireFromString("49.99"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        now,
 			CreatedAt:   now,
@@ -120,7 +120,7 @@ func TestExpenseRepository_GetPaymentMethodsByExpenseIDs(t *testing.T) {
 			SpaceID:         space.ID,
 			CreatedBy:       user.ID,
 			Description:     "Online purchase",
-			Amount:          decimal.RequireFromString("30.00"),
+			Amount:          decimal.RequireFromString("29.95"),
 			Type:            model.ExpenseTypeExpense,
 			Date:            now,
 			PaymentMethodID: &method.ID,
@@ -157,7 +157,7 @@ func TestExpenseRepository_GetExpensesByTag(t *testing.T) {
 			SpaceID:     space.ID,
 			CreatedBy:   user.ID,
 			Description: "Lunch",
-			Amount:      decimal.RequireFromString("15.00"),
+			Amount:      decimal.RequireFromString("15.49"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        now,
 			CreatedAt:   now,
@@ -171,7 +171,7 @@ func TestExpenseRepository_GetExpensesByTag(t *testing.T) {
 			SpaceID:     space.ID,
 			CreatedBy:   user.ID,
 			Description: "Dinner",
-			Amount:      decimal.RequireFromString("25.00"),
+			Amount:      decimal.RequireFromString("24.52"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        now,
 			CreatedAt:   now,
@@ -185,7 +185,7 @@ func TestExpenseRepository_GetExpensesByTag(t *testing.T) {
 		require.Len(t, summaries, 1)
 		assert.Equal(t, tag.ID, summaries[0].TagID)
 		assert.Equal(t, "Food", summaries[0].TagName)
-		assert.True(t, decimal.RequireFromString("40.00").Equal(summaries[0].TotalAmount))
+		assert.True(t, decimal.RequireFromString("40.01").Equal(summaries[0].TotalAmount))
 	})
 }
 
@@ -203,7 +203,7 @@ func TestExpenseRepository_Update(t *testing.T) {
 			SpaceID:     space.ID,
 			CreatedBy:   user.ID,
 			Description: "Original",
-			Amount:      decimal.RequireFromString("10.00"),
+			Amount:      decimal.RequireFromString("10.75"),
 			Type:        model.ExpenseTypeExpense,
 			Date:        now,
 			CreatedAt:   now,
@@ -235,7 +235,7 @@ func TestExpenseRepository_Delete(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 
-		expense := testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "To Delete", decimal.RequireFromString("5.00"), model.ExpenseTypeExpense)
+		expense := testutil.CreateTestExpense(t, dbi.DB, space.ID, user.ID, "To Delete", decimal.RequireFromString("4.99"), model.ExpenseTypeExpense)
 
 		err := repo.Delete(expense.ID)
 		require.NoError(t, err)

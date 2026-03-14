@@ -99,7 +99,7 @@ func TestMoneyAccountRepository_CreateTransfer(t *testing.T) {
 		transfer := &model.AccountTransfer{
 			ID:        uuid.NewString(),
 			AccountID: account.ID,
-			Amount:    decimal.RequireFromString("50.00"),
+			Amount:    decimal.RequireFromString("49.95"),
 			Direction: model.TransferDirectionDeposit,
 			Note:      "Initial deposit",
 			CreatedBy: user.ID,
@@ -113,7 +113,7 @@ func TestMoneyAccountRepository_CreateTransfer(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, transfers, 1)
 		assert.Equal(t, transfer.ID, transfers[0].ID)
-		assert.True(t, decimal.RequireFromString("50.00").Equal(transfers[0].Amount))
+		assert.True(t, decimal.RequireFromString("49.95").Equal(transfers[0].Amount))
 		assert.Equal(t, model.TransferDirectionDeposit, transfers[0].Direction)
 	})
 }
@@ -124,7 +124,7 @@ func TestMoneyAccountRepository_DeleteTransfer(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 		account := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Checking", user.ID)
-		transfer := testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("10.00"), model.TransferDirectionDeposit, user.ID)
+		transfer := testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("10.25"), model.TransferDirectionDeposit, user.ID)
 
 		err := repo.DeleteTransfer(transfer.ID)
 		require.NoError(t, err)
@@ -142,12 +142,12 @@ func TestMoneyAccountRepository_GetAccountBalance(t *testing.T) {
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 		account := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Checking", user.ID)
 
-		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("10.00"), model.TransferDirectionDeposit, user.ID)
-		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("3.00"), model.TransferDirectionWithdrawal, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("10.50"), model.TransferDirectionDeposit, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("3.25"), model.TransferDirectionWithdrawal, user.ID)
 
 		balance, err := repo.GetAccountBalance(account.ID)
 		require.NoError(t, err)
-		assert.True(t, decimal.RequireFromString("7.00").Equal(balance))
+		assert.True(t, decimal.RequireFromString("7.25").Equal(balance))
 	})
 }
 
@@ -160,11 +160,11 @@ func TestMoneyAccountRepository_GetTotalAllocatedForSpace(t *testing.T) {
 		account1 := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Account A", user.ID)
 		account2 := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Account B", user.ID)
 
-		testutil.CreateTestTransfer(t, dbi.DB, account1.ID, decimal.RequireFromString("20.00"), model.TransferDirectionDeposit, user.ID)
-		testutil.CreateTestTransfer(t, dbi.DB, account2.ID, decimal.RequireFromString("30.00"), model.TransferDirectionDeposit, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account1.ID, decimal.RequireFromString("20.75"), model.TransferDirectionDeposit, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account2.ID, decimal.RequireFromString("29.50"), model.TransferDirectionDeposit, user.ID)
 
 		total, err := repo.GetTotalAllocatedForSpace(space.ID)
 		require.NoError(t, err)
-		assert.True(t, decimal.RequireFromString("50.00").Equal(total))
+		assert.True(t, decimal.RequireFromString("50.25").Equal(total))
 	})
 }

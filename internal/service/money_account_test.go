@@ -54,13 +54,13 @@ func TestMoneyAccountService_GetAccountsForSpace(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "acct-svc-list@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Account Svc List Space")
 		account := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Checking", user.ID)
-		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("50.00"), model.TransferDirectionDeposit, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("49.95"), model.TransferDirectionDeposit, user.ID)
 
 		accounts, err := svc.GetAccountsForSpace(space.ID)
 		require.NoError(t, err)
 		require.Len(t, accounts, 1)
 		assert.Equal(t, "Checking", accounts[0].Name)
-		assert.True(t, decimal.RequireFromString("50.00").Equal(accounts[0].Balance))
+		assert.True(t, decimal.RequireFromString("49.95").Equal(accounts[0].Balance))
 	})
 }
 
@@ -75,14 +75,14 @@ func TestMoneyAccountService_CreateTransfer_Deposit(t *testing.T) {
 
 		transfer, err := svc.CreateTransfer(CreateTransferDTO{
 			AccountID: account.ID,
-			Amount:    decimal.RequireFromString("30.00"),
+			Amount:    decimal.RequireFromString("29.75"),
 			Direction: model.TransferDirectionDeposit,
 			Note:      "Initial deposit",
 			CreatedBy: user.ID,
-		}, decimal.RequireFromString("100.00"))
+		}, decimal.RequireFromString("100.50"))
 		require.NoError(t, err)
 		assert.NotEmpty(t, transfer.ID)
-		assert.True(t, decimal.RequireFromString("30.00").Equal(transfer.Amount))
+		assert.True(t, decimal.RequireFromString("29.75").Equal(transfer.Amount))
 		assert.Equal(t, model.TransferDirectionDeposit, transfer.Direction)
 	})
 }
@@ -98,11 +98,11 @@ func TestMoneyAccountService_CreateTransfer_InsufficientBalance(t *testing.T) {
 
 		transfer, err := svc.CreateTransfer(CreateTransferDTO{
 			AccountID: account.ID,
-			Amount:    decimal.RequireFromString("50.00"),
+			Amount:    decimal.RequireFromString("50.25"),
 			Direction: model.TransferDirectionDeposit,
 			Note:      "Too much",
 			CreatedBy: user.ID,
-		}, decimal.RequireFromString("10.00"))
+		}, decimal.RequireFromString("10.50"))
 		assert.Error(t, err)
 		assert.Nil(t, transfer)
 	})
@@ -116,18 +116,18 @@ func TestMoneyAccountService_CreateTransfer_Withdrawal(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "acct-svc-withdraw@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Account Svc Withdraw Space")
 		account := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Withdraw Account", user.ID)
-		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("50.00"), model.TransferDirectionDeposit, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("49.75"), model.TransferDirectionDeposit, user.ID)
 
 		transfer, err := svc.CreateTransfer(CreateTransferDTO{
 			AccountID: account.ID,
-			Amount:    decimal.RequireFromString("20.00"),
+			Amount:    decimal.RequireFromString("19.50"),
 			Direction: model.TransferDirectionWithdrawal,
 			Note:      "Withdrawal",
 			CreatedBy: user.ID,
 		}, decimal.Zero)
 		require.NoError(t, err)
 		assert.NotEmpty(t, transfer.ID)
-		assert.True(t, decimal.RequireFromString("20.00").Equal(transfer.Amount))
+		assert.True(t, decimal.RequireFromString("19.50").Equal(transfer.Amount))
 		assert.Equal(t, model.TransferDirectionWithdrawal, transfer.Direction)
 	})
 }
@@ -141,14 +141,14 @@ func TestMoneyAccountService_GetTotalAllocatedForSpace(t *testing.T) {
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Account Svc Total Space")
 
 		account1 := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Account 1", user.ID)
-		testutil.CreateTestTransfer(t, dbi.DB, account1.ID, decimal.RequireFromString("30.00"), model.TransferDirectionDeposit, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account1.ID, decimal.RequireFromString("30.25"), model.TransferDirectionDeposit, user.ID)
 
 		account2 := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "Account 2", user.ID)
-		testutil.CreateTestTransfer(t, dbi.DB, account2.ID, decimal.RequireFromString("20.00"), model.TransferDirectionDeposit, user.ID)
+		testutil.CreateTestTransfer(t, dbi.DB, account2.ID, decimal.RequireFromString("19.50"), model.TransferDirectionDeposit, user.ID)
 
 		total, err := svc.GetTotalAllocatedForSpace(space.ID)
 		require.NoError(t, err)
-		assert.True(t, decimal.RequireFromString("50.00").Equal(total))
+		assert.True(t, decimal.RequireFromString("49.75").Equal(total))
 	})
 }
 
@@ -178,7 +178,7 @@ func TestMoneyAccountService_DeleteTransfer(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "acct-svc-deltx@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Account Svc DelTx Space")
 		account := testutil.CreateTestMoneyAccount(t, dbi.DB, space.ID, "DelTx Account", user.ID)
-		transfer := testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("10.00"), model.TransferDirectionDeposit, user.ID)
+		transfer := testutil.CreateTestTransfer(t, dbi.DB, account.ID, decimal.RequireFromString("10.25"), model.TransferDirectionDeposit, user.ID)
 
 		err := svc.DeleteTransfer(transfer.ID)
 		require.NoError(t, err)
