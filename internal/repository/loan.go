@@ -7,6 +7,7 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -22,7 +23,7 @@ type LoanRepository interface {
 	Update(loan *model.Loan) error
 	Delete(id string) error
 	SetPaidOff(id string, paidOff bool) error
-	GetTotalPaidForLoan(loanID string) (int, error)
+	GetTotalPaidForLoan(loanID string) (decimal.Decimal, error)
 	GetReceiptCountForLoan(loanID string) (int, error)
 }
 
@@ -35,9 +36,9 @@ func NewLoanRepository(db *sqlx.DB) LoanRepository {
 }
 
 func (r *loanRepository) Create(loan *model.Loan) error {
-	query := `INSERT INTO loans (id, space_id, name, description, original_amount_cents, interest_rate_bps, start_date, end_date, is_paid_off, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12);`
-	_, err := r.db.Exec(query, loan.ID, loan.SpaceID, loan.Name, loan.Description, loan.OriginalAmountCents, loan.InterestRateBps, loan.StartDate, loan.EndDate, loan.IsPaidOff, loan.CreatedBy, loan.CreatedAt, loan.UpdatedAt)
+	query := `INSERT INTO loans (id, space_id, name, description, original_amount, interest_rate_bps, start_date, end_date, is_paid_off, created_by, created_at, updated_at, original_amount_cents)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 0);`
+	_, err := r.db.Exec(query, loan.ID, loan.SpaceID, loan.Name, loan.Description, loan.OriginalAmount, loan.InterestRateBps, loan.StartDate, loan.EndDate, loan.IsPaidOff, loan.CreatedBy, loan.CreatedAt, loan.UpdatedAt)
 	return err
 }
 
@@ -72,8 +73,8 @@ func (r *loanRepository) CountBySpaceID(spaceID string) (int, error) {
 }
 
 func (r *loanRepository) Update(loan *model.Loan) error {
-	query := `UPDATE loans SET name = $1, description = $2, original_amount_cents = $3, interest_rate_bps = $4, start_date = $5, end_date = $6, updated_at = $7 WHERE id = $8;`
-	result, err := r.db.Exec(query, loan.Name, loan.Description, loan.OriginalAmountCents, loan.InterestRateBps, loan.StartDate, loan.EndDate, loan.UpdatedAt, loan.ID)
+	query := `UPDATE loans SET name = $1, description = $2, original_amount = $3, interest_rate_bps = $4, start_date = $5, end_date = $6, updated_at = $7 WHERE id = $8;`
+	result, err := r.db.Exec(query, loan.Name, loan.Description, loan.OriginalAmount, loan.InterestRateBps, loan.StartDate, loan.EndDate, loan.UpdatedAt, loan.ID)
 	if err != nil {
 		return err
 	}
@@ -94,9 +95,9 @@ func (r *loanRepository) SetPaidOff(id string, paidOff bool) error {
 	return err
 }
 
-func (r *loanRepository) GetTotalPaidForLoan(loanID string) (int, error) {
-	var total int
-	err := r.db.Get(&total, `SELECT COALESCE(SUM(total_amount_cents), 0) FROM receipts WHERE loan_id = $1;`, loanID)
+func (r *loanRepository) GetTotalPaidForLoan(loanID string) (decimal.Decimal, error) {
+	var total decimal.Decimal
+	err := r.db.Get(&total, `SELECT COALESCE(SUM(CAST(total_amount AS DECIMAL)), 0) FROM receipts WHERE loan_id = $1;`, loanID)
 	return total, err
 }
 

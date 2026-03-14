@@ -8,13 +8,14 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateRecurringExpenseDTO struct {
 	SpaceID         string
 	UserID          string
 	Description     string
-	Amount          int
+	Amount          decimal.Decimal
 	Type            model.ExpenseType
 	PaymentMethodID *string
 	Frequency       model.Frequency
@@ -26,7 +27,7 @@ type CreateRecurringExpenseDTO struct {
 type UpdateRecurringExpenseDTO struct {
 	ID              string
 	Description     string
-	Amount          int
+	Amount          decimal.Decimal
 	Type            model.ExpenseType
 	PaymentMethodID *string
 	Frequency       model.Frequency
@@ -55,7 +56,7 @@ func (s *RecurringExpenseService) CreateRecurringExpense(dto CreateRecurringExpe
 	if dto.Description == "" {
 		return nil, fmt.Errorf("description cannot be empty")
 	}
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -65,7 +66,7 @@ func (s *RecurringExpenseService) CreateRecurringExpense(dto CreateRecurringExpe
 		SpaceID:         dto.SpaceID,
 		CreatedBy:       dto.UserID,
 		Description:     dto.Description,
-		AmountCents:     dto.Amount,
+		Amount:          dto.Amount,
 		Type:            dto.Type,
 		PaymentMethodID: dto.PaymentMethodID,
 		Frequency:       dto.Frequency,
@@ -127,7 +128,7 @@ func (s *RecurringExpenseService) UpdateRecurringExpense(dto UpdateRecurringExpe
 	if dto.Description == "" {
 		return nil, fmt.Errorf("description cannot be empty")
 	}
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -137,7 +138,7 @@ func (s *RecurringExpenseService) UpdateRecurringExpense(dto UpdateRecurringExpe
 	}
 
 	existing.Description = dto.Description
-	existing.AmountCents = dto.Amount
+	existing.Amount = dto.Amount
 	existing.Type = dto.Type
 	existing.PaymentMethodID = dto.PaymentMethodID
 	existing.Frequency = dto.Frequency
@@ -229,7 +230,7 @@ func (s *RecurringExpenseService) processRecurrence(re *model.RecurringExpense, 
 			SpaceID:            re.SpaceID,
 			CreatedBy:          re.CreatedBy,
 			Description:        re.Description,
-			AmountCents:        re.AmountCents,
+			Amount:             re.Amount,
 			Type:               re.Type,
 			Date:               re.NextOccurrence,
 			PaymentMethodID:    re.PaymentMethodID,

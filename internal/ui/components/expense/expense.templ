@@ -14,6 +14,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/paymentmethod"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/radio"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/tagcombobox"
+	"github.com/shopspring/decimal"
 )
 
 type AddExpenseFormProps struct {
@@ -215,7 +216,7 @@ templ EditExpenseForm(spaceID string, exp *model.ExpenseWithTagsAndMethod, metho
 				Name:       "amount",
 				ID:         "edit-amount-" + exp.ID,
 				Type:       "number",
-				Value:      fmt.Sprintf("%.2f", float64(exp.AmountCents)/100.0),
+				Value:      model.FormatDecimal(exp.Amount),
 				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
 			})
 		</div>
@@ -345,7 +346,7 @@ templ ItemSelectorSection(listsWithItems []model.ListWithUncheckedItems, oob boo
 	</div>
 }
 
-templ BalanceCard(spaceID string, balance int, allocated int, oob bool) {
+templ BalanceCard(spaceID string, balance decimal.Decimal, allocated decimal.Decimal, oob bool) {
 	<div
 		id="balance-card"
 		class="border rounded-lg p-4 bg-card text-card-foreground"
@@ -354,11 +355,11 @@ templ BalanceCard(spaceID string, balance int, allocated int, oob bool) {
 		}
 	>
 		<h2 class="text-lg font-semibold">Current Balance</h2>
-		<p class={ "text-3xl font-bold", templ.KV("text-destructive", balance < 0) }>
-			{ fmt.Sprintf("$%.2f", float64(balance)/100.0) }
-			if allocated > 0 {
+		<p class={ "text-3xl font-bold", templ.KV("text-destructive", balance.LessThan(decimal.Zero)) }>
+			{ model.FormatMoney(balance) }
+			if allocated.GreaterThan(decimal.Zero) {
 				<span class="text-base font-normal text-muted-foreground">
-					({ fmt.Sprintf("$%.2f", float64(allocated)/100.0) } in accounts)
+					({ model.FormatMoney(allocated) } in accounts)
 				</span>
 			}
 		</p>

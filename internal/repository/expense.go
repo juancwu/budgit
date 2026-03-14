@@ -7,6 +7,7 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -28,7 +29,7 @@ type ExpenseRepository interface {
 	GetDailySpending(spaceID string, from, to time.Time) ([]*model.DailySpending, error)
 	GetMonthlySpending(spaceID string, from, to time.Time) ([]*model.MonthlySpending, error)
 	GetTopExpenses(spaceID string, from, to time.Time, limit int) ([]*model.Expense, error)
-	GetIncomeVsExpenseSummary(spaceID string, from, to time.Time) (int, int, error)
+	GetIncomeVsExpenseSummary(spaceID string, from, to time.Time) (decimal.Decimal, decimal.Decimal, error)
 }
 
 type expenseRepository struct {
@@ -47,9 +48,9 @@ func (r *expenseRepository) Create(expense *model.Expense, tagIDs []string, item
 	defer tx.Rollback()
 
 	// Insert Expense
-	queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, recurring_expense_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`
-	_, err = tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.RecurringExpenseID, expense.CreatedAt, expense.UpdatedAt)
+	queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount, type, date, payment_method_id, recurring_expense_id, created_at, updated_at, amount_cents)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 0);`
+	_, err = tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.Amount, expense.Type, expense.Date, expense.PaymentMethodID, expense.RecurringExpenseID, expense.CreatedAt, expense.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -122,7 +123,7 @@ func (r *expenseRepository) GetExpensesByTag(spaceID string, fromDate, toDate ti
 			t.id as tag_id,
 			t.name as tag_name,
 			t.color as tag_color,
-			SUM(e.amount_cents) as total_amount
+			SUM(CAST(e.amount AS DECIMAL)) as total_amount
 		FROM expenses e
 		JOIN expense_tags et ON e.id = et.expense_id
 		JOIN tags t ON et.tag_id = t.id
@@ -229,8 +230,8 @@ func (r *expenseRepository) Update(expense *model.Expense, tagIDs []string) erro
 	}
 	defer tx.Rollback()
 
-	query := `UPDATE expenses SET description = $1, amount_cents = $2, type = $3, date = $4, payment_method_id = $5, updated_at = $6 WHERE id = $7;`
-	_, err = tx.Exec(query, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.UpdatedAt, expense.ID)
+	query := `UPDATE expenses SET description = $1, amount = $2, type = $3, date = $4, payment_method_id = $5, updated_at = $6 WHERE id = $7;`
+	_, err = tx.Exec(query, expense.Description, expense.Amount, expense.Type, expense.Date, expense.PaymentMethodID, expense.UpdatedAt, expense.ID)
 	if err != nil {
 		return err
 	}
@@ -261,7 +262,7 @@ func (r *expenseRepository) Delete(id string) error {
 func (r *expenseRepository) GetDailySpending(spaceID string, from, to time.Time) ([]*model.DailySpending, error) {
 	var results []*model.DailySpending
 	query := `
-		SELECT date, SUM(amount_cents) as total_cents
+		SELECT date, SUM(CAST(amount AS DECIMAL)) as total
 		FROM expenses
 		WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
 		GROUP BY date
@@ -276,14 +277,14 @@ func (r *expenseRepository) GetMonthlySpending(spaceID string, from, to time.Tim
 	var query string
 	if r.db.DriverName() == "sqlite" {
 		query = `
-			SELECT strftime('%Y-%m', date) as month, SUM(amount_cents) as total_cents
+			SELECT strftime('%Y-%m', date) as month, SUM(CAST(amount AS DECIMAL)) as total
 			FROM expenses
 			WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
 			GROUP BY strftime('%Y-%m', date)
 			ORDER BY month ASC;`
 	} else {
 		query = `
-			SELECT TO_CHAR(date, 'YYYY-MM') as month, SUM(amount_cents) as total_cents
+			SELECT TO_CHAR(date, 'YYYY-MM') as month, SUM(CAST(amount AS DECIMAL)) as total
 			FROM expenses
 			WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
 			GROUP BY TO_CHAR(date, 'YYYY-MM')
@@ -298,37 +299,38 @@ func (r *expenseRepository) GetTopExpenses(spaceID string, from, to time.Time, l
 	query := `
 		SELECT * FROM expenses
 		WHERE space_id = $1 AND type = 'expense' AND date >= $2 AND date <= $3
-		ORDER BY amount_cents DESC
+		ORDER BY CAST(amount AS DECIMAL) DESC
 		LIMIT $4;
 	`
 	err := r.db.Select(&results, query, spaceID, from, to, limit)
 	return results, err
 }
 
-func (r *expenseRepository) GetIncomeVsExpenseSummary(spaceID string, from, to time.Time) (int, int, error) {
+func (r *expenseRepository) GetIncomeVsExpenseSummary(spaceID string, from, to time.Time) (decimal.Decimal, decimal.Decimal, error) {
 	type summary struct {
-		Type  string `db:"type"`
-		Total int    `db:"total"`
+		Type  string          `db:"type"`
+		Total decimal.Decimal `db:"total"`
 	}
 	var results []summary
 	query := `
-		SELECT type, COALESCE(SUM(amount_cents), 0) as total
+		SELECT type, COALESCE(SUM(CAST(amount AS DECIMAL)), 0) as total
 		FROM expenses
 		WHERE space_id = $1 AND date >= $2 AND date <= $3
 		GROUP BY type;
 	`
 	err := r.db.Select(&results, query, spaceID, from, to)
 	if err != nil {
-		return 0, 0, err
+		return decimal.Zero, decimal.Zero, err
 	}
 
-	var income, expenses int
+	income := decimal.Zero
+	expenseTotal := decimal.Zero
 	for _, r := range results {
 		if r.Type == "topup" {
 			income = r.Total
 		} else if r.Type == "expense" {
-			expenses = r.Total
+			expenseTotal = r.Total
 		}
 	}
-	return income, expenses, nil
+	return income, expenseTotal, nil
 }

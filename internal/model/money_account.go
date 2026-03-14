@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type TransferDirection string
 
@@ -21,7 +25,8 @@ type MoneyAccount struct {
 type AccountTransfer struct {
 	ID                 string            `db:"id"`
 	AccountID          string            `db:"account_id"`
-	AmountCents        int               `db:"amount_cents"`
+	Amount             decimal.Decimal   `db:"amount"`
+	AmountCents        int               `db:"amount_cents"` // deprecated: kept for SELECT * compatibility
 	Direction          TransferDirection `db:"direction"`
 	Note               string            `db:"note"`
 	RecurringDepositID *string           `db:"recurring_deposit_id"`
@@ -31,7 +36,7 @@ type AccountTransfer struct {
 
 type MoneyAccountWithBalance struct {
 	MoneyAccount
-	BalanceCents int
+	Balance decimal.Decimal
 }
 
 type AccountTransferWithAccount struct {

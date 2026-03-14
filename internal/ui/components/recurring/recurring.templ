@@ -73,11 +73,11 @@ templ RecurringItem(spaceID string, re *model.RecurringExpenseWithTagsAndMethod,
 		<div class="flex items-center gap-1 shrink-0">
 			if re.Type == model.ExpenseTypeExpense {
 				<p class="font-bold text-destructive">
-					- { fmt.Sprintf("$%.2f", float64(re.AmountCents)/100.0) }
+					- { model.FormatMoney(re.Amount) }
 				</p>
 			} else {
 				<p class="font-bold text-green-500">
-					+ { fmt.Sprintf("$%.2f", float64(re.AmountCents)/100.0) }
+					+ { model.FormatMoney(re.Amount) }
 				</p>
 			}
 			// Toggle pause/resume
@@ -352,7 +352,7 @@ templ EditRecurringForm(spaceID string, re *model.RecurringExpenseWithTagsAndMet
 				Name:       "amount",
 				ID:         "edit-recurring-amount-" + re.ID,
 				Type:       "number",
-				Value:      fmt.Sprintf("%.2f", float64(re.AmountCents)/100.0),
+				Value:      model.FormatDecimal(re.Amount),
 				Attributes: templ.Attributes{"step": "0.01", "required": "true"},
 			})
 		</div>

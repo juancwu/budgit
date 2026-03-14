@@ -7,12 +7,13 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateBudgetDTO struct {
 	SpaceID   string
 	TagIDs    []string
-	Amount    int
+	Amount    decimal.Decimal
 	Period    model.BudgetPeriod
 	StartDate time.Time
 	EndDate   *time.Time
@@ -22,7 +23,7 @@ type CreateBudgetDTO struct {
 type UpdateBudgetDTO struct {
 	ID        string
 	TagIDs    []string
-	Amount    int
+	Amount    decimal.Decimal
 	Period    model.BudgetPeriod
 	StartDate time.Time
 	EndDate   *time.Time
@@ -37,7 +38,7 @@ func NewBudgetService(budgetRepo repository.BudgetRepository) *BudgetService {
 }
 
 func (s *BudgetService) CreateBudget(dto CreateBudgetDTO) (*model.Budget, error) {
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("budget amount must be positive")
 	}
 
@@ -47,16 +48,16 @@ func (s *BudgetService) CreateBudget(dto CreateBudgetDTO) (*model.Budget, error)
 
 	now := time.Now()
 	budget := &model.Budget{
-		ID:          uuid.NewString(),
-		SpaceID:     dto.SpaceID,
-		AmountCents: dto.Amount,
-		Period:      dto.Period,
-		StartDate:   dto.StartDate,
-		EndDate:     dto.EndDate,
-		IsActive:    true,
-		CreatedBy:   dto.CreatedBy,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:        uuid.NewString(),
+		SpaceID:   dto.SpaceID,
+		Amount:    dto.Amount,
+		Period:    dto.Period,
+		StartDate: dto.StartDate,
+		EndDate:   dto.EndDate,
+		IsActive:  true,
+		CreatedBy: dto.CreatedBy,
+		CreatedAt: now,
+		UpdatedAt: now,
 	}
 
 	if err := s.budgetRepo.Create(budget, dto.TagIDs); err != nil {
@@ -99,12 +100,12 @@ func (s *BudgetService) GetBudgetsWithSpent(spaceID string) ([]*model.BudgetWith
 		start, end := GetCurrentPeriodBounds(b.Period, time.Now())
 		spent, err := s.budgetRepo.GetSpentForBudget(spaceID, tagIDs, start, end)
 		if err != nil {
-			spent = 0
+			spent = decimal.Zero
 		}
 
 		var percentage float64
-		if b.AmountCents > 0 {
-			percentage = float64(spent) / float64(b.AmountCents) * 100
+		if b.Amount.GreaterThan(decimal.Zero) {
+			percentage, _ = spent.Div(b.Amount).Mul(decimal.NewFromInt(100)).Float64()
 		}
 
 		var status model.BudgetStatus
@@ -120,7 +121,7 @@ func (s *BudgetService) GetBudgetsWithSpent(spaceID string) ([]*model.BudgetWith
 		bws := &model.BudgetWithSpent{
 			Budget:     *b,
 			Tags:       tags,
-			SpentCents: spent,
+			Spent:      spent,
 			Percentage: percentage,
 			Status:     status,
 		}
@@ -131,7 +132,7 @@ func (s *BudgetService) GetBudgetsWithSpent(spaceID string) ([]*model.BudgetWith
 }
 
 func (s *BudgetService) UpdateBudget(dto UpdateBudgetDTO) (*model.Budget, error) {
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("budget amount must be positive")
 	}
 
@@ -144,7 +145,7 @@ func (s *BudgetService) UpdateBudget(dto UpdateBudgetDTO) (*model.Budget, error)
 		return nil, err
 	}
 
-	existing.AmountCents = dto.Amount
+	existing.Amount = dto.Amount
 	existing.Period = dto.Period
 	existing.StartDate = dto.StartDate
 	existing.EndDate = dto.EndDate

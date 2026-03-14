@@ -9,12 +9,13 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateRecurringDepositDTO struct {
 	SpaceID   string
 	AccountID string
-	Amount    int
+	Amount    decimal.Decimal
 	Frequency model.Frequency
 	StartDate time.Time
 	EndDate   *time.Time
@@ -25,7 +26,7 @@ type CreateRecurringDepositDTO struct {
 type UpdateRecurringDepositDTO struct {
 	ID        string
 	AccountID string
-	Amount    int
+	Amount    decimal.Decimal
 	Frequency model.Frequency
 	StartDate time.Time
 	EndDate   *time.Time
@@ -51,7 +52,7 @@ func NewRecurringDepositService(recurringRepo repository.RecurringDepositReposit
 }
 
 func (s *RecurringDepositService) CreateRecurringDeposit(dto CreateRecurringDepositDTO) (*model.RecurringDeposit, error) {
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -60,7 +61,7 @@ func (s *RecurringDepositService) CreateRecurringDeposit(dto CreateRecurringDepo
 		ID:             uuid.NewString(),
 		SpaceID:        dto.SpaceID,
 		AccountID:      dto.AccountID,
-		AmountCents:    dto.Amount,
+		Amount:         dto.Amount,
 		Frequency:      dto.Frequency,
 		StartDate:      dto.StartDate,
 		EndDate:        dto.EndDate,
@@ -113,7 +114,7 @@ func (s *RecurringDepositService) GetRecurringDepositsWithAccountsForSpace(space
 }
 
 func (s *RecurringDepositService) UpdateRecurringDeposit(dto UpdateRecurringDepositDTO) (*model.RecurringDeposit, error) {
-	if dto.Amount <= 0 {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -123,7 +124,7 @@ func (s *RecurringDepositService) UpdateRecurringDeposit(dto UpdateRecurringDepo
 	}
 
 	existing.AccountID = dto.AccountID
-	existing.AmountCents = dto.Amount
+	existing.Amount = dto.Amount
 	existing.Frequency = dto.Frequency
 	existing.StartDate = dto.StartDate
 	existing.EndDate = dto.EndDate
@@ -221,16 +222,16 @@ func (s *RecurringDepositService) getLocalNow(spaceID, userID string, now time.T
 	return now.In(loc)
 }
 
-func (s *RecurringDepositService) getAvailableBalance(spaceID string) (int, error) {
+func (s *RecurringDepositService) getAvailableBalance(spaceID string) (decimal.Decimal, error) {
 	totalBalance, err := s.expenseService.GetBalanceForSpace(spaceID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get space balance: %w", err)
+		return decimal.Zero, fmt.Errorf("failed to get space balance: %w", err)
 	}
 	totalAllocated, err := s.accountRepo.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get total allocated: %w", err)
+		return decimal.Zero, fmt.Errorf("failed to get total allocated: %w", err)
 	}
-	return totalBalance - totalAllocated, nil
+	return totalBalance.Sub(totalAllocated), nil
 }
 
 func (s *RecurringDepositService) processRecurrence(rd *model.RecurringDeposit, now time.Time) error {
@@ -246,12 +247,12 @@ func (s *RecurringDepositService) processRecurrence(rd *model.RecurringDeposit, 
 			return err
 		}
 
-		if availableBalance >= rd.AmountCents {
+		if availableBalance.GreaterThanOrEqual(rd.Amount) {
 			rdID := rd.ID
 			transfer := &model.AccountTransfer{
 				ID:                 uuid.NewString(),
 				AccountID:          rd.AccountID,
-				AmountCents:        rd.AmountCents,
+				Amount:             rd.Amount,
 				Direction:          model.TransferDirectionDeposit,
 				Note:               rd.Title,
 				RecurringDepositID: &rdID,
@@ -265,7 +266,7 @@ func (s *RecurringDepositService) processRecurrence(rd *model.RecurringDeposit, 
 			slog.Warn("recurring deposit skipped: insufficient available balance",
 				"recurring_deposit_id", rd.ID,
 				"space_id", rd.SpaceID,
-				"needed", rd.AmountCents,
+				"needed", rd.Amount,
 				"available", availableBalance,
 			)
 		}

@@ -7,6 +7,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateLoanDTO struct {
@@ -14,7 +15,7 @@ type CreateLoanDTO struct {
 	UserID          string
 	Name            string
 	Description     string
-	OriginalAmount  int
+	OriginalAmount  decimal.Decimal
 	InterestRateBps int
 	StartDate       time.Time
 	EndDate         *time.Time
@@ -24,7 +25,7 @@ type UpdateLoanDTO struct {
 	ID              string
 	Name            string
 	Description     string
-	OriginalAmount  int
+	OriginalAmount  decimal.Decimal
 	InterestRateBps int
 	StartDate       time.Time
 	EndDate         *time.Time
@@ -48,24 +49,24 @@ func (s *LoanService) CreateLoan(dto CreateLoanDTO) (*model.Loan, error) {
 	if dto.Name == "" {
 		return nil, fmt.Errorf("loan name cannot be empty")
 	}
-	if dto.OriginalAmount <= 0 {
+	if dto.OriginalAmount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
 	now := time.Now()
 	loan := &model.Loan{
-		ID:                  uuid.NewString(),
-		SpaceID:             dto.SpaceID,
-		Name:                dto.Name,
-		Description:         dto.Description,
-		OriginalAmountCents: dto.OriginalAmount,
-		InterestRateBps:     dto.InterestRateBps,
-		StartDate:           dto.StartDate,
-		EndDate:             dto.EndDate,
-		IsPaidOff:           false,
-		CreatedBy:           dto.UserID,
-		CreatedAt:           now,
-		UpdatedAt:           now,
+		ID:              uuid.NewString(),
+		SpaceID:         dto.SpaceID,
+		Name:            dto.Name,
+		Description:     dto.Description,
+		OriginalAmount:  dto.OriginalAmount,
+		InterestRateBps: dto.InterestRateBps,
+		StartDate:       dto.StartDate,
+		EndDate:         dto.EndDate,
+		IsPaidOff:       false,
+		CreatedBy:       dto.UserID,
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
 	if err := s.loanRepo.Create(loan); err != nil {
@@ -95,10 +96,10 @@ func (s *LoanService) GetLoanWithSummary(id string) (*model.LoanWithPaymentSumma
 	}
 
 	return &model.LoanWithPaymentSummary{
-		Loan:           *loan,
-		TotalPaidCents: totalPaid,
-		RemainingCents: loan.OriginalAmountCents - totalPaid,
-		ReceiptCount:   receiptCount,
+		Loan:         *loan,
+		TotalPaid:    totalPaid,
+		Remaining:    loan.OriginalAmount.Sub(totalPaid),
+		ReceiptCount: receiptCount,
 	}, nil
 }
 
@@ -154,10 +155,10 @@ func (s *LoanService) attachSummaries(loans []*model.Loan) ([]*model.LoanWithPay
 			return nil, err
 		}
 		result[i] = &model.LoanWithPaymentSummary{
-			Loan:           *loan,
-			TotalPaidCents: totalPaid,
-			RemainingCents: loan.OriginalAmountCents - totalPaid,
-			ReceiptCount:   receiptCount,
+			Loan:         *loan,
+			TotalPaid:    totalPaid,
+			Remaining:    loan.OriginalAmount.Sub(totalPaid),
+			ReceiptCount: receiptCount,
 		}
 	}
 	return result, nil
@@ -167,7 +168,7 @@ func (s *LoanService) UpdateLoan(dto UpdateLoanDTO) (*model.Loan, error) {
 	if dto.Name == "" {
 		return nil, fmt.Errorf("loan name cannot be empty")
 	}
-	if dto.OriginalAmount <= 0 {
+	if dto.OriginalAmount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -178,7 +179,7 @@ func (s *LoanService) UpdateLoan(dto UpdateLoanDTO) (*model.Loan, error) {
 
 	existing.Name = dto.Name
 	existing.Description = dto.Description
-	existing.OriginalAmountCents = dto.OriginalAmount
+	existing.OriginalAmount = dto.OriginalAmount
 	existing.InterestRateBps = dto.InterestRateBps
 	existing.StartDate = dto.StartDate
 	existing.EndDate = dto.EndDate

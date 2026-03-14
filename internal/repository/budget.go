@@ -7,6 +7,7 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -17,7 +18,7 @@ type BudgetRepository interface {
 	Create(budget *model.Budget, tagIDs []string) error
 	GetByID(id string) (*model.Budget, error)
 	GetBySpaceID(spaceID string) ([]*model.Budget, error)
-	GetSpentForBudget(spaceID string, tagIDs []string, periodStart, periodEnd time.Time) (int, error)
+	GetSpentForBudget(spaceID string, tagIDs []string, periodStart, periodEnd time.Time) (decimal.Decimal, error)
 	GetTagsByBudgetIDs(budgetIDs []string) (map[string][]*model.Tag, error)
 	Update(budget *model.Budget, tagIDs []string) error
 	Delete(id string) error
@@ -38,9 +39,9 @@ func (r *budgetRepository) Create(budget *model.Budget, tagIDs []string) error {
 	}
 	defer tx.Rollback()
 
-	query := `INSERT INTO budgets (id, space_id, amount_cents, period, start_date, end_date, is_active, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
-	_, err = tx.Exec(query, budget.ID, budget.SpaceID, budget.AmountCents, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.CreatedBy, budget.CreatedAt, budget.UpdatedAt)
+	query := `INSERT INTO budgets (id, space_id, amount, period, start_date, end_date, is_active, created_by, created_at, updated_at, amount_cents)
+		Values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0);`
+	_, err = tx.Exec(query, budget.ID, budget.SpaceID, budget.Amount, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.CreatedBy, budget.CreatedAt, budget.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -72,23 +73,23 @@ func (r *budgetRepository) GetBySpaceID(spaceID string) ([]*model.Budget, error)
 	return budgets, err
 }
 
-func (r *budgetRepository) GetSpentForBudget(spaceID string, tagIDs []string, periodStart, periodEnd time.Time) (int, error) {
+func (r *budgetRepository) GetSpentForBudget(spaceID string, tagIDs []string, periodStart, periodEnd time.Time) (decimal.Decimal, error) {
 	if len(tagIDs) == 0 {
-		return 0, nil
+		return decimal.Zero, nil
 	}
 
 	query, args, err := sqlx.In(`
-		SELECT COALESCE(SUM(e.amount_cents), 0)
+		SELECT COALESCE(SUM(CAST(e.amount AS DECIMAL)), 0)
 		FROM expenses e
 		WHERE e.space_id = ? AND e.type = 'expense' AND e.date >= ? AND e.date <= ?
 		  AND EXISTS (SELECT 1 FROM expense_tags et WHERE et.expense_id = e.id AND et.tag_id IN (?))
 	`, spaceID, periodStart, periodEnd, tagIDs)
 	if err != nil {
-		return 0, err
+		return decimal.Zero, err
 	}
 	query = r.db.Rebind(query)
 
-	var spent int
+	var spent decimal.Decimal
 	err = r.db.Get(&spent, query, args...)
 	return spent, err
 }
@@ -142,8 +143,8 @@ func (r *budgetRepository) Update(budget *model.Budget, tagIDs []string) error {
 	}
 	defer tx.Rollback()
 
-	query := `UPDATE budgets SET amount_cents = $1, period = $2, start_date = $3, end_date = $4, is_active = $5, updated_at = $6 WHERE id = $7;`
-	_, err = tx.Exec(query, budget.AmountCents, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.UpdatedAt, budget.ID)
+	query := `UPDATE budgets SET amount = $1, period = $2, start_date = $3, end_date = $4, is_active = $5, updated_at = $6 WHERE id = $7;`
+	_, err = tx.Exec(query, budget.Amount, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.UpdatedAt, budget.ID)
 	if err != nil {
 		return err
 	}

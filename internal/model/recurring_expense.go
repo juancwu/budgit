@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/shopspring/decimal"
+)
 
 type Frequency string
 
@@ -13,20 +17,21 @@ const (
 )
 
 type RecurringExpense struct {
-	ID              string      `db:"id"`
-	SpaceID         string      `db:"space_id"`
-	CreatedBy       string      `db:"created_by"`
-	Description     string      `db:"description"`
-	AmountCents     int         `db:"amount_cents"`
-	Type            ExpenseType `db:"type"`
-	PaymentMethodID *string     `db:"payment_method_id"`
-	Frequency       Frequency   `db:"frequency"`
-	StartDate       time.Time   `db:"start_date"`
-	EndDate         *time.Time  `db:"end_date"`
-	NextOccurrence  time.Time   `db:"next_occurrence"`
-	IsActive        bool        `db:"is_active"`
-	CreatedAt       time.Time   `db:"created_at"`
-	UpdatedAt       time.Time   `db:"updated_at"`
+	ID              string          `db:"id"`
+	SpaceID         string          `db:"space_id"`
+	CreatedBy       string          `db:"created_by"`
+	Description     string          `db:"description"`
+	Amount          decimal.Decimal `db:"amount"`
+	AmountCents     int             `db:"amount_cents"` // deprecated: kept for SELECT * compatibility
+	Type            ExpenseType     `db:"type"`
+	PaymentMethodID *string         `db:"payment_method_id"`
+	Frequency       Frequency       `db:"frequency"`
+	StartDate       time.Time       `db:"start_date"`
+	EndDate         *time.Time      `db:"end_date"`
+	NextOccurrence  time.Time       `db:"next_occurrence"`
+	IsActive        bool            `db:"is_active"`
+	CreatedAt       time.Time       `db:"created_at"`
+	UpdatedAt       time.Time       `db:"updated_at"`
 }
 
 type RecurringExpenseWithTags struct {

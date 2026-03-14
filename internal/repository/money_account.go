@@ -7,6 +7,7 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -25,8 +26,8 @@ type MoneyAccountRepository interface {
 	GetTransfersByAccountID(accountID string) ([]*model.AccountTransfer, error)
 	DeleteTransfer(id string) error
 
-	GetAccountBalance(accountID string) (int, error)
-	GetTotalAllocatedForSpace(spaceID string) (int, error)
+	GetAccountBalance(accountID string) (decimal.Decimal, error)
+	GetTotalAllocatedForSpace(spaceID string) (decimal.Decimal, error)
 
 	GetTransfersBySpaceIDPaginated(spaceID string, limit, offset int) ([]*model.AccountTransferWithAccount, error)
 	CountTransfersBySpaceID(spaceID string) (int, error)
@@ -94,8 +95,8 @@ func (r *moneyAccountRepository) Delete(id string) error {
 }
 
 func (r *moneyAccountRepository) CreateTransfer(transfer *model.AccountTransfer) error {
-	query := `INSERT INTO account_transfers (id, account_id, amount_cents, direction, note, recurring_deposit_id, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`
-	_, err := r.db.Exec(query, transfer.ID, transfer.AccountID, transfer.AmountCents, transfer.Direction, transfer.Note, transfer.RecurringDepositID, transfer.CreatedBy, transfer.CreatedAt)
+	query := `INSERT INTO account_transfers (id, account_id, amount, direction, note, recurring_deposit_id, created_by, created_at, amount_cents) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0);`
+	_, err := r.db.Exec(query, transfer.ID, transfer.AccountID, transfer.Amount, transfer.Direction, transfer.Note, transfer.RecurringDepositID, transfer.CreatedBy, transfer.CreatedAt)
 	return err
 }
 
@@ -122,16 +123,16 @@ func (r *moneyAccountRepository) DeleteTransfer(id string) error {
 	return err
 }
 
-func (r *moneyAccountRepository) GetAccountBalance(accountID string) (int, error) {
-	var balance int
-	query := `SELECT COALESCE(SUM(CASE WHEN direction = 'deposit' THEN amount_cents ELSE -amount_cents END), 0) FROM account_transfers WHERE account_id = $1;`
+func (r *moneyAccountRepository) GetAccountBalance(accountID string) (decimal.Decimal, error) {
+	var balance decimal.Decimal
+	query := `SELECT COALESCE(SUM(CASE WHEN direction = 'deposit' THEN CAST(amount AS DECIMAL) ELSE -CAST(amount AS DECIMAL) END), 0) FROM account_transfers WHERE account_id = $1;`
 	err := r.db.Get(&balance, query, accountID)
 	return balance, err
 }
 
-func (r *moneyAccountRepository) GetTotalAllocatedForSpace(spaceID string) (int, error) {
-	var total int
-	query := `SELECT COALESCE(SUM(CASE WHEN t.direction = 'deposit' THEN t.amount_cents ELSE -t.amount_cents END), 0)
+func (r *moneyAccountRepository) GetTotalAllocatedForSpace(spaceID string) (decimal.Decimal, error) {
+	var total decimal.Decimal
+	query := `SELECT COALESCE(SUM(CASE WHEN t.direction = 'deposit' THEN CAST(t.amount AS DECIMAL) ELSE -CAST(t.amount AS DECIMAL) END), 0)
 		FROM account_transfers t
 		JOIN money_accounts a ON t.account_id = a.id
 		WHERE a.space_id = $1;`
@@ -141,7 +142,7 @@ func (r *moneyAccountRepository) GetTotalAllocatedForSpace(spaceID string) (int,
 
 func (r *moneyAccountRepository) GetTransfersBySpaceIDPaginated(spaceID string, limit, offset int) ([]*model.AccountTransferWithAccount, error) {
 	var transfers []*model.AccountTransferWithAccount
-	query := `SELECT t.id, t.account_id, t.amount_cents, t.direction, t.note,
+	query := `SELECT t.id, t.account_id, t.amount, t.direction, t.note,
 		t.recurring_deposit_id, t.created_by, t.created_at, a.name AS account_name
 		FROM account_transfers t
 		JOIN money_accounts a ON t.account_id = a.id

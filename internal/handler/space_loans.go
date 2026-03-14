@@ -62,8 +62,6 @@ func (h *SpaceHandler) CreateLoan(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amount.Mul(decimal.NewFromInt(100)).IntPart())
-
 	interestStr := r.FormValue("interest_rate")
 	var interestBps int
 	if interestStr != "" {
@@ -93,7 +91,7 @@ func (h *SpaceHandler) CreateLoan(w http.ResponseWriter, r *http.Request) {
 		UserID:          user.ID,
 		Name:            name,
 		Description:     description,
-		OriginalAmount:  amountCents,
+		OriginalAmount:  amount,
 		InterestRateBps: interestBps,
 		StartDate:       startDate,
 		EndDate:         endDate,
@@ -165,7 +163,7 @@ func (h *SpaceHandler) LoanDetailPage(w http.ResponseWriter, r *http.Request) {
 	balance, err := h.expenseService.GetBalanceForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get balance", "error", err)
-		balance = 0
+		balance = decimal.Zero
 	}
 
 	ui.Render(w, r, pages.SpaceLoanDetailPage(space, loan, receipts, page, totalPages, recurringReceipts, accounts, balance))
@@ -190,8 +188,6 @@ func (h *SpaceHandler) UpdateLoan(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amount.Mul(decimal.NewFromInt(100)).IntPart())
-
 	interestStr := r.FormValue("interest_rate")
 	var interestBps int
 	if interestStr != "" {
@@ -220,7 +216,7 @@ func (h *SpaceHandler) UpdateLoan(w http.ResponseWriter, r *http.Request) {
 		ID:              loanID,
 		Name:            name,
 		Description:     description,
-		OriginalAmount:  amountCents,
+		OriginalAmount:  amount,
 		InterestRateBps: interestBps,
 		StartDate:       startDate,
 		EndDate:         endDate,
@@ -267,8 +263,6 @@ func (h *SpaceHandler) CreateReceipt(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
-	totalAmountCents := int(amount.Mul(decimal.NewFromInt(100)).IntPart())
-
 	dateStr := r.FormValue("date")
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -288,7 +282,7 @@ func (h *SpaceHandler) CreateReceipt(w http.ResponseWriter, r *http.Request) {
 		SpaceID:        spaceID,
 		UserID:         user.ID,
 		Description:    description,
-		TotalAmount:    totalAmountCents,
+		TotalAmount:    amount,
 		Date:           date,
 		FundingSources: fundingSources,
 	}
@@ -320,8 +314,6 @@ func (h *SpaceHandler) UpdateReceipt(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
-	totalAmountCents := int(amount.Mul(decimal.NewFromInt(100)).IntPart())
-
 	dateStr := r.FormValue("date")
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -340,7 +332,7 @@ func (h *SpaceHandler) UpdateReceipt(w http.ResponseWriter, r *http.Request) {
 		SpaceID:        spaceID,
 		UserID:         user.ID,
 		Description:    description,
-		TotalAmount:    totalAmountCents,
+		TotalAmount:    amount,
 		Date:           date,
 		FundingSources: fundingSources,
 	}
@@ -405,8 +397,6 @@ func (h *SpaceHandler) CreateRecurringReceipt(w http.ResponseWriter, r *http.Req
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
-	totalAmountCents := int(amount.Mul(decimal.NewFromInt(100)).IntPart())
-
 	frequency := model.Frequency(r.FormValue("frequency"))
 
 	startDateStr := r.FormValue("start_date")
@@ -436,7 +426,7 @@ func (h *SpaceHandler) CreateRecurringReceipt(w http.ResponseWriter, r *http.Req
 		SpaceID:        spaceID,
 		UserID:         user.ID,
 		Description:    description,
-		TotalAmount:    totalAmountCents,
+		TotalAmount:    amount,
 		Frequency:      frequency,
 		StartDate:      startDate,
 		EndDate:        endDate,
@@ -468,8 +458,6 @@ func (h *SpaceHandler) UpdateRecurringReceipt(w http.ResponseWriter, r *http.Req
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		return
 	}
-	totalAmountCents := int(amount.Mul(decimal.NewFromInt(100)).IntPart())
-
 	frequency := model.Frequency(r.FormValue("frequency"))
 
 	startDateStr := r.FormValue("start_date")
@@ -497,7 +485,7 @@ func (h *SpaceHandler) UpdateRecurringReceipt(w http.ResponseWriter, r *http.Req
 	dto := service.UpdateRecurringReceiptDTO{
 		ID:             recurringReceiptID,
 		Description:    description,
-		TotalAmount:    totalAmountCents,
+		TotalAmount:    amount,
 		Frequency:      frequency,
 		StartDate:      startDate,
 		EndDate:        endDate,
@@ -570,11 +558,9 @@ func parseFundingSources(r *http.Request) ([]service.FundingSourceDTO, error) {
 		if err != nil || amount.LessThanOrEqual(decimal.Zero) {
 			return nil, fmt.Errorf("invalid funding source amount")
 		}
-		amountCents := int(amount.Mul(decimal.NewFromInt(100)).IntPart())
-
 		src := service.FundingSourceDTO{
 			SourceType: model.FundingSourceType(srcType),
-			Amount:     amountCents,
+			Amount:     amount,
 		}
 
 		if srcType == string(model.FundingSourceAccount) {

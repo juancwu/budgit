@@ -3,6 +3,7 @@ package pages
 import (
 	"fmt"
 	"sort"
+	"github.com/shopspring/decimal"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
@@ -14,8 +15,8 @@ import (
 
 type OverviewData struct {
 	Space             *model.Space
-	Balance           int
-	Allocated         int
+	Balance           decimal.Decimal
+	Allocated         decimal.Decimal
 	Report            *model.SpendingReport
 	Budgets           []*model.BudgetWithSpent
 	UpcomingRecurring []*model.RecurringExpenseWithTagsAndMethod
@@ -143,12 +144,12 @@ templ overviewBalanceCard(data OverviewData) {
 			<h3 class="font-semibold mb-3">Current Balance</h3>
 			@dialogs.AddTransaction(data.Space, data.Tags, data.ListsWithItems, data.Methods)
 		</div>
-		<p class={ "text-3xl font-bold", templ.KV("text-destructive", data.Balance < 0) }>
-			{ fmt.Sprintf("$%.2f", float64(data.Balance)/100.0) }
+		<p class={ "text-3xl font-bold", templ.KV("text-destructive", data.Balance.IsNegative()) }>
+			{ model.FormatMoney(data.Balance) }
 		</p>
-		if data.Allocated > 0 {
+		if data.Allocated.GreaterThan(decimal.Zero) {
 			<p class="text-sm text-muted-foreground mt-1">
-				{ fmt.Sprintf("$%.2f", float64(data.Allocated)/100.0) } in accounts
+				{ model.FormatMoney(data.Allocated) } in accounts
 			</p>
 		}
 	</div>
@@ -161,17 +162,17 @@ templ overviewSpendingCard(data OverviewData) {
 			<div class="space-y-1">
 				<div class="flex justify-between">
 					<span class="text-sm text-green-500 font-medium">Income</span>
-					<span class="text-sm font-bold text-green-500">{ fmt.Sprintf("$%.2f", float64(data.Report.TotalIncome)/100.0) }</span>
+					<span class="text-sm font-bold text-green-500">{ model.FormatMoney(data.Report.TotalIncome) }</span>
 				</div>
 				<div class="flex justify-between">
 					<span class="text-sm text-destructive font-medium">Expenses</span>
-					<span class="text-sm font-bold text-destructive">{ fmt.Sprintf("$%.2f", float64(data.Report.TotalExpenses)/100.0) }</span>
+					<span class="text-sm font-bold text-destructive">{ model.FormatMoney(data.Report.TotalExpenses) }</span>
 				</div>
 				<hr class="border-border"/>
 				<div class="flex justify-between">
 					<span class="text-sm font-medium">Net</span>
-					<span class={ "text-sm font-bold", templ.KV("text-green-500", data.Report.NetBalance >= 0), templ.KV("text-destructive", data.Report.NetBalance < 0) }>
-						{ fmt.Sprintf("$%.2f", float64(data.Report.NetBalance)/100.0) }
+					<span class={ "text-sm font-bold", templ.KV("text-green-500", !data.Report.NetBalance.IsNegative()), templ.KV("text-destructive", data.Report.NetBalance.IsNegative()) }>
+						{ model.FormatMoney(data.Report.NetBalance) }
 					</span>
 				</div>
 			</div>
@@ -191,7 +192,7 @@ templ overviewSpendingByCategoryChart(data OverviewData) {
 				tagColors := make([]string, len(data.Report.ByTag))
 				for i, t := range data.Report.ByTag {
 					tagLabels[i] = t.TagName
-					tagData[i] = float64(t.TotalAmount) / 100.0
+					tagData[i] = t.TotalAmount.InexactFloat64()
 					tagColors[i] = overviewChartColor(i, t.TagColor)
 				}
 			}}
@@ -224,7 +225,7 @@ templ overviewSpendingOverTimeChart(data OverviewData) {
 				var timeData []float64
 				for _, d := range data.Report.DailySpending {
 					timeLabels = append(timeLabels, d.Date.Format("Jan 02"))
-					timeData = append(timeData, float64(d.TotalCents)/100.0)
+					timeData = append(timeData, d.Total.InexactFloat64())
 				}
 			}}
 			@chart.Chart(chart.Props{
@@ -276,8 +277,8 @@ templ overviewBudgetsCard(data OverviewData) {
 								<span class="text-xs text-muted-foreground ml-auto">{ overviewPeriodLabel(b.Period) }</span>
 							</div>
 							<div class="flex justify-between text-xs text-muted-foreground">
-								<span>{ fmt.Sprintf("$%.2f", float64(b.SpentCents)/100.0) } spent</span>
-								<span>of { fmt.Sprintf("$%.2f", float64(b.AmountCents)/100.0) }</span>
+								<span>{ model.FormatMoney(b.Spent) } spent</span>
+								<span>of { model.FormatMoney(b.Amount) }</span>
 							</div>
 							<div class="w-full bg-muted rounded-full h-2">
 								<div class={ "h-2 rounded-full transition-all", overviewProgressBarColor(b.Status) } style={ fmt.Sprintf("width: %.1f%%", pct) }></div>
@@ -309,11 +310,11 @@ templ overviewRecurringCard(data OverviewData) {
 							</div>
 							if r.Type == model.ExpenseTypeExpense {
 								<p class="text-sm font-bold text-destructive shrink-0">
-									{ fmt.Sprintf("$%.2f", float64(r.AmountCents)/100.0) }
+									{ model.FormatMoney(r.Amount) }
 								</p>
 							} else {
 								<p class="text-sm font-bold text-green-500 shrink-0">
-									+{ fmt.Sprintf("$%.2f", float64(r.AmountCents)/100.0) }
+									+{ model.FormatMoney(r.Amount) }
 								</p>
 							}
 						</div>
@@ -348,7 +349,7 @@ templ overviewTopExpensesCard(data OverviewData) {
 								}
 							</div>
 							<p class="text-sm font-bold text-destructive shrink-0">
-								{ fmt.Sprintf("$%.2f", float64(exp.AmountCents)/100.0) }
+								{ model.FormatMoney(exp.Amount) }
 							</p>
 						</div>
 					}

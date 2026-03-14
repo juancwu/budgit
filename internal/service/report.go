@@ -73,7 +73,7 @@ func (s *ReportService) GetSpendingReport(spaceID string, from, to time.Time) (*
 		TopExpenses:     topWithTags,
 		TotalIncome:     totalIncome,
 		TotalExpenses:   totalExpenses,
-		NetBalance:      totalIncome - totalExpenses,
+		NetBalance:      totalIncome.Sub(totalExpenses),
 	}, nil
 }
 

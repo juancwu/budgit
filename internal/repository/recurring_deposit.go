@@ -35,9 +35,9 @@ func NewRecurringDepositRepository(db *sqlx.DB) RecurringDepositRepository {
 }
 
 func (r *recurringDepositRepository) Create(rd *model.RecurringDeposit) error {
-	query := `INSERT INTO recurring_deposits (id, space_id, account_id, amount_cents, frequency, start_date, end_date, next_occurrence, is_active, title, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);`
-	_, err := r.db.Exec(query, rd.ID, rd.SpaceID, rd.AccountID, rd.AmountCents, rd.Frequency, rd.StartDate, rd.EndDate, rd.NextOccurrence, rd.IsActive, rd.Title, rd.CreatedBy, rd.CreatedAt, rd.UpdatedAt)
+	query := `INSERT INTO recurring_deposits (id, space_id, account_id, amount, frequency, start_date, end_date, next_occurrence, is_active, title, created_by, created_at, updated_at, amount_cents)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0);`
+	_, err := r.db.Exec(query, rd.ID, rd.SpaceID, rd.AccountID, rd.Amount, rd.Frequency, rd.StartDate, rd.EndDate, rd.NextOccurrence, rd.IsActive, rd.Title, rd.CreatedBy, rd.CreatedAt, rd.UpdatedAt)
 	return err
 }
 
@@ -59,8 +59,8 @@ func (r *recurringDepositRepository) GetBySpaceID(spaceID string) ([]*model.Recu
 }
 
 func (r *recurringDepositRepository) Update(rd *model.RecurringDeposit) error {
-	query := `UPDATE recurring_deposits SET account_id = $1, amount_cents = $2, frequency = $3, start_date = $4, end_date = $5, next_occurrence = $6, title = $7, updated_at = $8 WHERE id = $9;`
-	result, err := r.db.Exec(query, rd.AccountID, rd.AmountCents, rd.Frequency, rd.StartDate, rd.EndDate, rd.NextOccurrence, rd.Title, rd.UpdatedAt, rd.ID)
+	query := `UPDATE recurring_deposits SET account_id = $1, amount = $2, frequency = $3, start_date = $4, end_date = $5, next_occurrence = $6, title = $7, updated_at = $8 WHERE id = $9;`
+	result, err := r.db.Exec(query, rd.AccountID, rd.Amount, rd.Frequency, rd.StartDate, rd.EndDate, rd.NextOccurrence, rd.Title, rd.UpdatedAt, rd.ID)
 	if err != nil {
 		return err
 	}

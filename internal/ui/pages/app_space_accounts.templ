@@ -6,9 +6,10 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/moneyaccount"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"github.com/shopspring/decimal"
 )
 
-templ SpaceAccountsPage(space *model.Space, accounts []model.MoneyAccountWithBalance, totalBalance int, availableBalance int, transfers []*model.AccountTransferWithAccount, currentPage, totalPages int) {
+templ SpaceAccountsPage(space *model.Space, accounts []model.MoneyAccountWithBalance, totalBalance decimal.Decimal, availableBalance decimal.Decimal, transfers []*model.AccountTransferWithAccount, currentPage, totalPages int) {
 	@layouts.Space("Accounts", space) {
 		<div class="space-y-4">
 			<div class="flex justify-between items-center">

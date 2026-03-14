@@ -44,9 +44,9 @@ func (r *recurringReceiptRepository) Create(rr *model.RecurringReceipt, sources 
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		`INSERT INTO recurring_receipts (id, loan_id, space_id, description, total_amount_cents, frequency, start_date, end_date, next_occurrence, is_active, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13);`,
-		rr.ID, rr.LoanID, rr.SpaceID, rr.Description, rr.TotalAmountCents, rr.Frequency, rr.StartDate, rr.EndDate, rr.NextOccurrence, rr.IsActive, rr.CreatedBy, rr.CreatedAt, rr.UpdatedAt,
+		`INSERT INTO recurring_receipts (id, loan_id, space_id, description, total_amount, frequency, start_date, end_date, next_occurrence, is_active, created_by, created_at, updated_at, total_amount_cents)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, 0);`,
+		rr.ID, rr.LoanID, rr.SpaceID, rr.Description, rr.TotalAmount, rr.Frequency, rr.StartDate, rr.EndDate, rr.NextOccurrence, rr.IsActive, rr.CreatedBy, rr.CreatedAt, rr.UpdatedAt,
 	)
 	if err != nil {
 		return err
@@ -54,9 +54,9 @@ func (r *recurringReceiptRepository) Create(rr *model.RecurringReceipt, sources 
 
 	for _, src := range sources {
 		_, err = tx.Exec(
-			`INSERT INTO recurring_receipt_sources (id, recurring_receipt_id, source_type, account_id, amount_cents)
-			VALUES ($1, $2, $3, $4, $5);`,
-			src.ID, src.RecurringReceiptID, src.SourceType, src.AccountID, src.AmountCents,
+			`INSERT INTO recurring_receipt_sources (id, recurring_receipt_id, source_type, account_id, amount, amount_cents)
+			VALUES ($1, $2, $3, $4, $5, 0);`,
+			src.ID, src.RecurringReceiptID, src.SourceType, src.AccountID, src.Amount,
 		)
 		if err != nil {
 			return err
@@ -105,8 +105,8 @@ func (r *recurringReceiptRepository) Update(rr *model.RecurringReceipt, sources 
 	defer tx.Rollback()
 
 	_, err = tx.Exec(
-		`UPDATE recurring_receipts SET description = $1, total_amount_cents = $2, frequency = $3, start_date = $4, end_date = $5, next_occurrence = $6, updated_at = $7 WHERE id = $8;`,
-		rr.Description, rr.TotalAmountCents, rr.Frequency, rr.StartDate, rr.EndDate, rr.NextOccurrence, rr.UpdatedAt, rr.ID,
+		`UPDATE recurring_receipts SET description = $1, total_amount = $2, frequency = $3, start_date = $4, end_date = $5, next_occurrence = $6, updated_at = $7 WHERE id = $8;`,
+		rr.Description, rr.TotalAmount, rr.Frequency, rr.StartDate, rr.EndDate, rr.NextOccurrence, rr.UpdatedAt, rr.ID,
 	)
 	if err != nil {
 		return err
@@ -119,9 +119,9 @@ func (r *recurringReceiptRepository) Update(rr *model.RecurringReceipt, sources 
 
 	for _, src := range sources {
 		_, err = tx.Exec(
-			`INSERT INTO recurring_receipt_sources (id, recurring_receipt_id, source_type, account_id, amount_cents)
-			VALUES ($1, $2, $3, $4, $5);`,
-			src.ID, src.RecurringReceiptID, src.SourceType, src.AccountID, src.AmountCents,
+			`INSERT INTO recurring_receipt_sources (id, recurring_receipt_id, source_type, account_id, amount, amount_cents)
+			VALUES ($1, $2, $3, $4, $5, 0);`,
+			src.ID, src.RecurringReceiptID, src.SourceType, src.AccountID, src.Amount,
 		)
 		if err != nil {
 			return err

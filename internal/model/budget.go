@@ -3,6 +3,8 @@ package model
 import (
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 type BudgetPeriod string
@@ -22,22 +24,23 @@ const (
 )
 
 type Budget struct {
-	ID          string       `db:"id"`
-	SpaceID     string       `db:"space_id"`
-	AmountCents int          `db:"amount_cents"`
-	Period      BudgetPeriod `db:"period"`
-	StartDate   time.Time    `db:"start_date"`
-	EndDate     *time.Time   `db:"end_date"`
-	IsActive    bool         `db:"is_active"`
-	CreatedBy   string       `db:"created_by"`
-	CreatedAt   time.Time    `db:"created_at"`
-	UpdatedAt   time.Time    `db:"updated_at"`
+	ID          string          `db:"id"`
+	SpaceID     string          `db:"space_id"`
+	Amount      decimal.Decimal `db:"amount"`
+	AmountCents int             `db:"amount_cents"` // deprecated: kept for SELECT * compatibility
+	Period      BudgetPeriod    `db:"period"`
+	StartDate   time.Time       `db:"start_date"`
+	EndDate     *time.Time      `db:"end_date"`
+	IsActive    bool            `db:"is_active"`
+	CreatedBy   string          `db:"created_by"`
+	CreatedAt   time.Time       `db:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at"`
 }
 
 type BudgetWithSpent struct {
 	Budget
 	Tags       []*Tag
-	SpentCents int
+	Spent      decimal.Decimal
 	Percentage float64
 	Status     BudgetStatus
 }

@@ -8,6 +8,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 )
 
 type CreateMoneyAccountDTO struct {
@@ -23,7 +24,7 @@ type UpdateMoneyAccountDTO struct {
 
 type CreateTransferDTO struct {
 	AccountID string
-	Amount    int
+	Amount    decimal.Decimal
 	Direction model.TransferDirection
 	Note      string
 	CreatedBy string
@@ -77,7 +78,7 @@ func (s *MoneyAccountService) GetAccountsForSpace(spaceID string) ([]model.Money
 		}
 		result[i] = model.MoneyAccountWithBalance{
 			MoneyAccount: *acct,
-			BalanceCents: balance,
+			Balance:      balance,
 		}
 	}
 
@@ -113,8 +114,8 @@ func (s *MoneyAccountService) DeleteAccount(id string) error {
 	return s.accountRepo.Delete(id)
 }
 
-func (s *MoneyAccountService) CreateTransfer(dto CreateTransferDTO, availableSpaceBalance int) (*model.AccountTransfer, error) {
-	if dto.Amount <= 0 {
+func (s *MoneyAccountService) CreateTransfer(dto CreateTransferDTO, availableSpaceBalance decimal.Decimal) (*model.AccountTransfer, error) {
+	if dto.Amount.LessThanOrEqual(decimal.Zero) {
 		return nil, fmt.Errorf("amount must be positive")
 	}
 
@@ -123,7 +124,7 @@ func (s *MoneyAccountService) CreateTransfer(dto CreateTransferDTO, availableSpa
 	}
 
 	if dto.Direction == model.TransferDirectionDeposit {
-		if dto.Amount > availableSpaceBalance {
+		if dto.Amount.GreaterThan(availableSpaceBalance) {
 			return nil, fmt.Errorf("insufficient available balance")
 		}
 	}
@@ -133,19 +134,19 @@ func (s *MoneyAccountService) CreateTransfer(dto CreateTransferDTO, availableSpa
 		if err != nil {
 			return nil, err
 		}
-		if dto.Amount > accountBalance {
+		if dto.Amount.GreaterThan(accountBalance) {
 			return nil, fmt.Errorf("insufficient account balance")
 		}
 	}
 
 	transfer := &model.AccountTransfer{
-		ID:          uuid.NewString(),
-		AccountID:   dto.AccountID,
-		AmountCents: dto.Amount,
-		Direction:   dto.Direction,
-		Note:        strings.TrimSpace(dto.Note),
-		CreatedBy:   dto.CreatedBy,
-		CreatedAt:   time.Now(),
+		ID:        uuid.NewString(),
+		AccountID: dto.AccountID,
+		Amount:    dto.Amount,
+		Direction: dto.Direction,
+		Note:      strings.TrimSpace(dto.Note),
+		CreatedBy: dto.CreatedBy,
+		CreatedAt: time.Now(),
 	}
 
 	err := s.accountRepo.CreateTransfer(transfer)
@@ -164,11 +165,11 @@ func (s *MoneyAccountService) DeleteTransfer(id string) error {
 	return s.accountRepo.DeleteTransfer(id)
 }
 
-func (s *MoneyAccountService) GetAccountBalance(accountID string) (int, error) {
+func (s *MoneyAccountService) GetAccountBalance(accountID string) (decimal.Decimal, error) {
 	return s.accountRepo.GetAccountBalance(accountID)
 }
 
-func (s *MoneyAccountService) GetTotalAllocatedForSpace(spaceID string) (int, error) {
+func (s *MoneyAccountService) GetTotalAllocatedForSpace(spaceID string) (decimal.Decimal, error) {
 	return s.accountRepo.GetTotalAllocatedForSpace(spaceID)
 }
 

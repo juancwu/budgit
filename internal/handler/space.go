@@ -156,9 +156,9 @@ func (h *SpaceHandler) OverviewPage(w http.ResponseWriter, r *http.Request) {
 	allocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		allocated = 0
+		allocated = decimal.Zero
 	}
-	balance -= allocated
+	balance = balance.Sub(allocated)
 
 	// This month's report
 	now := time.Now()
@@ -578,9 +578,9 @@ func (h *SpaceHandler) ExpensesPage(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	tags, err := h.tagService.GetTagsForSpace(spaceID)
 	if err != nil {
@@ -639,12 +639,11 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
+	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -717,7 +716,7 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 		SpaceID:         spaceID,
 		UserID:          user.ID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            expenseType,
 		Date:            date,
 		TagIDs:          finalTagIDs,
@@ -760,9 +759,9 @@ func (h *SpaceHandler) CreateExpense(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	// Return the full paginated list for page 1 so the new expense appears
 	expenses, totalPages, err := h.expenseService.GetExpensesWithTagsAndMethodsForSpacePaginated(spaceID, 1)
@@ -809,12 +808,11 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
+	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	date, err := time.Parse("2006-01-02", dateStr)
 	if err != nil {
@@ -874,7 +872,7 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 		ID:              expenseID,
 		SpaceID:         spaceID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            expenseType,
 		Date:            date,
 		TagIDs:          finalTagIDs,
@@ -904,9 +902,9 @@ func (h *SpaceHandler) UpdateExpense(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	methods, _ := h.methodService.GetMethodsForSpace(spaceID)
 	updatedTags, _ := h.tagService.GetTagsForSpace(spaceID)
@@ -935,9 +933,9 @@ func (h *SpaceHandler) DeleteExpense(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	ui.Render(w, r, expense.BalanceCard(spaceID, balance, totalAllocated, true))
 	ui.RenderToast(w, r, toast.Toast(toast.Props{
@@ -1033,9 +1031,9 @@ func (h *SpaceHandler) GetBalanceCard(w http.ResponseWriter, r *http.Request) {
 	totalAllocated, err := h.accountService.GetTotalAllocatedForSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
-		totalAllocated = 0
+		totalAllocated = decimal.Zero
 	}
-	balance -= totalAllocated
+	balance = balance.Sub(totalAllocated)
 
 	ui.Render(w, r, expense.BalanceCard(spaceID, balance, totalAllocated, false))
 }
@@ -1361,7 +1359,7 @@ func (h *SpaceHandler) AccountsPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	availableBalance := totalBalance - totalAllocated
+	availableBalance := totalBalance.Sub(totalAllocated)
 
 	transfers, totalPages, err := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
 	if err != nil {
@@ -1401,7 +1399,7 @@ func (h *SpaceHandler) CreateAccount(w http.ResponseWriter, r *http.Request) {
 
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *account,
-		BalanceCents: 0,
+		Balance:      decimal.Zero,
 	}
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance))
@@ -1445,7 +1443,7 @@ func (h *SpaceHandler) UpdateAccount(w http.ResponseWriter, r *http.Request) {
 
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *updatedAccount,
-		BalanceCents: balance,
+		Balance:      balance,
 	}
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance))
@@ -1476,7 +1474,7 @@ func (h *SpaceHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) {
 		slog.Error("failed to get total allocated", "error", err, "space_id", spaceID)
 	}
 
-	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance.Sub(totalAllocated), true))
 	ui.RenderToast(w, r, toast.Toast(toast.Props{
 		Title:       "Account deleted",
 		Variant:     toast.VariantSuccess,
@@ -1504,12 +1502,11 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 	direction := model.TransferDirection(r.FormValue("direction"))
 	note := r.FormValue("note")
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
-	if err != nil || amountDecimal.LessThanOrEqual(decimal.Zero) {
+	amount, err := decimal.NewFromString(amountStr)
+	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
 		ui.RenderError(w, r, "Invalid amount", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	// Calculate available space balance for deposit validation
 	totalBalance, err := h.expenseService.GetBalanceForSpace(spaceID)
@@ -1524,11 +1521,11 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	availableBalance := totalBalance - totalAllocated
+	availableBalance := totalBalance.Sub(totalAllocated)
 
 	// Validate balance limits before creating transfer
-	if direction == model.TransferDirectionDeposit && amountCents > availableBalance {
-		ui.RenderError(w, r, fmt.Sprintf("Insufficient available balance. You can deposit up to $%.2f.", float64(availableBalance)/100.0), http.StatusUnprocessableEntity)
+	if direction == model.TransferDirectionDeposit && amount.GreaterThan(availableBalance) {
+		ui.RenderError(w, r, fmt.Sprintf("Insufficient available balance. You can deposit up to %s.", model.FormatMoney(availableBalance)), http.StatusUnprocessableEntity)
 		return
 	}
 
@@ -1539,15 +1536,15 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		if amountCents > acctBalance {
-			ui.RenderError(w, r, fmt.Sprintf("Insufficient account balance. You can withdraw up to $%.2f.", float64(acctBalance)/100.0), http.StatusUnprocessableEntity)
+		if amount.GreaterThan(acctBalance) {
+			ui.RenderError(w, r, fmt.Sprintf("Insufficient account balance. You can withdraw up to %s.", model.FormatMoney(acctBalance)), http.StatusUnprocessableEntity)
 			return
 		}
 	}
 
 	_, err = h.accountService.CreateTransfer(service.CreateTransferDTO{
 		AccountID: accountID,
-		Amount:    amountCents,
+		Amount:    amount,
 		Direction: direction,
 		Note:      note,
 		CreatedBy: user.ID,
@@ -1569,12 +1566,12 @@ func (h *SpaceHandler) CreateTransfer(w http.ResponseWriter, r *http.Request) {
 	account, _ := h.accountService.GetAccount(accountID)
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *account,
-		BalanceCents: accountBalance,
+		Balance:      accountBalance,
 	}
 
 	// Recalculate available balance after transfer
 	totalAllocated, _ = h.accountService.GetTotalAllocatedForSpace(spaceID)
-	newAvailable := totalBalance - totalAllocated
+	newAvailable := totalBalance.Sub(totalAllocated)
 
 	w.Header().Set("HX-Trigger", "transferSuccess")
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
@@ -1611,14 +1608,14 @@ func (h *SpaceHandler) DeleteTransfer(w http.ResponseWriter, r *http.Request) {
 	account, _ := h.accountService.GetAccount(accountID)
 	acctWithBalance := model.MoneyAccountWithBalance{
 		MoneyAccount: *account,
-		BalanceCents: accountBalance,
+		Balance:      accountBalance,
 	}
 
 	totalBalance, _ := h.expenseService.GetBalanceForSpace(spaceID)
 	totalAllocated, _ := h.accountService.GetTotalAllocatedForSpace(spaceID)
 
 	ui.Render(w, r, moneyaccount.AccountCard(spaceID, &acctWithBalance, true))
-	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance-totalAllocated, true))
+	ui.Render(w, r, moneyaccount.BalanceSummaryCard(spaceID, totalBalance, totalBalance.Sub(totalAllocated), true))
 
 	transfers, transferTotalPages, _ := h.accountService.GetTransfersForSpacePaginated(spaceID, 1)
 	ui.Render(w, r, moneyaccount.TransferHistoryContent(spaceID, transfers, 1, transferTotalPages, true))
@@ -1693,12 +1690,11 @@ func (h *SpaceHandler) CreateRecurringDeposit(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
-	if err != nil || amountDecimal.LessThanOrEqual(decimal.Zero) {
+	amount, err := decimal.NewFromString(amountStr)
+	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -1719,7 +1715,7 @@ func (h *SpaceHandler) CreateRecurringDeposit(w http.ResponseWriter, r *http.Req
 	rd, err := h.recurringDepositService.CreateRecurringDeposit(service.CreateRecurringDepositDTO{
 		SpaceID:   spaceID,
 		AccountID: accountID,
-		Amount:    amountCents,
+		Amount:    amount,
 		Frequency: model.Frequency(frequencyStr),
 		StartDate: startDate,
 		EndDate:   endDate,
@@ -1780,12 +1776,11 @@ func (h *SpaceHandler) UpdateRecurringDeposit(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
-	if err != nil || amountDecimal.LessThanOrEqual(decimal.Zero) {
+	amount, err := decimal.NewFromString(amountStr)
+	if err != nil || amount.LessThanOrEqual(decimal.Zero) {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -1806,7 +1801,7 @@ func (h *SpaceHandler) UpdateRecurringDeposit(w http.ResponseWriter, r *http.Req
 	updated, err := h.recurringDepositService.UpdateRecurringDeposit(service.UpdateRecurringDepositDTO{
 		ID:        recurringDepositID,
 		AccountID: accountID,
-		Amount:    amountCents,
+		Amount:    amount,
 		Frequency: model.Frequency(frequencyStr),
 		StartDate: startDate,
 		EndDate:   endDate,
@@ -2082,12 +2077,11 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
+	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount format.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2156,7 +2150,7 @@ func (h *SpaceHandler) CreateRecurringExpense(w http.ResponseWriter, r *http.Req
 		SpaceID:         spaceID,
 		UserID:          user.ID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            expenseType,
 		PaymentMethodID: paymentMethodID,
 		Frequency:       frequency,
@@ -2210,12 +2204,11 @@ func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
+	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2270,7 +2263,7 @@ func (h *SpaceHandler) UpdateRecurringExpense(w http.ResponseWriter, r *http.Req
 	updated, err := h.recurringService.UpdateRecurringExpense(service.UpdateRecurringExpenseDTO{
 		ID:              recurringID,
 		Description:     description,
-		Amount:          amountCents,
+		Amount:          amount,
 		Type:            model.ExpenseType(typeStr),
 		PaymentMethodID: paymentMethodID,
 		Frequency:       model.Frequency(frequencyStr),
@@ -2464,12 +2457,11 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
+	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2490,7 +2482,7 @@ func (h *SpaceHandler) CreateBudget(w http.ResponseWriter, r *http.Request) {
 	_, err = h.budgetService.CreateBudget(service.CreateBudgetDTO{
 		SpaceID:   spaceID,
 		TagIDs:    tagIDs,
-		Amount:    amountCents,
+		Amount:    amount,
 		Period:    model.BudgetPeriod(periodStr),
 		StartDate: startDate,
 		EndDate:   endDate,
@@ -2544,12 +2536,11 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	amountDecimal, err := decimal.NewFromString(amountStr)
+	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
 		ui.RenderError(w, r, "Invalid amount.", http.StatusUnprocessableEntity)
 		return
 	}
-	amountCents := int(amountDecimal.Mul(decimal.NewFromInt(100)).IntPart())
 
 	startDate, err := time.Parse("2006-01-02", startDateStr)
 	if err != nil {
@@ -2570,7 +2561,7 @@ func (h *SpaceHandler) UpdateBudget(w http.ResponseWriter, r *http.Request) {
 	_, err = h.budgetService.UpdateBudget(service.UpdateBudgetDTO{
 		ID:        budgetID,
 		TagIDs:    tagIDs,
-		Amount:    amountCents,
+		Amount:    amount,
 		Period:    model.BudgetPeriod(periodStr),
 		StartDate: startDate,
 		EndDate:   endDate,

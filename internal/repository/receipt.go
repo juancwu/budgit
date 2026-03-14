@@ -6,6 +6,7 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 var (
@@ -57,9 +58,9 @@ func (r *receiptRepository) CreateWithSources(
 
 	// Insert receipt
 	_, err = tx.Exec(
-		`INSERT INTO receipts (id, loan_id, space_id, description, total_amount_cents, date, recurring_receipt_id, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`,
-		receipt.ID, receipt.LoanID, receipt.SpaceID, receipt.Description, receipt.TotalAmountCents, receipt.Date, receipt.RecurringReceiptID, receipt.CreatedBy, receipt.CreatedAt, receipt.UpdatedAt,
+		`INSERT INTO receipts (id, loan_id, space_id, description, total_amount, date, recurring_receipt_id, created_by, created_at, updated_at, total_amount_cents)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0);`,
+		receipt.ID, receipt.LoanID, receipt.SpaceID, receipt.Description, receipt.TotalAmount, receipt.Date, receipt.RecurringReceiptID, receipt.CreatedBy, receipt.CreatedAt, receipt.UpdatedAt,
 	)
 	if err != nil {
 		return err
@@ -68,9 +69,9 @@ func (r *receiptRepository) CreateWithSources(
 	// Insert balance expense if present
 	if balanceExpense != nil {
 		_, err = tx.Exec(
-			`INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, recurring_expense_id, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`,
-			balanceExpense.ID, balanceExpense.SpaceID, balanceExpense.CreatedBy, balanceExpense.Description, balanceExpense.AmountCents, balanceExpense.Type, balanceExpense.Date, balanceExpense.PaymentMethodID, balanceExpense.RecurringExpenseID, balanceExpense.CreatedAt, balanceExpense.UpdatedAt,
+			`INSERT INTO expenses (id, space_id, created_by, description, amount, type, date, payment_method_id, recurring_expense_id, created_at, updated_at, amount_cents)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 0);`,
+			balanceExpense.ID, balanceExpense.SpaceID, balanceExpense.CreatedBy, balanceExpense.Description, balanceExpense.Amount, balanceExpense.Type, balanceExpense.Date, balanceExpense.PaymentMethodID, balanceExpense.RecurringExpenseID, balanceExpense.CreatedAt, balanceExpense.UpdatedAt,
 		)
 		if err != nil {
 			return err
@@ -80,9 +81,9 @@ func (r *receiptRepository) CreateWithSources(
 	// Insert account transfers
 	for _, transfer := range accountTransfers {
 		_, err = tx.Exec(
-			`INSERT INTO account_transfers (id, account_id, amount_cents, direction, note, recurring_deposit_id, created_by, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-			transfer.ID, transfer.AccountID, transfer.AmountCents, transfer.Direction, transfer.Note, transfer.RecurringDepositID, transfer.CreatedBy, transfer.CreatedAt,
+			`INSERT INTO account_transfers (id, account_id, amount, direction, note, recurring_deposit_id, created_by, created_at, amount_cents)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0);`,
+			transfer.ID, transfer.AccountID, transfer.Amount, transfer.Direction, transfer.Note, transfer.RecurringDepositID, transfer.CreatedBy, transfer.CreatedAt,
 		)
 		if err != nil {
 			return err
@@ -92,9 +93,9 @@ func (r *receiptRepository) CreateWithSources(
 	// Insert funding sources
 	for _, src := range sources {
 		_, err = tx.Exec(
-			`INSERT INTO receipt_funding_sources (id, receipt_id, source_type, account_id, amount_cents, linked_expense_id, linked_transfer_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-			src.ID, src.ReceiptID, src.SourceType, src.AccountID, src.AmountCents, src.LinkedExpenseID, src.LinkedTransferID,
+			`INSERT INTO receipt_funding_sources (id, receipt_id, source_type, account_id, amount, linked_expense_id, linked_transfer_id, amount_cents)
+			Values ($1, $2, $3, $4, $5, $6, $7, 0);`,
+			src.ID, src.ReceiptID, src.SourceType, src.AccountID, src.Amount, src.LinkedExpenseID, src.LinkedTransferID,
 		)
 		if err != nil {
 			return err
@@ -157,14 +158,14 @@ func (r *receiptRepository) GetFundingSourcesWithAccountsByReceiptIDs(receiptIDs
 		ReceiptID        string                  `db:"receipt_id"`
 		SourceType       model.FundingSourceType `db:"source_type"`
 		AccountID        *string                 `db:"account_id"`
-		AmountCents      int                     `db:"amount_cents"`
+		Amount           decimal.Decimal         `db:"amount"`
 		LinkedExpenseID  *string                 `db:"linked_expense_id"`
 		LinkedTransferID *string                 `db:"linked_transfer_id"`
 		AccountName      *string                 `db:"account_name"`
 	}
 
 	query, args, err := sqlx.In(`
-		SELECT rfs.id, rfs.receipt_id, rfs.source_type, rfs.account_id, rfs.amount_cents,
+		SELECT rfs.id, rfs.receipt_id, rfs.source_type, rfs.account_id, rfs.amount,
 			rfs.linked_expense_id, rfs.linked_transfer_id,
 			ma.name AS account_name
 		FROM receipt_funding_sources rfs
@@ -194,7 +195,7 @@ func (r *receiptRepository) GetFundingSourcesWithAccountsByReceiptIDs(receiptIDs
 				ReceiptID:        rw.ReceiptID,
 				SourceType:       rw.SourceType,
 				AccountID:        rw.AccountID,
-				AmountCents:      rw.AmountCents,
+				Amount:           rw.Amount,
 				LinkedExpenseID:  rw.LinkedExpenseID,
 				LinkedTransferID: rw.LinkedTransferID,
 			},
@@ -279,8 +280,8 @@ func (r *receiptRepository) UpdateWithSources(
 
 	// Update receipt
 	_, err = tx.Exec(
-		`UPDATE receipts SET description = $1, total_amount_cents = $2, date = $3, updated_at = $4 WHERE id = $5;`,
-		receipt.Description, receipt.TotalAmountCents, receipt.Date, receipt.UpdatedAt, receipt.ID,
+		`UPDATE receipts SET description = $1, total_amount = $2, date = $3, updated_at = $4 WHERE id = $5;`,
+		receipt.Description, receipt.TotalAmount, receipt.Date, receipt.UpdatedAt, receipt.ID,
 	)
 	if err != nil {
 		return err
@@ -289,9 +290,9 @@ func (r *receiptRepository) UpdateWithSources(
 	// Insert new balance expense
 	if balanceExpense != nil {
 		_, err = tx.Exec(
-			`INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, recurring_expense_id, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`,
-			balanceExpense.ID, balanceExpense.SpaceID, balanceExpense.CreatedBy, balanceExpense.Description, balanceExpense.AmountCents, balanceExpense.Type, balanceExpense.Date, balanceExpense.PaymentMethodID, balanceExpense.RecurringExpenseID, balanceExpense.CreatedAt, balanceExpense.UpdatedAt,
+			`INSERT INTO expenses (id, space_id, created_by, description, amount, type, date, payment_method_id, recurring_expense_id, created_at, updated_at, amount_cents)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 0);`,
+			balanceExpense.ID, balanceExpense.SpaceID, balanceExpense.CreatedBy, balanceExpense.Description, balanceExpense.Amount, balanceExpense.Type, balanceExpense.Date, balanceExpense.PaymentMethodID, balanceExpense.RecurringExpenseID, balanceExpense.CreatedAt, balanceExpense.UpdatedAt,
 		)
 		if err != nil {
 			return err
@@ -301,9 +302,9 @@ func (r *receiptRepository) UpdateWithSources(
 	// Insert new account transfers
 	for _, transfer := range accountTransfers {
 		_, err = tx.Exec(
-			`INSERT INTO account_transfers (id, account_id, amount_cents, direction, note, recurring_deposit_id, created_by, created_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`,
-			transfer.ID, transfer.AccountID, transfer.AmountCents, transfer.Direction, transfer.Note, transfer.RecurringDepositID, transfer.CreatedBy, transfer.CreatedAt,
+			`INSERT INTO account_transfers (id, account_id, amount, direction, note, recurring_deposit_id, created_by, created_at, amount_cents)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0);`,
+			transfer.ID, transfer.AccountID, transfer.Amount, transfer.Direction, transfer.Note, transfer.RecurringDepositID, transfer.CreatedBy, transfer.CreatedAt,
 		)
 		if err != nil {
 			return err
@@ -313,9 +314,9 @@ func (r *receiptRepository) UpdateWithSources(
 	// Insert new funding sources
 	for _, src := range sources {
 		_, err = tx.Exec(
-			`INSERT INTO receipt_funding_sources (id, receipt_id, source_type, account_id, amount_cents, linked_expense_id, linked_transfer_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7);`,
-			src.ID, src.ReceiptID, src.SourceType, src.AccountID, src.AmountCents, src.LinkedExpenseID, src.LinkedTransferID,
+			`INSERT INTO receipt_funding_sources (id, receipt_id, source_type, account_id, amount, linked_expense_id, linked_transfer_id, amount_cents)
+			Values ($1, $2, $3, $4, $5, $6, $7, 0);`,
+			src.ID, src.ReceiptID, src.SourceType, src.AccountID, src.Amount, src.LinkedExpenseID, src.LinkedTransferID,
 		)
 		if err != nil {
 			return err
