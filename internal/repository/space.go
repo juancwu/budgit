@@ -23,6 +23,7 @@ type SpaceRepository interface {
 	GetMembers(spaceID string) ([]*model.SpaceMemberWithProfile, error)
 	UpdateName(spaceID, name string) error
 	UpdateTimezone(spaceID, timezone string) error
+	Delete(spaceID string) error
 }
 
 type spaceRepository struct {
@@ -133,5 +134,11 @@ func (r *spaceRepository) UpdateName(spaceID, name string) error {
 func (r *spaceRepository) UpdateTimezone(spaceID, timezone string) error {
 	query := `UPDATE spaces SET timezone = $1, updated_at = $2 WHERE id = $3;`
 	_, err := r.db.Exec(query, timezone, time.Now(), spaceID)
+	return err
+}
+
+func (r *spaceRepository) Delete(spaceID string) error {
+	query := `DELETE FROM spaces WHERE id = $1;`
+	_, err := r.db.Exec(query, spaceID)
 	return err
 }

@@ -271,6 +271,42 @@ func (h *SpaceSettingsHandler) CreateInvite(w http.ResponseWriter, r *http.Reque
 	}))
 }
 
+func (h *SpaceSettingsHandler) DeleteSpace(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	user := ctxkeys.User(r.Context())
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		http.Error(w, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if space.OwnerID != user.ID {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		ui.RenderError(w, r, "Bad Request", http.StatusUnprocessableEntity)
+		return
+	}
+
+	confirmationName := r.FormValue("confirmation_name")
+	if confirmationName != space.Name {
+		ui.RenderError(w, r, "Space name does not match", http.StatusUnprocessableEntity)
+		return
+	}
+
+	if err := h.spaceService.DeleteSpace(spaceID); err != nil {
+		slog.Error("failed to delete space", "error", err, "space_id", spaceID)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", "/app/spaces")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *SpaceSettingsHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
 	user := ctxkeys.User(r.Context())

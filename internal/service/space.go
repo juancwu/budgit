@@ -118,3 +118,8 @@ func (s *SpaceService) UpdateSpaceTimezone(spaceID, timezone string) error {
 	}
 	return s.spaceRepo.UpdateTimezone(spaceID, timezone)
 }
+
+// DeleteSpace permanently deletes a space and all its associated data.
+func (s *SpaceService) DeleteSpace(spaceID string) error {
+	return s.spaceRepo.Delete(spaceID)
+}

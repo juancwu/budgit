@@ -154,6 +154,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/invites/{token}", spaceSettings.CancelInvite)
 	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/settings/invites", spaceSettings.GetPendingInvites)
 	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/invites", spaceSettings.CreateInvite)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}", spaceSettings.DeleteSpace)
 
 	// Loans
 	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/loans", space.LoansPage)

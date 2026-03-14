@@ -193,6 +193,91 @@ templ SpaceSettingsPage(space *model.Space, members []*model.SpaceMemberWithProf
 					}
 				}
 			}
+			// Danger Zone (owner only)
+			if isOwner {
+				@card.Card() {
+					@card.Header() {
+						@card.Title() {
+							<div class="flex items-center gap-2 text-destructive">
+								@icon.TriangleAlert(icon.Props{Class: "size-5"})
+								Danger Zone
+							</div>
+						}
+						@card.Description() {
+							Irreversible and destructive actions.
+						}
+					}
+					@card.Content() {
+						<div class="flex items-center justify-between">
+							<div>
+								<p class="text-sm font-medium">Delete this space</p>
+								<p class="text-sm text-muted-foreground">Once deleted, all data in this space will be permanently removed.</p>
+							</div>
+							{{ deleteDialogID := "delete-space-dialog-" + space.ID }}
+							@dialog.Dialog(dialog.Props{ID: deleteDialogID, DisableClickAway: true}) {
+								@dialog.Trigger() {
+									@button.Button(button.Props{
+										Variant: button.VariantDestructive,
+										Type:    button.TypeButton,
+									}) {
+										Delete Space
+									}
+								}
+								@dialog.Content() {
+									@dialog.Header() {
+										@dialog.Title() {
+											Delete space
+										}
+										@dialog.Description() {
+											This action is permanent and cannot be undone. All data including expenses, budgets, shopping lists, and members will be permanently deleted.
+										}
+									}
+									<form
+										hx-delete={ "/app/spaces/" + space.ID }
+										hx-swap="none"
+										class="space-y-4 px-6 pb-6"
+									>
+										@csrf.Token()
+										<div class="space-y-2">
+											@label.Label(label.Props{For: "confirmation_name"}) {
+												Type <span class="font-semibold">{ space.Name }</span> to confirm
+											}
+											@input.Input(input.Props{
+												Name:        "confirmation_name",
+												Placeholder: space.Name,
+												Attributes: templ.Attributes{
+													"id":           "confirmation_name",
+													"autocomplete": "off",
+													"_":            "on input if my value equals '" + space.Name + "' remove @disabled from #delete-space-confirm else add @disabled to #delete-space-confirm",
+												},
+											})
+										</div>
+										<div class="flex justify-end gap-2">
+											@dialog.Close() {
+												@button.Button(button.Props{
+													Variant: button.VariantOutline,
+													Type:    button.TypeButton,
+												}) {
+													Cancel
+												}
+											}
+											@button.Button(button.Props{
+												Variant: button.VariantDestructive,
+												Attributes: templ.Attributes{
+													"id":       "delete-space-confirm",
+													"disabled": true,
+												},
+											}) {
+												Delete Space
+											}
+										</div>
+									</form>
+								}
+							}
+						</div>
+					}
+				}
+			}
 		</div>
 		@dialog.Script()
 	}
