@@ -69,12 +69,7 @@ func RequireGuest(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := ctxkeys.User(r.Context())
 		if user != nil {
-			if r.Header.Get("HX-Request") == "true" {
-				w.Header().Set("HX-Redirect", "/app/dashboard")
-				w.WriteHeader(http.StatusSeeOther)
-				return
-			}
-			http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
+			redirect(w, r, "/app/dashboard", http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -86,14 +81,7 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := ctxkeys.User(r.Context())
 		if user == nil {
-			// For HTMX requests, use HX-Redirect header to force full page redirect
-			if r.Header.Get("HX-Request") == "true" {
-				w.Header().Set("HX-Redirect", "/auth")
-				w.WriteHeader(http.StatusSeeOther)
-				return
-			}
-			// For regular requests, use standard redirect
-			http.Redirect(w, r, "/auth", http.StatusSeeOther)
+			redirect(w, r, "/auth", http.StatusSeeOther)
 			return
 		}
 
@@ -101,13 +89,7 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 		// Uses profile.Name as indicator (empty = incomplete onboarding)
 		profile := ctxkeys.Profile(r.Context())
 		if profile.Name == "" && r.URL.Path != "/auth/onboarding" {
-			// User hasn't completed onboarding, redirect to onboarding
-			if r.Header.Get("HX-Request") == "true" {
-				w.Header().Set("HX-Redirect", "/auth/onboarding")
-				w.WriteHeader(http.StatusSeeOther)
-				return
-			}
-			http.Redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
+			redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
 			return
 		}
 

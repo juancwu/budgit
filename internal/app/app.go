@@ -25,7 +25,6 @@ type App struct {
 	MoneyAccountService     *service.MoneyAccountService
 	PaymentMethodService    *service.PaymentMethodService
 	RecurringExpenseService *service.RecurringExpenseService
-	RecurringDepositService *service.RecurringDepositService
 	BudgetService           *service.BudgetService
 	ReportService           *service.ReportService
 	LoanService             *service.LoanService
@@ -59,7 +58,6 @@ func New(cfg *config.Config) (*App, error) {
 	moneyAccountRepository := repository.NewMoneyAccountRepository(database)
 	paymentMethodRepository := repository.NewPaymentMethodRepository(database)
 	recurringExpenseRepository := repository.NewRecurringExpenseRepository(database)
-	recurringDepositRepository := repository.NewRecurringDepositRepository(database)
 	budgetRepository := repository.NewBudgetRepository(database)
 	loanRepository := repository.NewLoanRepository(database)
 	receiptRepository := repository.NewReceiptRepository(database)
@@ -94,7 +92,6 @@ func New(cfg *config.Config) (*App, error) {
 	moneyAccountService := service.NewMoneyAccountService(moneyAccountRepository)
 	paymentMethodService := service.NewPaymentMethodService(paymentMethodRepository)
 	recurringExpenseService := service.NewRecurringExpenseService(recurringExpenseRepository, expenseRepository, profileRepository, spaceRepository)
-	recurringDepositService := service.NewRecurringDepositService(recurringDepositRepository, moneyAccountRepository, expenseService, profileRepository, spaceRepository)
 	budgetService := service.NewBudgetService(budgetRepository)
 	reportService := service.NewReportService(expenseRepository)
 	loanService := service.NewLoanService(loanRepository, receiptRepository)
@@ -116,7 +113,6 @@ func New(cfg *config.Config) (*App, error) {
 		MoneyAccountService:     moneyAccountService,
 		PaymentMethodService:    paymentMethodService,
 		RecurringExpenseService: recurringExpenseService,
-		RecurringDepositService: recurringDepositService,
 		BudgetService:           budgetService,
 		ReportService:           reportService,
 		LoanService:             loanService,

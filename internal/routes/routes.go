@@ -10,11 +10,29 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/middleware"
 )
 
+// spaceRoute registers a space-protected route (no rate limit).
+func spaceRoute(mux *http.ServeMux, spaceAccess func(http.HandlerFunc) http.HandlerFunc, pattern string, h http.HandlerFunc) {
+	mux.HandleFunc(pattern, middleware.RequireAuth(spaceAccess(h)))
+}
+
+// spaceRouteLimited registers a rate-limited space-protected route.
+func spaceRouteLimited(mux *http.ServeMux, spaceAccess func(http.HandlerFunc) http.HandlerFunc, limiter func(http.Handler) http.Handler, pattern string, h http.HandlerFunc) {
+	mux.Handle(pattern, limiter(middleware.RequireAuth(spaceAccess(h))))
+}
+
 func SetupRoutes(a *app.App) http.Handler {
 	auth := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	home := handler.NewHomeHandler()
 	settings := handler.NewSettingsHandler(a.AuthService, a.UserService, a.ProfileService)
-	space := handler.NewSpaceHandler(a.SpaceService, a.TagService, a.ShoppingListService, a.ExpenseService, a.InviteService, a.MoneyAccountService, a.PaymentMethodService, a.RecurringExpenseService, a.RecurringDepositService, a.BudgetService, a.ReportService, a.LoanService, a.ReceiptService, a.RecurringReceiptService)
+	space := handler.NewSpaceHandler(a.SpaceService, a.ExpenseService, a.MoneyAccountService, a.ReportService, a.BudgetService, a.RecurringExpenseService, a.ShoppingListService, a.TagService, a.PaymentMethodService, a.LoanService, a.ReceiptService, a.RecurringReceiptService)
+	lists := handler.NewListHandler(a.SpaceService, a.ShoppingListService)
+	tags := handler.NewTagHandler(a.SpaceService, a.TagService)
+	expenses := handler.NewExpenseHandler(a.SpaceService, a.ExpenseService, a.TagService, a.ShoppingListService, a.MoneyAccountService, a.PaymentMethodService)
+	accounts := handler.NewAccountHandler(a.SpaceService, a.MoneyAccountService, a.ExpenseService)
+	methods := handler.NewMethodHandler(a.SpaceService, a.PaymentMethodService)
+	recurring := handler.NewRecurringHandler(a.SpaceService, a.RecurringExpenseService, a.TagService, a.PaymentMethodService)
+	budgets := handler.NewBudgetHandler(a.SpaceService, a.BudgetService, a.TagService, a.ReportService)
+	spaceSettings := handler.NewSpaceSettingsHandler(a.SpaceService, a.InviteService)
 
 	mux := http.NewServeMux()
 
@@ -63,276 +81,100 @@ func SetupRoutes(a *app.App) http.Handler {
 
 	// Space routes — wrapping order: Auth(SpaceAccess(handler))
 	// Auth runs first (outer), then SpaceAccess (inner), then the handler.
-	spaceOverviewHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.OverviewPage)
-	spaceOverviewWithAuth := middleware.RequireAuth(spaceOverviewHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}", spaceOverviewWithAuth)
-
-	reportsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ReportsPage)
-	reportsPageWithAuth := middleware.RequireAuth(reportsPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/reports", reportsPageWithAuth)
-
-	listsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ListsPage)
-	listsPageWithAuth := middleware.RequireAuth(listsPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/lists", listsPageWithAuth)
-
-	createListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateList)
-	createListWithAuth := middleware.RequireAuth(createListHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/lists", crudLimiter(createListWithAuth))
-
-	listPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ListPage)
-	listPageWithAuth := middleware.RequireAuth(listPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/lists/{listID}", listPageWithAuth)
-
-	updateListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateList)
-	updateListWithAuth := middleware.RequireAuth(updateListHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}", crudLimiter(updateListWithAuth))
-
-	deleteListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteList)
-	deleteListWithAuth := middleware.RequireAuth(deleteListHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/lists/{listID}", crudLimiter(deleteListWithAuth))
-
-	addItemHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.AddItemToList)
-	addItemWithAuth := middleware.RequireAuth(addItemHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/lists/{listID}/items", crudLimiter(addItemWithAuth))
-
-	toggleItemHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ToggleItem)
-	toggleItemWithAuth := middleware.RequireAuth(toggleItemHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", crudLimiter(toggleItemWithAuth))
-
-	deleteItemHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteItem)
-	deleteItemWithAuth := middleware.RequireAuth(deleteItemHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", crudLimiter(deleteItemWithAuth))
-
-	// Tag routes
-	tagsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.TagsPage)
-	tagsPageWithAuth := middleware.RequireAuth(tagsPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/tags", tagsPageWithAuth)
-
-	createTagHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateTag)
-	createTagWithAuth := middleware.RequireAuth(createTagHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/tags", crudLimiter(createTagWithAuth))
-
-	deleteTagHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteTag)
-	deleteTagWithAuth := middleware.RequireAuth(deleteTagHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/tags/{tagID}", crudLimiter(deleteTagWithAuth))
-
-	// Expense routes
-	expensesPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ExpensesPage)
-	expensesPageWithAuth := middleware.RequireAuth(expensesPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/expenses", expensesPageWithAuth)
-
-	createExpenseHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateExpense)
-	createExpenseWithAuth := middleware.RequireAuth(createExpenseHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/expenses", crudLimiter(createExpenseWithAuth))
-
-	updateExpenseHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateExpense)
-	updateExpenseWithAuth := middleware.RequireAuth(updateExpenseHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/expenses/{expenseID}", crudLimiter(updateExpenseWithAuth))
-
-	deleteExpenseHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteExpense)
-	deleteExpenseWithAuth := middleware.RequireAuth(deleteExpenseHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/expenses/{expenseID}", crudLimiter(deleteExpenseWithAuth))
-
-	// Money Account routes
-	accountsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.AccountsPage)
-	accountsPageWithAuth := middleware.RequireAuth(accountsPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/accounts", accountsPageWithAuth)
-
-	createAccountHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateAccount)
-	createAccountWithAuth := middleware.RequireAuth(createAccountHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/accounts", crudLimiter(createAccountWithAuth))
-
-	updateAccountHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateAccount)
-	updateAccountWithAuth := middleware.RequireAuth(updateAccountHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/accounts/{accountID}", crudLimiter(updateAccountWithAuth))
-
-	deleteAccountHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteAccount)
-	deleteAccountWithAuth := middleware.RequireAuth(deleteAccountHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}", crudLimiter(deleteAccountWithAuth))
-
-	createTransferHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateTransfer)
-	createTransferWithAuth := middleware.RequireAuth(createTransferHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/accounts/{accountID}/transfers", crudLimiter(createTransferWithAuth))
-
-	deleteTransferHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteTransfer)
-	deleteTransferWithAuth := middleware.RequireAuth(deleteTransferHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/accounts/{accountID}/transfers/{transferID}", crudLimiter(deleteTransferWithAuth))
-
-	// Payment Method routes
-	methodsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.PaymentMethodsPage)
-	methodsPageWithAuth := middleware.RequireAuth(methodsPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/payment-methods", methodsPageWithAuth)
-
-	createMethodHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreatePaymentMethod)
-	createMethodWithAuth := middleware.RequireAuth(createMethodHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/payment-methods", crudLimiter(createMethodWithAuth))
-
-	updateMethodHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdatePaymentMethod)
-	updateMethodWithAuth := middleware.RequireAuth(updateMethodHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/payment-methods/{methodID}", crudLimiter(updateMethodWithAuth))
-
-	deleteMethodHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeletePaymentMethod)
-	deleteMethodWithAuth := middleware.RequireAuth(deleteMethodHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/payment-methods/{methodID}", crudLimiter(deleteMethodWithAuth))
-
-	// Recurring expense routes
-	recurringPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.RecurringExpensesPage)
-	recurringPageWithAuth := middleware.RequireAuth(recurringPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/recurring", recurringPageWithAuth)
-
-	createRecurringHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateRecurringExpense)
-	createRecurringWithAuth := middleware.RequireAuth(createRecurringHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/recurring", crudLimiter(createRecurringWithAuth))
-
-	updateRecurringHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateRecurringExpense)
-	updateRecurringWithAuth := middleware.RequireAuth(updateRecurringHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/recurring/{recurringID}", crudLimiter(updateRecurringWithAuth))
-
-	deleteRecurringHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteRecurringExpense)
-	deleteRecurringWithAuth := middleware.RequireAuth(deleteRecurringHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/recurring/{recurringID}", crudLimiter(deleteRecurringWithAuth))
-
-	toggleRecurringHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ToggleRecurringExpense)
-	toggleRecurringWithAuth := middleware.RequireAuth(toggleRecurringHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/recurring/{recurringID}/toggle", crudLimiter(toggleRecurringWithAuth))
-
-	// Budget routes
-	budgetsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.BudgetsPage)
-	budgetsPageWithAuth := middleware.RequireAuth(budgetsPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/budgets", budgetsPageWithAuth)
-
-	createBudgetHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateBudget)
-	createBudgetWithAuth := middleware.RequireAuth(createBudgetHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/budgets", crudLimiter(createBudgetWithAuth))
-
-	updateBudgetHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateBudget)
-	updateBudgetWithAuth := middleware.RequireAuth(updateBudgetHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/budgets/{budgetID}", crudLimiter(updateBudgetWithAuth))
-
-	deleteBudgetHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteBudget)
-	deleteBudgetWithAuth := middleware.RequireAuth(deleteBudgetHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/budgets/{budgetID}", crudLimiter(deleteBudgetWithAuth))
-
-	budgetsListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetBudgetsList)
-	budgetsListWithAuth := middleware.RequireAuth(budgetsListHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/components/budgets", budgetsListWithAuth)
-
-	// Loan routes
-	loansPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.LoansPage)
-	loansPageWithAuth := middleware.RequireAuth(loansPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/loans", loansPageWithAuth)
-
-	createLoanHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateLoan)
-	createLoanWithAuth := middleware.RequireAuth(createLoanHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/loans", crudLimiter(createLoanWithAuth))
-
-	loanDetailHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.LoanDetailPage)
-	loanDetailWithAuth := middleware.RequireAuth(loanDetailHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/loans/{loanID}", loanDetailWithAuth)
-
-	updateLoanHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateLoan)
-	updateLoanWithAuth := middleware.RequireAuth(updateLoanHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/loans/{loanID}", crudLimiter(updateLoanWithAuth))
-
-	deleteLoanHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteLoan)
-	deleteLoanWithAuth := middleware.RequireAuth(deleteLoanHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/loans/{loanID}", crudLimiter(deleteLoanWithAuth))
-
-	// Receipt routes
-	createReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateReceipt)
-	createReceiptWithAuth := middleware.RequireAuth(createReceiptHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/loans/{loanID}/receipts", crudLimiter(createReceiptWithAuth))
-
-	updateReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateReceipt)
-	updateReceiptWithAuth := middleware.RequireAuth(updateReceiptHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/loans/{loanID}/receipts/{receiptID}", crudLimiter(updateReceiptWithAuth))
-
-	deleteReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteReceipt)
-	deleteReceiptWithAuth := middleware.RequireAuth(deleteReceiptHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/loans/{loanID}/receipts/{receiptID}", crudLimiter(deleteReceiptWithAuth))
-
-	receiptsListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetReceiptsList)
-	receiptsListWithAuth := middleware.RequireAuth(receiptsListHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/loans/{loanID}/components/receipts", receiptsListWithAuth)
-
-	// Recurring receipt routes
-	createRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateRecurringReceipt)
-	createRecurringReceiptWithAuth := middleware.RequireAuth(createRecurringReceiptHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/loans/{loanID}/recurring", crudLimiter(createRecurringReceiptWithAuth))
-
-	updateRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateRecurringReceipt)
-	updateRecurringReceiptWithAuth := middleware.RequireAuth(updateRecurringReceiptHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}", crudLimiter(updateRecurringReceiptWithAuth))
-
-	deleteRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.DeleteRecurringReceipt)
-	deleteRecurringReceiptWithAuth := middleware.RequireAuth(deleteRecurringReceiptHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}", crudLimiter(deleteRecurringReceiptWithAuth))
-
-	toggleRecurringReceiptHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.ToggleRecurringReceipt)
-	toggleRecurringReceiptWithAuth := middleware.RequireAuth(toggleRecurringReceiptHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}/toggle", crudLimiter(toggleRecurringReceiptWithAuth))
-
-	// Report routes
-	reportChartsHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetReportCharts)
-	reportChartsWithAuth := middleware.RequireAuth(reportChartsHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/components/report-charts", reportChartsWithAuth)
-
-	// Component routes (HTMX updates)
-	transferHistoryHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetTransferHistory)
-	transferHistoryWithAuth := middleware.RequireAuth(transferHistoryHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/components/transfer-history", transferHistoryWithAuth)
-
-	balanceCardHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetBalanceCard)
-	balanceCardWithAuth := middleware.RequireAuth(balanceCardHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/components/balance", balanceCardWithAuth)
-
-	expensesListHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetExpensesList)
-	expensesListWithAuth := middleware.RequireAuth(expensesListHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/components/expenses", expensesListWithAuth)
-
-	shoppingListItemsHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetShoppingListItems)
-	shoppingListItemsWithAuth := middleware.RequireAuth(shoppingListItemsHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/lists/{listID}/items", shoppingListItemsWithAuth)
-
-	cardItemsHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetListCardItems)
-	cardItemsWithAuth := middleware.RequireAuth(cardItemsHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/lists/{listID}/card-items", cardItemsWithAuth)
-
-	listsComponentHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetLists)
-	listsComponentWithAuth := middleware.RequireAuth(listsComponentHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/components/lists", listsComponentWithAuth)
-
-	// Settings routes
-	settingsPageHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.SettingsPage)
-	settingsPageWithAuth := middleware.RequireAuth(settingsPageHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/settings", settingsPageWithAuth)
-
-	updateSpaceNameHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateSpaceName)
-	updateSpaceNameWithAuth := middleware.RequireAuth(updateSpaceNameHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/settings/name", crudLimiter(updateSpaceNameWithAuth))
-
-	updateSpaceTimezoneHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.UpdateSpaceTimezone)
-	updateSpaceTimezoneWithAuth := middleware.RequireAuth(updateSpaceTimezoneHandler)
-	mux.Handle("PATCH /app/spaces/{spaceID}/settings/timezone", crudLimiter(updateSpaceTimezoneWithAuth))
-
-	removeMemberHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.RemoveMember)
-	removeMemberWithAuth := middleware.RequireAuth(removeMemberHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/members/{userID}", crudLimiter(removeMemberWithAuth))
-
-	cancelInviteHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CancelInvite)
-	cancelInviteWithAuth := middleware.RequireAuth(cancelInviteHandler)
-	mux.Handle("DELETE /app/spaces/{spaceID}/invites/{token}", crudLimiter(cancelInviteWithAuth))
-
-	getPendingInvitesHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.GetPendingInvites)
-	getPendingInvitesWithAuth := middleware.RequireAuth(getPendingInvitesHandler)
-	mux.HandleFunc("GET /app/spaces/{spaceID}/settings/invites", getPendingInvitesWithAuth)
-
-	// Invite routes
-	createInviteHandler := middleware.RequireSpaceAccess(a.SpaceService)(space.CreateInvite)
-	createInviteWithAuth := middleware.RequireAuth(createInviteHandler)
-	mux.Handle("POST /app/spaces/{spaceID}/invites", crudLimiter(createInviteWithAuth))
-
-	mux.HandleFunc("GET /join/{token}", space.JoinSpace)
+	sa := middleware.RequireSpaceAccess(a.SpaceService)
+	cl := crudLimiter
+
+	// Overview & Reports
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}", space.OverviewPage)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/reports", space.ReportsPage)
+
+	// Shopping Lists
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/lists", lists.ListsPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/lists", lists.CreateList)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/lists/{listID}", lists.ListPage)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/lists/{listID}", lists.UpdateList)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/lists/{listID}", lists.DeleteList)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/lists/{listID}/items", lists.AddItemToList)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", lists.ToggleItem)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/lists/{listID}/items/{itemID}", lists.DeleteItem)
+
+	// Tags
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/tags", tags.TagsPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/tags", tags.CreateTag)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/tags/{tagID}", tags.DeleteTag)
+
+	// Expenses
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/expenses", expenses.ExpensesPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/expenses", expenses.CreateExpense)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/expenses/{expenseID}", expenses.UpdateExpense)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/expenses/{expenseID}", expenses.DeleteExpense)
+
+	// Money Accounts
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/accounts", accounts.AccountsPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/accounts", accounts.CreateAccount)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/accounts/{accountID}", accounts.UpdateAccount)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/accounts/{accountID}", accounts.DeleteAccount)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/accounts/{accountID}/transfers", accounts.CreateTransfer)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/accounts/{accountID}/transfers/{transferID}", accounts.DeleteTransfer)
+
+	// Payment Methods
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/payment-methods", methods.PaymentMethodsPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/payment-methods", methods.CreatePaymentMethod)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/payment-methods/{methodID}", methods.UpdatePaymentMethod)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/payment-methods/{methodID}", methods.DeletePaymentMethod)
+
+	// Recurring Expenses
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/recurring", recurring.RecurringExpensesPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/recurring", recurring.CreateRecurringExpense)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/recurring/{recurringID}", recurring.UpdateRecurringExpense)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/recurring/{recurringID}", recurring.DeleteRecurringExpense)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/recurring/{recurringID}/toggle", recurring.ToggleRecurringExpense)
+
+	// Budgets
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/budgets", budgets.BudgetsPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/budgets", budgets.CreateBudget)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/budgets/{budgetID}", budgets.UpdateBudget)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/budgets/{budgetID}", budgets.DeleteBudget)
+
+	// Component routes (HTMX partial updates)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/components/budgets", budgets.GetBudgetsList)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/components/report-charts", budgets.GetReportCharts)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/components/transfer-history", accounts.GetTransferHistory)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/components/balance", expenses.GetBalanceCard)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/components/expenses", expenses.GetExpensesList)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/lists/{listID}/items", lists.GetShoppingListItems)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/lists/{listID}/card-items", lists.GetListCardItems)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/components/lists", lists.GetLists)
+
+	// Space Settings
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/settings", spaceSettings.SettingsPage)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/settings/name", spaceSettings.UpdateSpaceName)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/settings/timezone", spaceSettings.UpdateSpaceTimezone)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/members/{userID}", spaceSettings.RemoveMember)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/invites/{token}", spaceSettings.CancelInvite)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/settings/invites", spaceSettings.GetPendingInvites)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/invites", spaceSettings.CreateInvite)
+
+	// Loans
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/loans", space.LoansPage)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/loans", space.CreateLoan)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/loans/{loanID}", space.LoanDetailPage)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/loans/{loanID}", space.UpdateLoan)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/loans/{loanID}", space.DeleteLoan)
+
+	// Receipts
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/loans/{loanID}/receipts", space.CreateReceipt)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/loans/{loanID}/receipts/{receiptID}", space.UpdateReceipt)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/loans/{loanID}/receipts/{receiptID}", space.DeleteReceipt)
+	spaceRoute(mux, sa, "GET /app/spaces/{spaceID}/loans/{loanID}/components/receipts", space.GetReceiptsList)
+
+	// Recurring Receipts
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/loans/{loanID}/recurring", space.CreateRecurringReceipt)
+	spaceRouteLimited(mux, sa, cl, "PATCH /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}", space.UpdateRecurringReceipt)
+	spaceRouteLimited(mux, sa, cl, "DELETE /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}", space.DeleteRecurringReceipt)
+	spaceRouteLimited(mux, sa, cl, "POST /app/spaces/{spaceID}/loans/{loanID}/recurring/{recurringReceiptID}/toggle", space.ToggleRecurringReceipt)
+
+	mux.HandleFunc("GET /join/{token}", spaceSettings.JoinSpace)
 
 	// 404
 	mux.HandleFunc("/{path...}", home.NotFoundPage)

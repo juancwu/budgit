@@ -12,7 +12,24 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
+// testServices holds all services needed by tests, constructed once per DB.
+type testServices struct {
+	spaceSvc            *service.SpaceService
+	tagSvc              *service.TagService
+	listSvc             *service.ShoppingListService
+	expenseSvc          *service.ExpenseService
+	inviteSvc           *service.InviteService
+	accountSvc          *service.MoneyAccountService
+	methodSvc           *service.PaymentMethodService
+	recurringSvc        *service.RecurringExpenseService
+	budgetSvc           *service.BudgetService
+	reportSvc           *service.ReportService
+	loanSvc             *service.LoanService
+	receiptSvc          *service.ReceiptService
+	recurringReceiptSvc *service.RecurringReceiptService
+}
+
+func newTestServices(t *testing.T, dbi testutil.DBInfo) *testServices {
 	t.Helper()
 	spaceRepo := repository.NewSpaceRepository(dbi.DB)
 	tagRepo := repository.NewTagRepository(dbi.DB)
@@ -24,38 +41,39 @@ func newTestSpaceHandler(t *testing.T, dbi testutil.DBInfo) *SpaceHandler {
 	accountRepo := repository.NewMoneyAccountRepository(dbi.DB)
 	methodRepo := repository.NewPaymentMethodRepository(dbi.DB)
 	recurringRepo := repository.NewRecurringExpenseRepository(dbi.DB)
-	recurringDepositRepo := repository.NewRecurringDepositRepository(dbi.DB)
 	budgetRepo := repository.NewBudgetRepository(dbi.DB)
 	userRepo := repository.NewUserRepository(dbi.DB)
 	loanRepo := repository.NewLoanRepository(dbi.DB)
 	receiptRepo := repository.NewReceiptRepository(dbi.DB)
 	recurringReceiptRepo := repository.NewRecurringReceiptRepository(dbi.DB)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
+	spaceSvc := service.NewSpaceService(spaceRepo)
 	expenseSvc := service.NewExpenseService(expenseRepo)
 	loanSvc := service.NewLoanService(loanRepo, receiptRepo)
 	receiptSvc := service.NewReceiptService(receiptRepo, loanRepo, accountRepo)
 	recurringReceiptSvc := service.NewRecurringReceiptService(recurringReceiptRepo, receiptSvc, loanRepo, profileRepo, spaceRepo)
-	return NewSpaceHandler(
-		service.NewSpaceService(spaceRepo),
-		service.NewTagService(tagRepo),
-		service.NewShoppingListService(listRepo, itemRepo),
-		expenseSvc,
-		service.NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc),
-		service.NewMoneyAccountService(accountRepo),
-		service.NewPaymentMethodService(methodRepo),
-		service.NewRecurringExpenseService(recurringRepo, expenseRepo, profileRepo, spaceRepo),
-		service.NewRecurringDepositService(recurringDepositRepo, accountRepo, expenseSvc, profileRepo, spaceRepo),
-		service.NewBudgetService(budgetRepo),
-		service.NewReportService(expenseRepo),
-		loanSvc,
-		receiptSvc,
-		recurringReceiptSvc,
-	)
+
+	return &testServices{
+		spaceSvc:            spaceSvc,
+		tagSvc:              service.NewTagService(tagRepo),
+		listSvc:             service.NewShoppingListService(listRepo, itemRepo),
+		expenseSvc:          expenseSvc,
+		inviteSvc:           service.NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc),
+		accountSvc:          service.NewMoneyAccountService(accountRepo),
+		methodSvc:           service.NewPaymentMethodService(methodRepo),
+		recurringSvc:        service.NewRecurringExpenseService(recurringRepo, expenseRepo, profileRepo, spaceRepo),
+		budgetSvc:           service.NewBudgetService(budgetRepo),
+		reportSvc:           service.NewReportService(expenseRepo),
+		loanSvc:             loanSvc,
+		receiptSvc:          receiptSvc,
+		recurringReceiptSvc: recurringReceiptSvc,
+	}
 }
 
-func TestSpaceHandler_CreateList(t *testing.T) {
+func TestListHandler_CreateList(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewListHandler(svcs.spaceSvc, svcs.listSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 
@@ -69,9 +87,10 @@ func TestSpaceHandler_CreateList(t *testing.T) {
 	})
 }
 
-func TestSpaceHandler_CreateList_EmptyName(t *testing.T) {
+func TestListHandler_CreateList_EmptyName(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewListHandler(svcs.spaceSvc, svcs.listSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 
@@ -85,9 +104,10 @@ func TestSpaceHandler_CreateList_EmptyName(t *testing.T) {
 	})
 }
 
-func TestSpaceHandler_DeleteList(t *testing.T) {
+func TestListHandler_DeleteList(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewListHandler(svcs.spaceSvc, svcs.listSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 		list := testutil.CreateTestShoppingList(t, dbi.DB, space.ID, "Groceries")
@@ -103,9 +123,10 @@ func TestSpaceHandler_DeleteList(t *testing.T) {
 	})
 }
 
-func TestSpaceHandler_AddItemToList(t *testing.T) {
+func TestListHandler_AddItemToList(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewListHandler(svcs.spaceSvc, svcs.listSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 		list := testutil.CreateTestShoppingList(t, dbi.DB, space.ID, "Groceries")
@@ -121,9 +142,10 @@ func TestSpaceHandler_AddItemToList(t *testing.T) {
 	})
 }
 
-func TestSpaceHandler_CreateTag(t *testing.T) {
+func TestTagHandler_CreateTag(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewTagHandler(svcs.spaceSvc, svcs.tagSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 
@@ -137,9 +159,10 @@ func TestSpaceHandler_CreateTag(t *testing.T) {
 	})
 }
 
-func TestSpaceHandler_DeleteTag(t *testing.T) {
+func TestTagHandler_DeleteTag(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewTagHandler(svcs.spaceSvc, svcs.tagSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 		tag := testutil.CreateTestTag(t, dbi.DB, space.ID, "food", nil)
@@ -155,9 +178,10 @@ func TestSpaceHandler_DeleteTag(t *testing.T) {
 	})
 }
 
-func TestSpaceHandler_CreateAccount(t *testing.T) {
+func TestAccountHandler_CreateAccount(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewAccountHandler(svcs.spaceSvc, svcs.accountSvc, svcs.expenseSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 
@@ -171,9 +195,10 @@ func TestSpaceHandler_CreateAccount(t *testing.T) {
 	})
 }
 
-func TestSpaceHandler_CreatePaymentMethod(t *testing.T) {
+func TestMethodHandler_CreatePaymentMethod(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestSpaceHandler(t, dbi)
+		svcs := newTestServices(t, dbi)
+		h := NewMethodHandler(svcs.spaceSvc, svcs.methodSvc)
 		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test")
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Test Space")
 

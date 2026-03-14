@@ -7,15 +7,16 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
 )
 
+// Redirect handles both HTMX and regular HTTP redirects.
+// For HTMX requests, it sets the HX-Redirect header; for regular requests,
+// it uses http.Redirect.
 func redirect(w http.ResponseWriter, r *http.Request, path string, code int) {
-	// For HTMX requests, use HX-Redirect header to force full page redirect
 	if r.Header.Get("HX-Request") == "true" {
-		w.Header().Set("HX-Redirect", "/auth")
+		w.Header().Set("HX-Redirect", path)
 		w.WriteHeader(code)
 		return
 	}
-	// For regular requests, use standard redirect
-	http.Redirect(w, r, "/auth", code)
+	http.Redirect(w, r, path, code)
 }
 
 func notfound(w http.ResponseWriter, r *http.Request) {

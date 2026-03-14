@@ -132,18 +132,7 @@ func (s *ExpenseService) GetExpensesWithTagsForSpacePaginated(spaceID string, pa
 		return nil, 0, err
 	}
 
-	totalPages := (total + ExpensesPerPage - 1) / ExpensesPerPage
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page < 1 {
-		page = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * ExpensesPerPage
+	page, totalPages, offset := Paginate(page, total, ExpensesPerPage)
 	expenses, err := s.expenseRepo.GetBySpaceIDPaginated(spaceID, ExpensesPerPage, offset)
 	if err != nil {
 		return nil, 0, err
@@ -175,18 +164,7 @@ func (s *ExpenseService) GetExpensesWithTagsAndMethodsForSpacePaginated(spaceID 
 		return nil, 0, err
 	}
 
-	totalPages := (total + ExpensesPerPage - 1) / ExpensesPerPage
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page < 1 {
-		page = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * ExpensesPerPage
+	page, totalPages, offset := Paginate(page, total, ExpensesPerPage)
 	expenses, err := s.expenseRepo.GetBySpaceIDPaginated(spaceID, ExpensesPerPage, offset)
 	if err != nil {
 		return nil, 0, err

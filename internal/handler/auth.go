@@ -2,11 +2,15 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
+	"github.com/a-h/templ"
+
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/toast"
@@ -56,44 +60,9 @@ func (h *authHandler) LoginWithPassword(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	jwtToken, err := h.authService.GenerateJWT(user)
-	if err != nil {
-		slog.Error("failed to generate JWT", "error", err, "user_id", user.ID)
-		ui.Render(w, r, pages.AuthPassword("An error occurred. Please try again."))
+	if err := h.completeLogin(w, r, user, pages.AuthPassword); err != nil {
 		return
 	}
-
-	h.authService.SetJWTCookie(w, jwtToken)
-
-	// Check for pending invite
-	inviteCookie, err := r.Cookie("pending_invite")
-	if err == nil && inviteCookie.Value != "" {
-		spaceID, err := h.inviteService.AcceptInvite(inviteCookie.Value, user.ID)
-		if err != nil {
-			slog.Error("failed to process pending invite", "error", err, "token", inviteCookie.Value)
-		} else {
-			slog.Info("accepted pending invite", "user_id", user.ID, "space_id", spaceID)
-			http.SetCookie(w, &http.Cookie{
-				Name:     "pending_invite",
-				Value:    "",
-				Path:     "/",
-				MaxAge:   -1,
-				HttpOnly: true,
-			})
-		}
-	}
-
-	needsOnboarding, err := h.authService.NeedsOnboarding(user.ID)
-	if err != nil {
-		slog.Warn("failed to check onboarding status", "error", err, "user_id", user.ID)
-	}
-
-	if needsOnboarding {
-		http.Redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
-		return
-	}
-
-	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
 }
 
 func (h *authHandler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -145,11 +114,22 @@ func (h *authHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := h.completeLogin(w, r, user, pages.Auth); err != nil {
+		return
+	}
+
+	slog.Info("user logged via magic link", "user_id", user.ID, "email", user.Email)
+}
+
+// completeLogin handles the post-authentication flow: JWT generation,
+// pending invite processing, onboarding check, and redirect.
+// Returns an error if the response was already written (caller should return early).
+func (h *authHandler) completeLogin(w http.ResponseWriter, r *http.Request, user *model.User, renderError func(string) templ.Component) error {
 	jwtToken, err := h.authService.GenerateJWT(user)
 	if err != nil {
 		slog.Error("failed to generate JWT", "error", err, "user_id", user.ID)
-		ui.Render(w, r, pages.Auth("An error occurred. Please try again."))
-		return
+		ui.Render(w, r, renderError("An error occurred. Please try again."))
+		return fmt.Errorf("jwt generation failed")
 	}
 
 	h.authService.SetJWTCookie(w, jwtToken)
@@ -160,10 +140,8 @@ func (h *authHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 		spaceID, err := h.inviteService.AcceptInvite(inviteCookie.Value, user.ID)
 		if err != nil {
 			slog.Error("failed to process pending invite", "error", err, "token", inviteCookie.Value)
-			// Don't fail the login, just maybe notify user?
 		} else {
 			slog.Info("accepted pending invite", "user_id", user.ID, "space_id", spaceID)
-			// Clear cookie
 			http.SetCookie(w, &http.Cookie{
 				Name:     "pending_invite",
 				Value:    "",
@@ -171,8 +149,6 @@ func (h *authHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 				MaxAge:   -1,
 				HttpOnly: true,
 			})
-			// If we want to redirect to the space immediately, we can.
-			// But check onboarding first.
 		}
 	}
 
@@ -182,13 +158,12 @@ func (h *authHandler) VerifyMagicLink(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if needsOnboarding {
-		slog.Info("new user needs onboarding", "user_id", user.ID, "email", user.Email)
 		http.Redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
-		return
+		return fmt.Errorf("redirected to onboarding")
 	}
 
-	slog.Info("user logged via magic link", "user_id", user.ID, "email", user.Email)
 	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
+	return nil
 }
 
 func (h *authHandler) OnboardingPage(w http.ResponseWriter, r *http.Request) {

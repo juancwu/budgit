@@ -32,29 +32,24 @@ func NewBudgetRepository(db *sqlx.DB) BudgetRepository {
 }
 
 func (r *budgetRepository) Create(budget *model.Budget, tagIDs []string) error {
-	tx, err := r.db.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	return WithTx(r.db, func(tx *sqlx.Tx) error {
+		query := `INSERT INTO budgets (id, space_id, amount_cents, period, start_date, end_date, is_active, created_by, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
+		if _, err := tx.Exec(query, budget.ID, budget.SpaceID, budget.AmountCents, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.CreatedBy, budget.CreatedAt, budget.UpdatedAt); err != nil {
+			return err
+		}
 
-	query := `INSERT INTO budgets (id, space_id, amount_cents, period, start_date, end_date, is_active, created_by, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);`
-	_, err = tx.Exec(query, budget.ID, budget.SpaceID, budget.AmountCents, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.CreatedBy, budget.CreatedAt, budget.UpdatedAt)
-	if err != nil {
-		return err
-	}
-
-	if len(tagIDs) > 0 {
-		tagQuery := `INSERT INTO budget_tags (budget_id, tag_id) VALUES ($1, $2);`
-		for _, tagID := range tagIDs {
-			if _, err := tx.Exec(tagQuery, budget.ID, tagID); err != nil {
-				return err
+		if len(tagIDs) > 0 {
+			tagQuery := `INSERT INTO budget_tags (budget_id, tag_id) VALUES ($1, $2);`
+			for _, tagID := range tagIDs {
+				if _, err := tx.Exec(tagQuery, budget.ID, tagID); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return tx.Commit()
+		return nil
+	})
 }
 
 func (r *budgetRepository) GetByID(id string) (*model.Budget, error) {
@@ -136,36 +131,37 @@ func (r *budgetRepository) GetTagsByBudgetIDs(budgetIDs []string) (map[string][]
 }
 
 func (r *budgetRepository) Update(budget *model.Budget, tagIDs []string) error {
-	tx, err := r.db.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	return WithTx(r.db, func(tx *sqlx.Tx) error {
+		query := `UPDATE budgets SET amount_cents = $1, period = $2, start_date = $3, end_date = $4, is_active = $5, updated_at = $6 WHERE id = $7;`
+		if _, err := tx.Exec(query, budget.AmountCents, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.UpdatedAt, budget.ID); err != nil {
+			return err
+		}
 
-	query := `UPDATE budgets SET amount_cents = $1, period = $2, start_date = $3, end_date = $4, is_active = $5, updated_at = $6 WHERE id = $7;`
-	_, err = tx.Exec(query, budget.AmountCents, budget.Period, budget.StartDate, budget.EndDate, budget.IsActive, budget.UpdatedAt, budget.ID)
-	if err != nil {
-		return err
-	}
+		if _, err := tx.Exec(`DELETE FROM budget_tags WHERE budget_id = $1;`, budget.ID); err != nil {
+			return err
+		}
 
-	// Replace tags: delete old, insert new
-	if _, err := tx.Exec(`DELETE FROM budget_tags WHERE budget_id = $1;`, budget.ID); err != nil {
-		return err
-	}
-
-	if len(tagIDs) > 0 {
-		tagQuery := `INSERT INTO budget_tags (budget_id, tag_id) VALUES ($1, $2);`
-		for _, tagID := range tagIDs {
-			if _, err := tx.Exec(tagQuery, budget.ID, tagID); err != nil {
-				return err
+		if len(tagIDs) > 0 {
+			tagQuery := `INSERT INTO budget_tags (budget_id, tag_id) VALUES ($1, $2);`
+			for _, tagID := range tagIDs {
+				if _, err := tx.Exec(tagQuery, budget.ID, tagID); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return tx.Commit()
+		return nil
+	})
 }
 
 func (r *budgetRepository) Delete(id string) error {
-	_, err := r.db.Exec(`DELETE FROM budgets WHERE id = $1;`, id)
+	result, err := r.db.Exec(`DELETE FROM budgets WHERE id = $1;`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err == nil && rows == 0 {
+		return ErrBudgetNotFound
+	}
 	return err
 }

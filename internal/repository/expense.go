@@ -40,43 +40,34 @@ func NewExpenseRepository(db *sqlx.DB) ExpenseRepository {
 }
 
 func (r *expenseRepository) Create(expense *model.Expense, tagIDs []string, itemIDs []string) error {
-	tx, err := r.db.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	return WithTx(r.db, func(tx *sqlx.Tx) error {
+		queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, recurring_expense_id, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`
+		_, err := tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.RecurringExpenseID, expense.CreatedAt, expense.UpdatedAt)
+		if err != nil {
+			return err
+		}
 
-	// Insert Expense
-	queryExpense := `INSERT INTO expenses (id, space_id, created_by, description, amount_cents, type, date, payment_method_id, recurring_expense_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11);`
-	_, err = tx.Exec(queryExpense, expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.RecurringExpenseID, expense.CreatedAt, expense.UpdatedAt)
-	if err != nil {
-		return err
-	}
-
-	// Insert Tags
-	if len(tagIDs) > 0 {
-		queryTags := `INSERT INTO expense_tags (expense_id, tag_id) VALUES ($1, $2);`
-		for _, tagID := range tagIDs {
-			_, err := tx.Exec(queryTags, expense.ID, tagID)
-			if err != nil {
-				return err
+		if len(tagIDs) > 0 {
+			queryTags := `INSERT INTO expense_tags (expense_id, tag_id) VALUES ($1, $2);`
+			for _, tagID := range tagIDs {
+				if _, err := tx.Exec(queryTags, expense.ID, tagID); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	// Insert Items
-	if len(itemIDs) > 0 {
-		queryItems := `INSERT INTO expense_items (expense_id, item_id) VALUES ($1, $2);`
-		for _, itemID := range itemIDs {
-			_, err := tx.Exec(queryItems, expense.ID, itemID)
-			if err != nil {
-				return err
+		if len(itemIDs) > 0 {
+			queryItems := `INSERT INTO expense_items (expense_id, item_id) VALUES ($1, $2);`
+			for _, itemID := range itemIDs {
+				if _, err := tx.Exec(queryItems, expense.ID, itemID); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return tx.Commit()
+		return nil
+	})
 }
 
 func (r *expenseRepository) GetByID(id string) (*model.Expense, error) {
@@ -223,38 +214,38 @@ func (r *expenseRepository) GetPaymentMethodsByExpenseIDs(expenseIDs []string) (
 }
 
 func (r *expenseRepository) Update(expense *model.Expense, tagIDs []string) error {
-	tx, err := r.db.Beginx()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
+	return WithTx(r.db, func(tx *sqlx.Tx) error {
+		query := `UPDATE expenses SET description = $1, amount_cents = $2, type = $3, date = $4, payment_method_id = $5, updated_at = $6 WHERE id = $7;`
+		if _, err := tx.Exec(query, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.UpdatedAt, expense.ID); err != nil {
+			return err
+		}
 
-	query := `UPDATE expenses SET description = $1, amount_cents = $2, type = $3, date = $4, payment_method_id = $5, updated_at = $6 WHERE id = $7;`
-	_, err = tx.Exec(query, expense.Description, expense.AmountCents, expense.Type, expense.Date, expense.PaymentMethodID, expense.UpdatedAt, expense.ID)
-	if err != nil {
-		return err
-	}
+		if _, err := tx.Exec(`DELETE FROM expense_tags WHERE expense_id = $1;`, expense.ID); err != nil {
+			return err
+		}
 
-	// Replace tags: delete all existing, re-insert
-	_, err = tx.Exec(`DELETE FROM expense_tags WHERE expense_id = $1;`, expense.ID)
-	if err != nil {
-		return err
-	}
-
-	if len(tagIDs) > 0 {
-		insertTag := `INSERT INTO expense_tags (expense_id, tag_id) VALUES ($1, $2);`
-		for _, tagID := range tagIDs {
-			if _, err := tx.Exec(insertTag, expense.ID, tagID); err != nil {
-				return err
+		if len(tagIDs) > 0 {
+			insertTag := `INSERT INTO expense_tags (expense_id, tag_id) VALUES ($1, $2);`
+			for _, tagID := range tagIDs {
+				if _, err := tx.Exec(insertTag, expense.ID, tagID); err != nil {
+					return err
+				}
 			}
 		}
-	}
 
-	return tx.Commit()
+		return nil
+	})
 }
 
 func (r *expenseRepository) Delete(id string) error {
-	_, err := r.db.Exec(`DELETE FROM expenses WHERE id = $1;`, id)
+	result, err := r.db.Exec(`DELETE FROM expenses WHERE id = $1;`, id)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err == nil && rows == 0 {
+		return ErrExpenseNotFound
+	}
 	return err
 }
 

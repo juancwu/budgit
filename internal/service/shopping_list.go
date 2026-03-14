@@ -127,18 +127,7 @@ func (s *ShoppingListService) GetItemsForListPaginated(listID string, page int) 
 		return nil, 0, err
 	}
 
-	totalPages := (total + ItemsPerCardPage - 1) / ItemsPerCardPage
-	if totalPages < 1 {
-		totalPages = 1
-	}
-	if page < 1 {
-		page = 1
-	}
-	if page > totalPages {
-		page = totalPages
-	}
-
-	offset := (page - 1) * ItemsPerCardPage
+	page, totalPages, offset := Paginate(page, total, ItemsPerCardPage)
 	items, err := s.itemRepo.GetByListIDPaginated(listID, ItemsPerCardPage, offset)
 	if err != nil {
 		return nil, 0, err
