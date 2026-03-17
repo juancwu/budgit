@@ -16,8 +16,16 @@ type MonthlySpending struct {
 	Total decimal.Decimal `db:"total"`
 }
 
+type PaymentMethodExpenseSummary struct {
+	PaymentMethodID   string          `db:"payment_method_id"`
+	PaymentMethodName string          `db:"payment_method_name"`
+	PaymentMethodType string          `db:"payment_method_type"`
+	TotalAmount       decimal.Decimal `db:"total_amount"`
+}
+
 type SpendingReport struct {
 	ByTag           []*TagExpenseSummary
+	ByPaymentMethod []*PaymentMethodExpenseSummary
 	DailySpending   []*DailySpending
 	MonthlySpending []*MonthlySpending
 	TopExpenses     []*ExpenseWithTagsAndMethod

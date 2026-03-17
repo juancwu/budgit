@@ -61,6 +61,11 @@ func (s *ReportService) GetSpendingReport(spaceID string, from, to time.Time) (*
 		}
 	}
 
+	byPaymentMethod, err := s.expenseRepo.GetExpensesByPaymentMethod(spaceID, from, to)
+	if err != nil {
+		return nil, err
+	}
+
 	totalIncome, totalExpenses, err := s.expenseRepo.GetIncomeVsExpenseSummary(spaceID, from, to)
 	if err != nil {
 		return nil, err
@@ -68,6 +73,7 @@ func (s *ReportService) GetSpendingReport(spaceID string, from, to time.Time) (*
 
 	return &model.SpendingReport{
 		ByTag:           byTag,
+		ByPaymentMethod: byPaymentMethod,
 		DailySpending:   daily,
 		MonthlySpending: monthly,
 		TopExpenses:     topWithTags,

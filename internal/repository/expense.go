@@ -30,6 +30,7 @@ type ExpenseRepository interface {
 	GetMonthlySpending(spaceID string, from, to time.Time) ([]*model.MonthlySpending, error)
 	GetTopExpenses(spaceID string, from, to time.Time, limit int) ([]*model.Expense, error)
 	GetIncomeVsExpenseSummary(spaceID string, from, to time.Time) (decimal.Decimal, decimal.Decimal, error)
+	GetExpensesByPaymentMethod(spaceID string, from, to time.Time) ([]*model.PaymentMethodExpenseSummary, error)
 }
 
 type expenseRepository struct {
@@ -323,4 +324,24 @@ func (r *expenseRepository) GetIncomeVsExpenseSummary(spaceID string, from, to t
 		}
 	}
 	return income, expenseTotal, nil
+}
+
+func (r *expenseRepository) GetExpensesByPaymentMethod(spaceID string, from, to time.Time) ([]*model.PaymentMethodExpenseSummary, error) {
+	var summaries []*model.PaymentMethodExpenseSummary
+	query := `
+		SELECT COALESCE(pm.id, 'cash') as payment_method_id,
+		       COALESCE(pm.name, 'Cash') as payment_method_name,
+		       COALESCE(pm.type, 'cash') as payment_method_type,
+		       SUM(CAST(e.amount AS DECIMAL)) as total_amount
+		FROM expenses e
+		LEFT JOIN payment_methods pm ON e.payment_method_id = pm.id
+		WHERE e.space_id = $1 AND e.type = 'expense' AND e.date >= $2 AND e.date <= $3
+		GROUP BY pm.id, pm.name, pm.type
+		ORDER BY total_amount DESC;
+	`
+	err := r.db.Select(&summaries, query, spaceID, from, to)
+	if err != nil {
+		return nil, err
+	}
+	return summaries, nil
 }

@@ -123,6 +123,41 @@ templ ReportCharts(spaceID string, report *model.SpendingReport, from, to time.T
 				<p class="text-sm text-muted-foreground">No tagged expenses in this period.</p>
 			</div>
 		}
+		// Spending by Payment Method (Doughnut chart)
+		if len(report.ByPaymentMethod) > 0 {
+			<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0 overflow-hidden">
+				<h3 class="font-semibold mb-2">Spending by Payment Method</h3>
+				{{
+					pmLabels := make([]string, len(report.ByPaymentMethod))
+					pmData := make([]float64, len(report.ByPaymentMethod))
+					pmColors := make([]string, len(report.ByPaymentMethod))
+					for i, pm := range report.ByPaymentMethod {
+						pmLabels[i] = pm.PaymentMethodName
+						pmData[i] = pm.TotalAmount.InexactFloat64()
+						pmColors[i] = defaultChartColors[i%len(defaultChartColors)]
+					}
+				}}
+				@chart.Chart(chart.Props{
+					Variant:    chart.VariantDoughnut,
+					ShowLegend: true,
+					Data: chart.Data{
+						Labels: pmLabels,
+						Datasets: []chart.Dataset{
+							{
+								Label:           "Spending",
+								Data:            pmData,
+								BackgroundColor: pmColors,
+							},
+						},
+					},
+				})
+			</div>
+		} else {
+			<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0">
+				<h3 class="font-semibold mb-2">Spending by Payment Method</h3>
+				<p class="text-sm text-muted-foreground">No payment method data in this period.</p>
+			</div>
+		}
 		// Spending Over Time (Bar chart)
 		if len(report.DailySpending) > 0 || len(report.MonthlySpending) > 0 {
 			<div class="border rounded-lg p-4 bg-card text-card-foreground min-w-0 overflow-hidden">
