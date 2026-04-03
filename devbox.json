@@ -5,7 +5,8 @@
     "templ@0.3.960",
     "go-task@3.45.5",
     "tailwindcss_4@4.2.1",
-    "nodejs@24"
+    "nodejs@24",
+    "goose@latest"
   ],
   "shell": {
     "init_hook": [
