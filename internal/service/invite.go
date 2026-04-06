@@ -6,7 +6,7 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
-	"git.juancwu.dev/juancwu/budgit/internal/utils"
+	"github.com/google/uuid"
 )
 
 type InviteService struct {
@@ -32,13 +32,7 @@ func (s *InviteService) CreateInvite(spaceID, inviterID, email string) (*model.S
 		return nil, err
 	}
 
-	// Check if inviter is member/owner of space? (Ideally yes, but for now assuming caller checks permissions)
-
-	// Check if user is already a member
-	// This would require a method on SpaceRepo or SpaceService.
-	// For now, let's proceed.
-
-	token := utils.RandomID() // Or a more secure token generator
+	token := uuid.NewString() // Or a more secure token generator
 	expiresAt := time.Now().Add(48 * time.Hour)
 
 	invitation := &model.SpaceInvitation{
