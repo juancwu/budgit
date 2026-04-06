@@ -20,7 +20,7 @@ const (
 )
 
 // CSRFProtection validates CSRF tokens on all state-changing requests
-func CSRFProtection(next http.Handler) http.Handler {
+func CSRFProtection(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip CSRF check for safe methods (GET, HEAD, OPTIONS)
 		if r.Method == "GET" || r.Method == "HEAD" || r.Method == "OPTIONS" {

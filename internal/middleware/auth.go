@@ -8,9 +8,9 @@ import (
 )
 
 // AuthMiddleware checks for JWT token and adds user to context if valid
-func AuthMiddleware(authService *service.AuthService, userService *service.UserService) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func AuthMiddleware(authService *service.AuthService, userService *service.UserService) Middleware {
+	return func(next http.Handler) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
 			// Get JWT from cookie
 			cookie, err := r.Cookie("auth_token")
 			if err != nil {
@@ -50,12 +50,12 @@ func AuthMiddleware(authService *service.AuthService, userService *service.UserS
 			// Add user to context
 			ctx := ctxkeys.WithUser(r.Context(), user)
 			next.ServeHTTP(w, r.WithContext(ctx))
-		})
+		}
 	}
 }
 
 // RequireGuest ensures request is not authenticated
-func RequireGuest(next http.HandlerFunc) http.HandlerFunc {
+func RequireGuest(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := ctxkeys.User(r.Context())
 		if user != nil {
@@ -67,7 +67,7 @@ func RequireGuest(next http.HandlerFunc) http.HandlerFunc {
 }
 
 // RequireAuth ensures the user is authenticated and has completed onboarding
-func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
+func RequireAuth(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := ctxkeys.User(r.Context())
 		if user == nil {

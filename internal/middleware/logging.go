@@ -38,7 +38,7 @@ var skipLoggingPaths = []string{
 
 // RequestLogging logs HTTP requests with method, path, status, and duration
 // Skips logging for paths defined in skipLoggingPaths
-func RequestLogging(next http.Handler) http.Handler {
+func RequestLogging(next http.Handler) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip logging for configured paths
 		for _, prefix := range skipLoggingPaths {

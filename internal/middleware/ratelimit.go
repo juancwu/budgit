@@ -97,18 +97,12 @@ func (rl *RateLimiter) cleanup() {
 	}
 }
 
-// RateLimitAuth creates middleware for auth endpoints
-// Limits: 5 requests per 15 minutes per IP
-func RateLimitAuth() func(http.HandlerFunc) http.HandlerFunc {
-	limiter := NewRateLimiter(5, 15*time.Minute)
-
-	return func(next http.HandlerFunc) http.HandlerFunc {
+// Middleware returns a Middleware that enforces this rate limiter per client IP.
+func (rl *RateLimiter) Middleware() Middleware {
+	return func(next http.Handler) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			// Get real IP (handle proxies)
 			ip := getClientIP(r)
-
-			// Check rate limit
-			if !limiter.Allow(ip) {
+			if !rl.Allow(ip) {
 				slog.Warn("rate limit exceeded",
 					"ip", ip,
 					"path", r.URL.Path,
@@ -116,32 +110,8 @@ func RateLimitAuth() func(http.HandlerFunc) http.HandlerFunc {
 				http.Error(w, "Too many requests. Please try again later.", http.StatusTooManyRequests)
 				return
 			}
-
-			next(w, r)
-		}
-	}
-}
-
-// RateLimitCRUD creates middleware for state-changing CRUD endpoints.
-// Limits: 60 requests per minute per IP.
-func RateLimitCRUD() func(http.Handler) http.Handler {
-	limiter := NewRateLimiter(60, 1*time.Minute)
-
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip := getClientIP(r)
-
-			if !limiter.Allow(ip) {
-				slog.Warn("CRUD rate limit exceeded",
-					"ip", ip,
-					"path", r.URL.Path,
-				)
-				http.Error(w, "Too many requests. Please try again later.", http.StatusTooManyRequests)
-				return
-			}
-
 			next.ServeHTTP(w, r)
-		})
+		}
 	}
 }
 

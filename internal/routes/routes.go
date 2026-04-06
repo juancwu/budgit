@@ -3,70 +3,25 @@ package routes
 import (
 	"io/fs"
 	"net/http"
+	"time"
 
 	"git.juancwu.dev/juancwu/budgit/assets"
 	"git.juancwu.dev/juancwu/budgit/internal/app"
 	"git.juancwu.dev/juancwu/budgit/internal/handler"
 	"git.juancwu.dev/juancwu/budgit/internal/middleware"
+	"git.juancwu.dev/juancwu/budgit/internal/router"
 )
 
 func SetupRoutes(a *app.App) http.Handler {
-	auth := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
-	home := handler.NewHomeHandler()
-	settings := handler.NewSettingsHandler(a.AuthService, a.UserService)
+	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
+	homeH := handler.NewHomeHandler()
+	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
 
-	mux := http.NewServeMux()
+	r := router.New()
 
-	// ====================================================================================
-	// PUBLIC ROUTES
-	// ====================================================================================
-
-	// Static assets with long-lived cache (cache-busted via ?v=<timestamp>)
-	sub, _ := fs.Sub(assets.AssetsFS, ".")
-	mux.Handle("GET /assets/", middleware.CacheStatic(http.StripPrefix("/assets/", http.FileServer(http.FS(sub)))))
-
-	// Home
-	mux.HandleFunc("GET /{$}", home.HomePage)
-	mux.HandleFunc("GET /forbidden", home.ForbiddenPage)
-	mux.HandleFunc("GET /privacy", home.PrivacyPage)
-	mux.HandleFunc("GET /terms", home.TermsPage)
-
-	// Auth pages
-	authRateLimiter := middleware.RateLimitAuth()
-
-	mux.HandleFunc("GET /auth", middleware.RequireGuest(auth.AuthPage))
-	mux.HandleFunc("GET /auth/password", middleware.RequireGuest(auth.PasswordPage))
-
-	// Token Verifications
-	mux.HandleFunc("GET /auth/magic-link/{token}", auth.VerifyMagicLink)
-
-	// Auth Actions
-	mux.HandleFunc("POST /auth/magic-link", authRateLimiter(middleware.RequireGuest(auth.SendMagicLink)))
-	mux.HandleFunc("POST /auth/password", authRateLimiter(middleware.RequireGuest(auth.LoginWithPassword)))
-	mux.HandleFunc("POST /auth/logout", auth.Logout)
-
-	// Join via invite
-	mux.HandleFunc("GET /join/{token}", auth.JoinSpace)
-
-	// ====================================================================================
-	// PRIVATE ROUTES
-	// ====================================================================================
-
-	crudLimiter := middleware.RateLimitCRUD()
-
-	mux.HandleFunc("GET /auth/onboarding", middleware.RequireAuth(auth.OnboardingPage))
-	mux.Handle("POST /auth/onboarding", crudLimiter(http.HandlerFunc(middleware.RequireAuth(auth.CompleteOnboarding))))
-
-	mux.HandleFunc("GET /app/settings", middleware.RequireAuth(settings.SettingsPage))
-	mux.HandleFunc("POST /app/settings/password", authRateLimiter(middleware.RequireAuth(settings.SetPassword)))
-
-	// 404
-	mux.HandleFunc("/{path...}", home.NotFoundPage)
-
-	// Global middlewares
-	handler := middleware.Chain(
-		mux,
-		middleware.SecurityHeaders(),
+	// Global middleware
+	r.Use(
+		middleware.SecurityHeaders,
 		middleware.Config(a.Cfg),
 		middleware.RequestLogging,
 		middleware.NoCacheDynamic,
@@ -75,5 +30,57 @@ func SetupRoutes(a *app.App) http.Handler {
 		middleware.WithURLPath,
 	)
 
-	return handler
+	// Static assets (bypass router groups — registered directly on mux)
+	sub, _ := fs.Sub(assets.AssetsFS, ".")
+	r.Mux().Handle("GET /assets/",
+		middleware.CacheStatic(http.StripPrefix("/assets/", http.FileServer(http.FS(sub)))),
+	)
+
+	// Public pages
+	r.Get("/{$}", homeH.HomePage)
+	r.Get("/forbidden", homeH.ForbiddenPage)
+	r.Get("/privacy", homeH.PrivacyPage)
+	r.Get("/terms", homeH.TermsPage)
+	r.Get("/join/{token}", authH.JoinSpace)
+
+	// Auth - guest routes
+	r.Group("/auth", func(g *router.Group) {
+		g.Use(middleware.RequireGuest)
+		g.Get("", authH.AuthPage)
+		g.Get("/password", authH.PasswordPage)
+		g.Get("/magic-link/{token}", authH.VerifyMagicLink)
+
+		g.SubGroup("", func(g *router.Group) {
+			g.RateLimit(5, 15*time.Minute)
+			g.Post("/magic-link", authH.SendMagicLink)
+			g.Post("/password", authH.LoginWithPassword)
+		})
+	})
+
+	// Auth - authenticated routes
+	r.Group("/auth", func(g *router.Group) {
+		g.Use(middleware.RequireAuth)
+		g.Get("/onboarding", authH.OnboardingPage)
+		g.Post("/onboarding", authH.CompleteOnboarding)
+	})
+	r.Post("/auth/logout", authH.Logout)
+
+	// App routes
+	r.Group("/app", func(g *router.Group) {
+		g.Use(middleware.RequireAuth)
+
+		g.SubGroup("/settings", func(g *router.Group) {
+			g.Get("", settingsH.SettingsPage)
+
+			g.SubGroup("", func(g *router.Group) {
+				g.RateLimit(5, 15*time.Minute)
+				g.Post("/password", settingsH.SetPassword)
+			})
+		})
+	})
+
+	// 404 catch-all
+	r.Get("/{path...}", homeH.NotFoundPage)
+
+	return r.Handler()
 }
