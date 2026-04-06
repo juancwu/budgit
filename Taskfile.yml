@@ -48,3 +48,18 @@ tasks:
       - go tool templ generate
       - mkdir -p ./dist
       - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w -X main.version={{.VERSION}}" -o ./dist/budgit ./cmd/server/main.go
+  setup:
+    desc: Sets up the local development environment
+    cmds:
+      - cp .env.include.example .env
+      - go-task generate-secrets
+  generate-secrets:
+    desc: Generates a random GOSHOP_APP_KEY and sets it in .env
+    cmds:
+      - |
+        KEY=$(openssl rand -hex 32)
+        sed -i "s/^JWT_SECRET=.*/JWT_SECRET=${KEY}/" .env
+        echo "JWT_SECRET set in .env"
+    silent: true
+    preconditions:
+      - test -f .env
