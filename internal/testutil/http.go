@@ -32,11 +32,10 @@ func TestConfig() *config.Config {
 	}
 }
 
-// AuthenticatedContext returns a context with user, profile, config, and CSRF token injected.
-func AuthenticatedContext(user *model.User, profile *model.Profile) context.Context {
+// AuthenticatedContext returns a context with user, config, and CSRF token injected.
+func AuthenticatedContext(user *model.User) context.Context {
 	ctx := context.Background()
 	ctx = ctxkeys.WithUser(ctx, user)
-	ctx = ctxkeys.WithProfile(ctx, profile)
 	ctx = ctxkeys.WithConfig(ctx, TestConfig().Sanitized())
 	ctx = ctxkeys.WithCSRFToken(ctx, "test-csrf-token")
 	return ctx
@@ -44,7 +43,7 @@ func AuthenticatedContext(user *model.User, profile *model.Profile) context.Cont
 
 // NewAuthenticatedRequest creates an HTTP request with auth context and optional form values.
 // CSRF token is automatically added to form values for POST requests.
-func NewAuthenticatedRequest(t *testing.T, method, target string, user *model.User, profile *model.Profile, formValues url.Values) *http.Request {
+func NewAuthenticatedRequest(t *testing.T, method, target string, user *model.User, formValues url.Values) *http.Request {
 	t.Helper()
 
 	var req *http.Request
@@ -61,7 +60,7 @@ func NewAuthenticatedRequest(t *testing.T, method, target string, user *model.Us
 		req = httptest.NewRequest(method, target, nil)
 	}
 
-	ctx := AuthenticatedContext(user, profile)
+	ctx := AuthenticatedContext(user)
 	req = req.WithContext(ctx)
 
 	return req

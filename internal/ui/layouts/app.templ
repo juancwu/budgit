@@ -75,9 +75,8 @@ templ App(title string) {
 					@sidebar.Menu() {
 						@sidebar.MenuItem() {
 							{{ user := ctxkeys.User(ctx) }}
-							{{ profile := ctxkeys.Profile(ctx) }}
-							if user != nil && profile != nil {
-								@AppSidebarDropdown(user, profile)
+							if user != nil {
+								@AppSidebarDropdown(user)
 							}
 						}
 					}
@@ -113,7 +112,9 @@ templ App(title string) {
 	}
 }
 
-templ AppSidebarDropdown(user *model.User, profile *model.Profile) {
+templ AppSidebarDropdown(user *model.User) {
+	{{ displayName := user.Email }}
+	{{ if user.Name != nil && *user.Name != "" { displayName = *user.Name } }}
 	@dropdown.Dropdown() {
 		@dropdown.Trigger() {
 			@sidebar.MenuButton(sidebar.MenuButtonProps{
@@ -121,16 +122,13 @@ templ AppSidebarDropdown(user *model.User, profile *model.Profile) {
 			}) {
 				<div id="sidebar-avatar" hx-swap-oob="true">
 					@avatar.Avatar(avatar.Props{Class: "size-8 rounded-lg"}) {
-						<!-- if user.AvatarURL != "" { -->
-						<!-- 	@avatar.Image(avatar.ImageProps{Src: user.AvatarURL, Alt: profile.Name}) -->
-						<!-- } -->
 						@avatar.Fallback() {
-							{ strings.ToUpper(string(profile.Name[0])) }
+							{ strings.ToUpper(string(displayName[0])) }
 						}
 					}
 				</div>
 				<div id="sidebar-user-name" hx-swap-oob="true" class="grid flex-1 text-left text-sm leading-tight">
-					<span class="truncate font-medium">{ profile.Name }</span>
+					<span class="truncate font-medium">{ displayName }</span>
 					<span class="truncate text-xs text-muted-foreground">{ user.Email }</span>
 				</div>
 				@icon.ChevronsUpDown(icon.Props{Class: "ml-auto size-4"})
@@ -143,7 +141,7 @@ templ AppSidebarDropdown(user *model.User, profile *model.Profile) {
 			<div id="dropdown-user-label" hx-swap-oob="true">
 				@dropdown.Label() {
 					<div class="flex flex-col">
-						<span class="font-medium">{ profile.Name }</span>
+						<span class="font-medium">{ displayName }</span>
 						<span class="text-xs text-muted-foreground">{ user.Email }</span>
 					</div>
 				}

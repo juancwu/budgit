@@ -98,8 +98,10 @@ func TestSpaceService_GetMembers(t *testing.T) {
 		spaceRepo := repository.NewSpaceRepository(dbi.DB)
 		svc := NewSpaceService(spaceRepo)
 
-		owner, _ := testutil.CreateTestUserWithProfile(t, dbi.DB, "owner-members@example.com", "Owner")
-		member, _ := testutil.CreateTestUserWithProfile(t, dbi.DB, "member-members@example.com", "Member")
+		ownerName := "Owner"
+		memberName := "Member"
+		owner := testutil.CreateTestUserWithName(t, dbi.DB, "owner-members@example.com", &ownerName)
+		member := testutil.CreateTestUserWithName(t, dbi.DB, "member-members@example.com", &memberName)
 		space := testutil.CreateTestSpace(t, dbi.DB, owner.ID, "Members Space")
 
 		// Add second user as a member
@@ -115,9 +117,11 @@ func TestSpaceService_GetMembers(t *testing.T) {
 
 		// The query orders by role DESC (owner first), then joined_at ASC
 		assert.Equal(t, model.RoleOwner, members[0].Role)
-		assert.Equal(t, "Owner", members[0].Name)
+		require.NotNil(t, members[0].Name)
+		assert.Equal(t, "Owner", *members[0].Name)
 		assert.Equal(t, model.RoleMember, members[1].Role)
-		assert.Equal(t, "Member", members[1].Name)
+		require.NotNil(t, members[1].Name)
+		assert.Equal(t, "Member", *members[1].Name)
 	})
 }
 

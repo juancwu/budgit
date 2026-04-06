@@ -11,25 +11,13 @@ import (
 )
 
 type App struct {
-	Cfg                     *config.Config
-	DB                      *sqlx.DB
-	UserService             *service.UserService
-	AuthService             *service.AuthService
-	EmailService            *service.EmailService
-	ProfileService          *service.ProfileService
-	SpaceService            *service.SpaceService
-	TagService              *service.TagService
-	ShoppingListService     *service.ShoppingListService
-	ExpenseService          *service.ExpenseService
-	InviteService           *service.InviteService
-	MoneyAccountService     *service.MoneyAccountService
-	PaymentMethodService    *service.PaymentMethodService
-	RecurringExpenseService *service.RecurringExpenseService
-	BudgetService           *service.BudgetService
-	ReportService           *service.ReportService
-	LoanService             *service.LoanService
-	ReceiptService          *service.ReceiptService
-	RecurringReceiptService *service.RecurringReceiptService
+	Cfg           *config.Config
+	DB            *sqlx.DB
+	UserService   *service.UserService
+	AuthService   *service.AuthService
+	EmailService  *service.EmailService
+	SpaceService  *service.SpaceService
+	InviteService *service.InviteService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -47,21 +35,9 @@ func New(cfg *config.Config) (*App, error) {
 
 	// Repositories
 	userRepository := repository.NewUserRepository(database)
-	profileRepository := repository.NewProfileRepository(database)
 	tokenRepository := repository.NewTokenRepository(database)
 	spaceRepository := repository.NewSpaceRepository(database)
-	tagRepository := repository.NewTagRepository(database)
-	shoppingListRepository := repository.NewShoppingListRepository(database)
-	listItemRepository := repository.NewListItemRepository(database)
-	expenseRepository := repository.NewExpenseRepository(database)
 	invitationRepository := repository.NewInvitationRepository(database)
-	moneyAccountRepository := repository.NewMoneyAccountRepository(database)
-	paymentMethodRepository := repository.NewPaymentMethodRepository(database)
-	recurringExpenseRepository := repository.NewRecurringExpenseRepository(database)
-	budgetRepository := repository.NewBudgetRepository(database)
-	loanRepository := repository.NewLoanRepository(database)
-	receiptRepository := repository.NewReceiptRepository(database)
-	recurringReceiptRepository := repository.NewRecurringReceiptRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
@@ -76,7 +52,6 @@ func New(cfg *config.Config) (*App, error) {
 	authService := service.NewAuthService(
 		emailService,
 		userRepository,
-		profileRepository,
 		tokenRepository,
 		spaceService,
 		cfg.JWTSecret,
@@ -84,42 +59,19 @@ func New(cfg *config.Config) (*App, error) {
 		cfg.TokenMagicLinkExpiry,
 		cfg.IsProduction(),
 	)
-	profileService := service.NewProfileService(profileRepository)
-	tagService := service.NewTagService(tagRepository)
-	shoppingListService := service.NewShoppingListService(shoppingListRepository, listItemRepository)
-	expenseService := service.NewExpenseService(expenseRepository)
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
-	moneyAccountService := service.NewMoneyAccountService(moneyAccountRepository)
-	paymentMethodService := service.NewPaymentMethodService(paymentMethodRepository)
-	recurringExpenseService := service.NewRecurringExpenseService(recurringExpenseRepository, expenseRepository, profileRepository, spaceRepository)
-	budgetService := service.NewBudgetService(budgetRepository)
-	reportService := service.NewReportService(expenseRepository)
-	loanService := service.NewLoanService(loanRepository, receiptRepository)
-	receiptService := service.NewReceiptService(receiptRepository, loanRepository, moneyAccountRepository)
-	recurringReceiptService := service.NewRecurringReceiptService(recurringReceiptRepository, receiptService, loanRepository, profileRepository, spaceRepository)
 
 	return &App{
-		Cfg:                     cfg,
-		DB:                      database,
-		UserService:             userService,
-		AuthService:             authService,
-		EmailService:            emailService,
-		ProfileService:          profileService,
-		SpaceService:            spaceService,
-		TagService:              tagService,
-		ShoppingListService:     shoppingListService,
-		ExpenseService:          expenseService,
-		InviteService:           inviteService,
-		MoneyAccountService:     moneyAccountService,
-		PaymentMethodService:    paymentMethodService,
-		RecurringExpenseService: recurringExpenseService,
-		BudgetService:           budgetService,
-		ReportService:           reportService,
-		LoanService:             loanService,
-		ReceiptService:          receiptService,
-		RecurringReceiptService: recurringReceiptService,
+		Cfg:           cfg,
+		DB:            database,
+		UserService:   userService,
+		AuthService:   authService,
+		EmailService:  emailService,
+		SpaceService:  spaceService,
+		InviteService: inviteService,
 	}, nil
 }
+
 func (a *App) Close() error {
 	if a.DB != nil {
 		return a.DB.Close()

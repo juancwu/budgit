@@ -1,7 +1,6 @@
 package pages
 
 import (
-	"git.juancwu.dev/juancwu/budgit/internal/timezone"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
@@ -9,55 +8,15 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 )
 
-templ AppSettings(hasPassword bool, errorMsg string, currentTimezone string) {
+templ AppSettings(hasPassword bool, errorMsg string) {
 	@layouts.App("Settings") {
 		<div class="container max-w-2xl px-6 py-8">
 			<div class="mb-8">
 				<h1 class="text-3xl font-bold">Settings</h1>
 				<p class="text-muted-foreground mt-2">Manage your account settings</p>
 			</div>
-			@card.Card() {
-				@card.Header() {
-					@card.Title() {
-						Timezone
-					}
-					@card.Description() {
-						Set your timezone for recurring expenses and reports
-					}
-				}
-				@card.Content() {
-					<form action="/app/settings/timezone" method="POST" class="space-y-4">
-						@csrf.Token()
-						@form.Item() {
-							@label.Label(label.Props{
-								For:   "timezone",
-								Class: "block mb-2",
-							}) {
-								Timezone
-							}
-							@selectbox.SelectBox(selectbox.Props{ID: "timezone-select"}) {
-								@selectbox.Trigger(selectbox.TriggerProps{Name: "timezone"}) {
-									@selectbox.Value(selectbox.ValueProps{Placeholder: "Select timezone"})
-								}
-								@selectbox.Content(selectbox.ContentProps{SearchPlaceholder: "Search timezones..."}) {
-									for _, tz := range timezone.CommonTimezones() {
-										@selectbox.Item(selectbox.ItemProps{Value: tz.Value, Selected: tz.Value == currentTimezone}) {
-											{ tz.Label }
-										}
-									}
-								}
-							}
-						}
-						@button.Submit() {
-							Update Timezone
-						}
-					</form>
-				}
-			}
-			<div class="mt-6"></div>
 			@card.Card() {
 				@card.Header() {
 					@card.Title() {

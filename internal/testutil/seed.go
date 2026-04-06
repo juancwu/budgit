@@ -7,21 +7,22 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
-	"github.com/shopspring/decimal"
 )
 
 // CreateTestUser inserts a user directly into the database.
 func CreateTestUser(t *testing.T, db *sqlx.DB, email string, passwordHash *string) *model.User {
 	t.Helper()
+	now := time.Now()
 	user := &model.User{
 		ID:           uuid.NewString(),
 		Email:        email,
 		PasswordHash: passwordHash,
-		CreatedAt:    time.Now(),
+		CreatedAt:    now,
+		UpdatedAt:    now,
 	}
 	_, err := db.Exec(
-		`INSERT INTO users (id, email, password_hash, email_verified_at, created_at) VALUES ($1, $2, $3, $4, $5)`,
-		user.ID, user.Email, user.PasswordHash, user.EmailVerifiedAt, user.CreatedAt,
+		`INSERT INTO users (id, email, name, password_hash, email_verified_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		user.ID, user.Email, user.Name, user.PasswordHash, user.EmailVerifiedAt, user.CreatedAt, user.UpdatedAt,
 	)
 	if err != nil {
 		t.Fatalf("CreateTestUser: %v", err)
@@ -29,33 +30,25 @@ func CreateTestUser(t *testing.T, db *sqlx.DB, email string, passwordHash *strin
 	return user
 }
 
-// CreateTestProfile inserts a profile directly into the database.
-func CreateTestProfile(t *testing.T, db *sqlx.DB, userID, name string) *model.Profile {
+// CreateTestUserWithName inserts a user with a name directly into the database.
+func CreateTestUserWithName(t *testing.T, db *sqlx.DB, email string, name *string) *model.User {
 	t.Helper()
 	now := time.Now()
-	profile := &model.Profile{
+	user := &model.User{
 		ID:        uuid.NewString(),
-		UserID:    userID,
+		Email:     email,
 		Name:      name,
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 	_, err := db.Exec(
-		`INSERT INTO profiles (id, user_id, name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`,
-		profile.ID, profile.UserID, profile.Name, profile.CreatedAt, profile.UpdatedAt,
+		`INSERT INTO users (id, email, name, password_hash, email_verified_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		user.ID, user.Email, user.Name, user.PasswordHash, user.EmailVerifiedAt, user.CreatedAt, user.UpdatedAt,
 	)
 	if err != nil {
-		t.Fatalf("CreateTestProfile: %v", err)
+		t.Fatalf("CreateTestUserWithName: %v", err)
 	}
-	return profile
-}
-
-// CreateTestUserWithProfile creates both a user and a profile.
-func CreateTestUserWithProfile(t *testing.T, db *sqlx.DB, email, name string) (*model.User, *model.Profile) {
-	t.Helper()
-	user := CreateTestUser(t, db, email, nil)
-	profile := CreateTestProfile(t, db, user.ID, name)
-	return user, profile
+	return user
 }
 
 // CreateTestSpace inserts a space and adds the owner as a member.
@@ -84,167 +77,6 @@ func CreateTestSpace(t *testing.T, db *sqlx.DB, ownerID, name string) *model.Spa
 		t.Fatalf("CreateTestSpace (member): %v", err)
 	}
 	return space
-}
-
-// CreateTestTag inserts a tag directly into the database.
-func CreateTestTag(t *testing.T, db *sqlx.DB, spaceID, name string, color *string) *model.Tag {
-	t.Helper()
-	now := time.Now()
-	tag := &model.Tag{
-		ID:        uuid.NewString(),
-		SpaceID:   spaceID,
-		Name:      name,
-		Color:     color,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_, err := db.Exec(
-		`INSERT INTO tags (id, space_id, name, color, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)`,
-		tag.ID, tag.SpaceID, tag.Name, tag.Color, tag.CreatedAt, tag.UpdatedAt,
-	)
-	if err != nil {
-		t.Fatalf("CreateTestTag: %v", err)
-	}
-	return tag
-}
-
-// CreateTestShoppingList inserts a shopping list directly into the database.
-func CreateTestShoppingList(t *testing.T, db *sqlx.DB, spaceID, name string) *model.ShoppingList {
-	t.Helper()
-	now := time.Now()
-	list := &model.ShoppingList{
-		ID:        uuid.NewString(),
-		SpaceID:   spaceID,
-		Name:      name,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_, err := db.Exec(
-		`INSERT INTO shopping_lists (id, space_id, name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`,
-		list.ID, list.SpaceID, list.Name, list.CreatedAt, list.UpdatedAt,
-	)
-	if err != nil {
-		t.Fatalf("CreateTestShoppingList: %v", err)
-	}
-	return list
-}
-
-// CreateTestListItem inserts a list item directly into the database.
-func CreateTestListItem(t *testing.T, db *sqlx.DB, listID, name, createdBy string) *model.ListItem {
-	t.Helper()
-	now := time.Now()
-	item := &model.ListItem{
-		ID:        uuid.NewString(),
-		ListID:    listID,
-		Name:      name,
-		IsChecked: false,
-		CreatedBy: createdBy,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_, err := db.Exec(
-		`INSERT INTO list_items (id, list_id, name, is_checked, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-		item.ID, item.ListID, item.Name, item.IsChecked, item.CreatedBy, item.CreatedAt, item.UpdatedAt,
-	)
-	if err != nil {
-		t.Fatalf("CreateTestListItem: %v", err)
-	}
-	return item
-}
-
-// CreateTestExpense inserts an expense directly into the database.
-func CreateTestExpense(t *testing.T, db *sqlx.DB, spaceID, userID, desc string, amount decimal.Decimal, typ model.ExpenseType) *model.Expense {
-	t.Helper()
-	now := time.Now()
-	expense := &model.Expense{
-		ID:          uuid.NewString(),
-		SpaceID:     spaceID,
-		CreatedBy:   userID,
-		Description: desc,
-		Amount:      amount,
-		Type:        typ,
-		Date:        now,
-		CreatedAt:   now,
-		UpdatedAt:   now,
-	}
-	_, err := db.Exec(
-		`INSERT INTO expenses (id, space_id, created_by, description, amount, type, date, payment_method_id, created_at, updated_at, amount_cents) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 0)`,
-		expense.ID, expense.SpaceID, expense.CreatedBy, expense.Description, expense.Amount,
-		expense.Type, expense.Date, expense.PaymentMethodID, expense.CreatedAt, expense.UpdatedAt,
-	)
-	if err != nil {
-		t.Fatalf("CreateTestExpense: %v", err)
-	}
-	return expense
-}
-
-// CreateTestMoneyAccount inserts a money account directly into the database.
-func CreateTestMoneyAccount(t *testing.T, db *sqlx.DB, spaceID, name, createdBy string) *model.MoneyAccount {
-	t.Helper()
-	now := time.Now()
-	account := &model.MoneyAccount{
-		ID:        uuid.NewString(),
-		SpaceID:   spaceID,
-		Name:      name,
-		CreatedBy: createdBy,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_, err := db.Exec(
-		`INSERT INTO money_accounts (id, space_id, name, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)`,
-		account.ID, account.SpaceID, account.Name, account.CreatedBy, account.CreatedAt, account.UpdatedAt,
-	)
-	if err != nil {
-		t.Fatalf("CreateTestMoneyAccount: %v", err)
-	}
-	return account
-}
-
-// CreateTestTransfer inserts an account transfer directly into the database.
-func CreateTestTransfer(t *testing.T, db *sqlx.DB, accountID string, amount decimal.Decimal, direction model.TransferDirection, createdBy string) *model.AccountTransfer {
-	t.Helper()
-	transfer := &model.AccountTransfer{
-		ID:        uuid.NewString(),
-		AccountID: accountID,
-		Amount:    amount,
-		Direction: direction,
-		Note:      "test transfer",
-		CreatedBy: createdBy,
-		CreatedAt: time.Now(),
-	}
-	_, err := db.Exec(
-		`INSERT INTO account_transfers (id, account_id, amount, direction, note, created_by, created_at, amount_cents) VALUES ($1, $2, $3, $4, $5, $6, $7, 0)`,
-		transfer.ID, transfer.AccountID, transfer.Amount, transfer.Direction, transfer.Note, transfer.CreatedBy, transfer.CreatedAt,
-	)
-	if err != nil {
-		t.Fatalf("CreateTestTransfer: %v", err)
-	}
-	return transfer
-}
-
-// CreateTestPaymentMethod inserts a payment method directly into the database.
-func CreateTestPaymentMethod(t *testing.T, db *sqlx.DB, spaceID, name string, typ model.PaymentMethodType, createdBy string) *model.PaymentMethod {
-	t.Helper()
-	lastFour := "1234"
-	now := time.Now()
-	method := &model.PaymentMethod{
-		ID:        uuid.NewString(),
-		SpaceID:   spaceID,
-		Name:      name,
-		Type:      typ,
-		LastFour:  &lastFour,
-		CreatedBy: createdBy,
-		CreatedAt: now,
-		UpdatedAt: now,
-	}
-	_, err := db.Exec(
-		`INSERT INTO payment_methods (id, space_id, name, type, last_four, created_by, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-		method.ID, method.SpaceID, method.Name, method.Type, method.LastFour, method.CreatedBy, method.CreatedAt, method.UpdatedAt,
-	)
-	if err != nil {
-		t.Fatalf("CreateTestPaymentMethod: %v", err)
-	}
-	return method
 }
 
 // CreateTestToken inserts a token directly into the database.

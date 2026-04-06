@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/a-h/templ"
 
@@ -227,4 +228,32 @@ func (h *authHandler) CompleteOnboarding(w http.ResponseWriter, r *http.Request)
 	default:
 		ui.Render(w, r, pages.OnboardingWelcome())
 	}
+}
+
+func (h *authHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+	user := ctxkeys.User(r.Context())
+
+	if user != nil {
+		spaceID, err := h.inviteService.AcceptInvite(token, user.ID)
+		if err != nil {
+			slog.Error("failed to accept invite", "error", err, "token", token)
+			ui.RenderError(w, r, "Failed to join space: "+err.Error(), http.StatusUnprocessableEntity)
+			return
+		}
+
+		http.Redirect(w, r, "/app/spaces/"+spaceID, http.StatusSeeOther)
+		return
+	}
+
+	// Not logged in: set cookie and redirect to auth
+	http.SetCookie(w, &http.Cookie{
+		Name:     "pending_invite",
+		Value:    token,
+		Path:     "/",
+		Expires:  time.Now().Add(1 * time.Hour),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.Redirect(w, r, "/auth?invite=true", http.StatusTemporaryRedirect)
 }

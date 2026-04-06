@@ -17,13 +17,12 @@ import (
 func newTestAuthHandler(dbi testutil.DBInfo) *authHandler {
 	cfg := testutil.TestConfig()
 	userRepo := repository.NewUserRepository(dbi.DB)
-	profileRepo := repository.NewProfileRepository(dbi.DB)
 	tokenRepo := repository.NewTokenRepository(dbi.DB)
 	spaceRepo := repository.NewSpaceRepository(dbi.DB)
 	inviteRepo := repository.NewInvitationRepository(dbi.DB)
 	spaceSvc := service.NewSpaceService(spaceRepo)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
-	authSvc := service.NewAuthService(emailSvc, userRepo, profileRepo, tokenRepo, spaceSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false)
+	authSvc := service.NewAuthService(emailSvc, userRepo, tokenRepo, spaceSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false)
 	inviteSvc := service.NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc)
 	return NewAuthHandler(authSvc, inviteSvc, spaceSvc)
 }
@@ -85,8 +84,8 @@ func TestAuthHandler_Logout(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		h := newTestAuthHandler(dbi)
 
-		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test User")
-		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/logout", user, profile, nil)
+		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
+		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/logout", user, nil)
 
 		w := httptest.NewRecorder()
 		h.Logout(w, req)
@@ -100,9 +99,9 @@ func TestAuthHandler_CompleteOnboarding_Step2(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		h := newTestAuthHandler(dbi)
 
-		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "")
+		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 
-		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/onboarding", user, profile, url.Values{
+		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/onboarding", user, url.Values{
 			"step": {"2"},
 			"name": {"John"},
 		})
@@ -118,9 +117,9 @@ func TestAuthHandler_CompleteOnboarding_Step3(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		h := newTestAuthHandler(dbi)
 
-		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "")
+		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 
-		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/onboarding", user, profile, url.Values{
+		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/onboarding", user, url.Values{
 			"step":       {"3"},
 			"name":       {"John"},
 			"space_name": {"My Space"},

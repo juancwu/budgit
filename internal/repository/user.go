@@ -31,9 +31,9 @@ func NewUserRepository(db *sqlx.DB) UserRepository {
 }
 
 func (r *userRepository) Create(user *model.User) (string, error) {
-	query := `INSERT INTO users (id, email, password_hash, email_verified_at, created_at) VALUES ($1, $2, $3, $4, $5);`
+	query := `INSERT INTO users (id, email, name, password_hash, email_verified_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7);`
 
-	_, err := r.db.Exec(query, user.ID, user.Email, user.PasswordHash, user.EmailVerifiedAt, user.CreatedAt)
+	_, err := r.db.Exec(query, user.ID, user.Email, user.Name, user.PasswordHash, user.EmailVerifiedAt, user.CreatedAt, user.UpdatedAt)
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "UNIQUE constraint failed") || strings.Contains(errStr, "duplicate key value") {
@@ -70,9 +70,9 @@ func (r *userRepository) ByEmail(email string) (*model.User, error) {
 }
 
 func (r *userRepository) Update(user *model.User) error {
-	query := `UPDATE users SET email = $1, password_hash = $2, pending_email = $3, email_verified_at = $4 WHERE id = $5;`
+	query := `UPDATE users SET email = $1, name = $2, password_hash = $3, pending_email = $4, email_verified_at = $5, updated_at = $6 WHERE id = $7;`
 
-	_, err := r.db.Exec(query, user.Email, user.PasswordHash, user.PendingEmail, user.EmailVerifiedAt, user.ID)
+	_, err := r.db.Exec(query, user.Email, user.Name, user.PasswordHash, user.PendingEmail, user.EmailVerifiedAt, user.UpdatedAt, user.ID)
 
 	return err
 }

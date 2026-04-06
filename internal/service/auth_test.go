@@ -14,7 +14,6 @@ import (
 func newTestAuthService(dbi testutil.DBInfo) *AuthService {
 	cfg := testutil.TestConfig()
 	userRepo := repository.NewUserRepository(dbi.DB)
-	profileRepo := repository.NewProfileRepository(dbi.DB)
 	tokenRepo := repository.NewTokenRepository(dbi.DB)
 	spaceRepo := repository.NewSpaceRepository(dbi.DB)
 	spaceSvc := NewSpaceService(spaceRepo)
@@ -22,7 +21,6 @@ func newTestAuthService(dbi testutil.DBInfo) *AuthService {
 	return NewAuthService(
 		emailSvc,
 		userRepo,
-		profileRepo,
 		tokenRepo,
 		spaceSvc,
 		cfg.JWTSecret,
@@ -44,12 +42,6 @@ func TestAuthService_SendMagicLink(t *testing.T) {
 		user, err := userRepo.ByEmail("newuser@example.com")
 		require.NoError(t, err)
 		assert.Equal(t, "newuser@example.com", user.Email)
-
-		// Verify profile was created in DB
-		profileRepo := repository.NewProfileRepository(dbi.DB)
-		profile, err := profileRepo.ByUserID(user.ID)
-		require.NoError(t, err)
-		assert.Equal(t, "", profile.Name)
 
 		// Verify token was created in DB
 		var tokenCount int
@@ -161,17 +153,18 @@ func TestAuthService_NeedsOnboarding(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		svc := newTestAuthService(dbi)
 
-		// User with empty name needs onboarding
-		userEmpty, _ := testutil.CreateTestUserWithProfile(t, dbi.DB, "empty@example.com", "")
+		// User with no name needs onboarding
+		userEmpty := testutil.CreateTestUser(t, dbi.DB, "empty@example.com", nil)
 
 		needs, err := svc.NeedsOnboarding(userEmpty.ID)
 		require.NoError(t, err)
 		assert.True(t, needs)
 
 		// User with a name does not need onboarding
-		userNamed, _ := testutil.CreateTestUserWithProfile(t, dbi.DB, "named@example.com", "Jane Doe")
+		err = svc.CompleteOnboarding(userEmpty.ID, "Jane Doe")
+		require.NoError(t, err)
 
-		needs, err = svc.NeedsOnboarding(userNamed.ID)
+		needs, err = svc.NeedsOnboarding(userEmpty.ID)
 		require.NoError(t, err)
 		assert.False(t, needs)
 	})
@@ -181,15 +174,16 @@ func TestAuthService_CompleteOnboarding(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		svc := newTestAuthService(dbi)
 
-		user, _ := testutil.CreateTestUserWithProfile(t, dbi.DB, "onboard@example.com", "")
+		user := testutil.CreateTestUser(t, dbi.DB, "onboard@example.com", nil)
 
 		err := svc.CompleteOnboarding(user.ID, "New Name")
 		require.NoError(t, err)
 
-		// Verify profile name was updated
-		profileRepo := repository.NewProfileRepository(dbi.DB)
-		profile, err := profileRepo.ByUserID(user.ID)
+		// Verify user name was updated
+		userRepo := repository.NewUserRepository(dbi.DB)
+		updated, err := userRepo.ByID(user.ID)
 		require.NoError(t, err)
-		assert.Equal(t, "New Name", profile.Name)
+		assert.NotNil(t, updated.Name)
+		assert.Equal(t, "New Name", *updated.Name)
 	})
 }

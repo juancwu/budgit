@@ -22,7 +22,7 @@ type SpaceRepository interface {
 	IsMember(spaceID, userID string) (bool, error)
 	GetMembers(spaceID string) ([]*model.SpaceMemberWithProfile, error)
 	UpdateName(spaceID, name string) error
-	UpdateTimezone(spaceID, timezone string) error
+
 	Delete(spaceID string) error
 }
 
@@ -115,10 +115,9 @@ func (r *spaceRepository) GetMembers(spaceID string) ([]*model.SpaceMemberWithPr
 	var members []*model.SpaceMemberWithProfile
 	query := `
 		SELECT sm.space_id, sm.user_id, sm.role, sm.joined_at,
-		       p.name, u.email
+		       u.name, u.email
 		FROM space_members sm
 		JOIN users u ON sm.user_id = u.id
-		JOIN profiles p ON sm.user_id = p.user_id
 		WHERE sm.space_id = $1
 		ORDER BY sm.role DESC, sm.joined_at ASC;`
 	err := r.db.Select(&members, query, spaceID)
@@ -131,11 +130,6 @@ func (r *spaceRepository) UpdateName(spaceID, name string) error {
 	return err
 }
 
-func (r *spaceRepository) UpdateTimezone(spaceID, timezone string) error {
-	query := `UPDATE spaces SET timezone = $1, updated_at = $2 WHERE id = $3;`
-	_, err := r.db.Exec(query, timezone, time.Now(), spaceID)
-	return err
-}
 
 func (r *spaceRepository) Delete(spaceID string) error {
 	query := `DELETE FROM spaces WHERE id = $1;`

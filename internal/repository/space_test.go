@@ -95,8 +95,10 @@ func TestSpaceRepository_GetMembers(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		repo := NewSpaceRepository(dbi.DB)
 
-		owner, _ := testutil.CreateTestUserWithProfile(t, dbi.DB, "members-owner@example.com", "Owner")
-		member, _ := testutil.CreateTestUserWithProfile(t, dbi.DB, "members-member@example.com", "Member")
+		ownerName := "Owner"
+		memberName := "Member"
+		owner := testutil.CreateTestUserWithName(t, dbi.DB, "members-owner@example.com", &ownerName)
+		member := testutil.CreateTestUserWithName(t, dbi.DB, "members-member@example.com", &memberName)
 		space := testutil.CreateTestSpace(t, dbi.DB, owner.ID, "Members Space")
 
 		err := repo.AddMember(space.ID, member.ID, model.RoleMember)
@@ -108,9 +110,11 @@ func TestSpaceRepository_GetMembers(t *testing.T) {
 
 		// The query orders by role DESC (owner first), then joined_at ASC.
 		assert.Equal(t, model.RoleOwner, members[0].Role)
-		assert.Equal(t, "Owner", members[0].Name)
+		require.NotNil(t, members[0].Name)
+		assert.Equal(t, "Owner", *members[0].Name)
 		assert.Equal(t, model.RoleMember, members[1].Role)
-		assert.Equal(t, "Member", members[1].Name)
+		require.NotNil(t, members[1].Name)
+		assert.Equal(t, "Member", *members[1].Name)
 	})
 }
 

@@ -34,7 +34,6 @@ var (
 type AuthService struct {
 	emailService         *EmailService
 	userRepository       repository.UserRepository
-	profileRepository    repository.ProfileRepository
 	tokenRepository      repository.TokenRepository
 	spaceService         *SpaceService
 	jwtSecret            string
@@ -46,7 +45,6 @@ type AuthService struct {
 func NewAuthService(
 	emailService *EmailService,
 	userRepository repository.UserRepository,
-	profileRepository repository.ProfileRepository,
 	tokenRepository repository.TokenRepository,
 	spaceService *SpaceService,
 	jwtSecret string,
@@ -55,15 +53,14 @@ func NewAuthService(
 	isProduction bool,
 ) *AuthService {
 	return &AuthService{
-		emailService:         emailService,
-		userRepository:       userRepository,
-		profileRepository:    profileRepository,
-		tokenRepository:      tokenRepository,
-		spaceService:         spaceService,
-		jwtSecret:            jwtSecret,
-		jwtExpiry:            jwtExpiry,
+		emailService:    emailService,
+		userRepository:  userRepository,
+		tokenRepository: tokenRepository,
+		spaceService:    spaceService,
+		jwtSecret:       jwtSecret,
+		jwtExpiry:       jwtExpiry,
 		tokenMagicLinkExpiry: tokenMagicLinkExpiry,
-		isProduction:         isProduction,
+		isProduction:    isProduction,
 	}
 }
 
@@ -233,32 +230,18 @@ func (s *AuthService) SendMagicLink(email string) error {
 
 	user, err := s.userRepository.ByEmail(email)
 	if err != nil {
-		// User doesn't exists - create a new passwordless account
+		// User doesn't exist - create a new passwordless account
 		if errors.Is(err, repository.ErrUserNotFound) {
 			now := time.Now()
 			user = &model.User{
 				ID:        uuid.NewString(),
 				Email:     email,
 				CreatedAt: now,
+				UpdatedAt: now,
 			}
 			_, err := s.userRepository.Create(user)
 			if err != nil {
 				return fmt.Errorf("failed to create user: %w", err)
-			}
-
-			slog.Info("new user created with id", "id", user.ID)
-
-			profile := &model.Profile{
-				ID:        uuid.NewString(),
-				UserID:    user.ID,
-				Name:      "",
-				CreatedAt: now,
-				UpdatedAt: now,
-			}
-
-			_, err = s.profileRepository.Create(profile)
-			if err != nil {
-				return fmt.Errorf("failed to create profile: %w", err)
 			}
 
 			slog.Info("new passwordless user created", "email", email, "user_id", user.ID)
@@ -291,10 +274,9 @@ func (s *AuthService) SendMagicLink(email string) error {
 		return fmt.Errorf("failed to create token: %w", err)
 	}
 
-	profile, err := s.profileRepository.ByUserID(user.ID)
 	name := ""
-	if err == nil && profile != nil {
-		name = profile.Name
+	if user.Name != nil {
+		name = *user.Name
 	}
 
 	err = s.emailService.SendMagicLinkEmail(user.Email, magicToken, name)
@@ -341,12 +323,12 @@ func (s *AuthService) VerifyMagicLink(tokenString string) (*model.User, error) {
 
 // NeedsOnboarding checks if user needs to complete onboarding (name not set)
 func (s *AuthService) NeedsOnboarding(userID string) (bool, error) {
-	profile, err := s.profileRepository.ByUserID(userID)
+	user, err := s.userRepository.ByID(userID)
 	if err != nil {
-		return false, fmt.Errorf("failed to get profile: %w", err)
+		return false, fmt.Errorf("failed to get user: %w", err)
 	}
 
-	return profile.Name == "", nil
+	return user.Name == nil || *user.Name == "", nil
 }
 
 // CompleteOnboarding sets the user's name during onboarding
@@ -358,17 +340,20 @@ func (s *AuthService) CompleteOnboarding(userID, name string) error {
 		return err
 	}
 
-	err = s.profileRepository.UpdateName(userID, name)
+	user, err := s.userRepository.ByID(userID)
 	if err != nil {
-		return fmt.Errorf("failed to update profile: %w", err)
+		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	user, err := s.userRepository.ByID(userID)
-	if err == nil {
-		err = s.emailService.SendWelcomeEmail(user.Email, name)
-		if err != nil {
-			slog.Warn("failed to send welcome email", "error", err, "email", user.Email)
-		}
+	user.Name = &name
+	err = s.userRepository.Update(user)
+	if err != nil {
+		return fmt.Errorf("failed to update user: %w", err)
+	}
+
+	err = s.emailService.SendWelcomeEmail(user.Email, name)
+	if err != nil {
+		slog.Warn("failed to send welcome email", "error", err, "email", user.Email)
 	}
 
 	slog.Info("onboarding completed", "user_id", user.ID, "name", name)

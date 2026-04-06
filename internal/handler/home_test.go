@@ -32,8 +32,7 @@ func TestHomeHandler_HomePage_Authenticated(t *testing.T) {
 	h := NewHomeHandler()
 
 	user := &model.User{ID: "user-1", Email: "test@example.com"}
-	profile := &model.Profile{ID: "prof-1", UserID: "user-1", Name: "Test"}
-	req := testutil.NewAuthenticatedRequest(t, http.MethodGet, "/", user, profile, nil)
+	req := testutil.NewAuthenticatedRequest(t, http.MethodGet, "/", user, nil)
 
 	w := httptest.NewRecorder()
 	h.HomePage(w, req)

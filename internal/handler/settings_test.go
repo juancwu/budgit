@@ -15,24 +15,22 @@ import (
 func newTestSettingsHandler(dbi testutil.DBInfo) (*settingsHandler, *service.AuthService) {
 	cfg := testutil.TestConfig()
 	userRepo := repository.NewUserRepository(dbi.DB)
-	profileRepo := repository.NewProfileRepository(dbi.DB)
 	tokenRepo := repository.NewTokenRepository(dbi.DB)
 	spaceRepo := repository.NewSpaceRepository(dbi.DB)
 	spaceSvc := service.NewSpaceService(spaceRepo)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
-	authSvc := service.NewAuthService(emailSvc, userRepo, profileRepo, tokenRepo, spaceSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false)
+	authSvc := service.NewAuthService(emailSvc, userRepo, tokenRepo, spaceSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false)
 	userSvc := service.NewUserService(userRepo)
-	profileSvc := service.NewProfileService(profileRepo)
-	return NewSettingsHandler(authSvc, userSvc, profileSvc), authSvc
+	return NewSettingsHandler(authSvc, userSvc), authSvc
 }
 
 func TestSettingsHandler_SettingsPage(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		h, _ := newTestSettingsHandler(dbi)
 
-		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test User")
+		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 
-		req := testutil.NewAuthenticatedRequest(t, http.MethodGet, "/app/settings", user, profile, nil)
+		req := testutil.NewAuthenticatedRequest(t, http.MethodGet, "/app/settings", user, nil)
 		w := httptest.NewRecorder()
 		h.SettingsPage(w, req)
 
@@ -44,9 +42,9 @@ func TestSettingsHandler_SetPassword(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		h, _ := newTestSettingsHandler(dbi)
 
-		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test User")
+		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 
-		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/app/settings/password", user, profile, url.Values{
+		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/app/settings/password", user, url.Values{
 			"new_password":     {"testpassword1"},
 			"confirm_password": {"testpassword1"},
 		})
@@ -61,9 +59,9 @@ func TestSettingsHandler_SetPassword_Mismatch(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		h, _ := newTestSettingsHandler(dbi)
 
-		user, profile := testutil.CreateTestUserWithProfile(t, dbi.DB, "test@example.com", "Test User")
+		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 
-		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/app/settings/password", user, profile, url.Values{
+		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/app/settings/password", user, url.Values{
 			"new_password":     {"testpassword1"},
 			"confirm_password": {"differentpassword"},
 		})

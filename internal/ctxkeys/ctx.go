@@ -9,7 +9,7 @@ import (
 
 const (
 	UserKey       string = "user"
-	ProfileKey    string = "profile"
+
 	URLPathKey    string = "url_path"
 	ConfigKey     string = "config"
 	CSRFTokenKey  string = "csrf_token"
@@ -25,14 +25,6 @@ func WithUser(ctx context.Context, user *model.User) context.Context {
 	return context.WithValue(ctx, UserKey, user)
 }
 
-func Profile(ctx context.Context) *model.Profile {
-	profile, _ := ctx.Value(ProfileKey).(*model.Profile)
-	return profile
-}
-
-func WithProfile(ctx context.Context, profile *model.Profile) context.Context {
-	return context.WithValue(ctx, ProfileKey, profile)
-}
 
 func URLPath(ctx context.Context) string {
 	path, _ := ctx.Value(URLPathKey).(string)

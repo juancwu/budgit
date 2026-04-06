@@ -7,8 +7,8 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 )
 
-// AuthMiddleware checks for JWT token and adds user + profile + subscription to context if valid
-func AuthMiddleware(authService *service.AuthService, userService *service.UserService, profileService *service.ProfileService) func(http.Handler) http.Handler {
+// AuthMiddleware checks for JWT token and adds user to context if valid
+func AuthMiddleware(authService *service.AuthService, userService *service.UserService) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Get JWT from cookie
@@ -39,7 +39,6 @@ func AuthMiddleware(authService *service.AuthService, userService *service.UserS
 			// Fetch user from database
 			user, err := userService.ByID(userID)
 			if err != nil {
-
 				authService.ClearJWTCookie(w)
 				next.ServeHTTP(w, r)
 				return
@@ -48,17 +47,8 @@ func AuthMiddleware(authService *service.AuthService, userService *service.UserS
 			// Security: Remove password hash from context
 			user.PasswordHash = nil
 
-			profile, err := profileService.ByUserID(userID)
-			if err != nil {
-				// Profile not found - this shouldn't happen but handle gracefully
-				authService.ClearJWTCookie(w)
-				next.ServeHTTP(w, r)
-				return
-			}
-
-			// Add user + profile to context
+			// Add user to context
 			ctx := ctxkeys.WithUser(r.Context(), user)
-			ctx = ctxkeys.WithProfile(ctx, profile)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -85,10 +75,8 @@ func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		// Check if user has completed onboarding
-		// Uses profile.Name as indicator (empty = incomplete onboarding)
-		profile := ctxkeys.Profile(r.Context())
-		if profile.Name == "" && r.URL.Path != "/auth/onboarding" {
+		// Check if user has completed onboarding (name set)
+		if (user.Name == nil || *user.Name == "") && r.URL.Path != "/auth/onboarding" {
 			redirect(w, r, "/auth/onboarding", http.StatusSeeOther)
 			return
 		}
