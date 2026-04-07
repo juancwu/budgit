@@ -14,14 +14,14 @@ func NewHomeHandler() *homeHandler {
 	return &homeHandler{}
 }
 
-// HomePage will redirect to /auth if not authenticated or to /app/dashboard if authenticated.
+// HomePage will redirect to /auth if not authenticated or to /app/spaces if authenticated.
 func (h *homeHandler) HomePage(w http.ResponseWriter, r *http.Request) {
 	user := ctxkeys.User(r.Context())
 	if user == nil {
 		http.Redirect(w, r, "/auth", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
+	http.Redirect(w, r, "/app/spaces", http.StatusSeeOther)
 }
 
 func (h *homeHandler) PrivacyPage(w http.ResponseWriter, r *http.Request) {

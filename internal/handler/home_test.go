@@ -38,5 +38,5 @@ func TestHomeHandler_HomePage_Authenticated(t *testing.T) {
 	h.HomePage(w, req)
 
 	assert.Equal(t, http.StatusSeeOther, w.Code)
-	assert.Equal(t, "/app/dashboard", w.Header().Get("Location"))
+	assert.Equal(t, "/app/spaces", w.Header().Get("Location"))
 }

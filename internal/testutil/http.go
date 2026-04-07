@@ -46,6 +46,24 @@ func AuthenticatedContext(user *model.User) context.Context {
 func NewAuthenticatedRequest(t *testing.T, method, target string, user *model.User, formValues url.Values) *http.Request {
 	t.Helper()
 
+	req := NewRequest(t, method, target, formValues)
+	ctx := AuthenticatedContext(user)
+	req = req.WithContext(ctx)
+
+	return req
+}
+
+// NewHTMXRequest adds HX-Request header to a request.
+func NewHTMXRequest(req *http.Request) *http.Request {
+	req.Header.Set("HX-Request", "true")
+	return req
+}
+
+// NewRequest creates an HTTP request.
+// CSRF token is automatically added to form values for POST requests.
+func NewRequest(t *testing.T, method, target string, formValues url.Values) *http.Request {
+	t.Helper()
+
 	var req *http.Request
 
 	if method == http.MethodPost || method == http.MethodPut || method == http.MethodPatch || method == http.MethodDelete {
@@ -60,14 +78,5 @@ func NewAuthenticatedRequest(t *testing.T, method, target string, user *model.Us
 		req = httptest.NewRequest(method, target, nil)
 	}
 
-	ctx := AuthenticatedContext(user)
-	req = req.WithContext(ctx)
-
-	return req
-}
-
-// NewHTMXRequest adds HX-Request header to a request.
-func NewHTMXRequest(req *http.Request) *http.Request {
-	req.Header.Set("HX-Request", "true")
 	return req
 }
