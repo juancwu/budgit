@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/middleware"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 )
 
 type Group struct {
@@ -13,6 +14,20 @@ type Group struct {
 	limiter    *middleware.RateLimiter
 	parent     *Group
 	mux        *http.ServeMux
+}
+
+// Route is returned by route-registration calls so callers can attach
+// metadata to a freshly registered route (e.g. a name for URL lookup).
+type Route struct {
+	path string
+}
+
+// Name registers this route under the given name so templates can resolve
+// it via routeurl.URL. The stored path keeps Go 1.22 named wildcards intact
+// (e.g. "/join/{token}") so URL() can substitute them at render time.
+func (r *Route) Name(name string) *Route {
+	routeurl.Register(name, r.path)
+	return r
 }
 
 func (g *Group) Use(mw ...middleware.Middleware) {
@@ -36,7 +51,7 @@ const (
 	MethodPatch  Method = "PATCH"
 )
 
-func (g *Group) Handle(method Method, path string, handler http.HandlerFunc, mw ...middleware.Middleware) {
+func (g *Group) Handle(method Method, path string, handler http.HandlerFunc, mw ...middleware.Middleware) *Route {
 	// Build chain: [rate limiters root→self] → [middleware root→self] → [route mw] → handler
 	rateLimiters := g.collectRateLimiters()
 	middlewares := g.collectMiddleware()
@@ -44,25 +59,28 @@ func (g *Group) Handle(method Method, path string, handler http.HandlerFunc, mw 
 
 	chain := append(rateLimiters, middlewares...)
 
-	pattern := string(method) + " " + g.prefix + path
+	fullPath := g.prefix + path
+	pattern := string(method) + " " + fullPath
 	wrapped := middleware.Chain(handler, chain...)
 	g.mux.Handle(pattern, wrapped)
+
+	return &Route{path: fullPath}
 }
 
-func (g *Group) Get(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	g.Handle(MethodGet, path, h, mw...)
+func (g *Group) Get(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return g.Handle(MethodGet, path, h, mw...)
 }
-func (g *Group) Post(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	g.Handle(MethodPost, path, h, mw...)
+func (g *Group) Post(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return g.Handle(MethodPost, path, h, mw...)
 }
-func (g *Group) Put(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	g.Handle(MethodPut, path, h, mw...)
+func (g *Group) Put(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return g.Handle(MethodPut, path, h, mw...)
 }
-func (g *Group) Patch(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	g.Handle(MethodPatch, path, h, mw...)
+func (g *Group) Patch(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return g.Handle(MethodPatch, path, h, mw...)
 }
-func (g *Group) Delete(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	g.Handle(MethodDelete, path, h, mw...)
+func (g *Group) Delete(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return g.Handle(MethodDelete, path, h, mw...)
 }
 
 // SubGroup creates a nested group. It inherits rate limits and middleware
@@ -134,22 +152,22 @@ func (r *Router) Handler() http.Handler {
 	return r.mux
 }
 
-func (r *Router) Handle(method Method, path string, handler http.HandlerFunc, mw ...middleware.Middleware) {
-	r.root.Handle(method, path, handler, mw...)
+func (r *Router) Handle(method Method, path string, handler http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return r.root.Handle(method, path, handler, mw...)
 }
 
-func (r *Router) Get(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	r.root.Get(path, h, mw...)
+func (r *Router) Get(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return r.root.Get(path, h, mw...)
 }
-func (r *Router) Post(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	r.root.Post(path, h, mw...)
+func (r *Router) Post(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return r.root.Post(path, h, mw...)
 }
-func (r *Router) Put(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	r.root.Put(path, h, mw...)
+func (r *Router) Put(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return r.root.Put(path, h, mw...)
 }
-func (r *Router) Patch(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	r.root.Patch(path, h, mw...)
+func (r *Router) Patch(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return r.root.Patch(path, h, mw...)
 }
-func (r *Router) Delete(path string, h http.HandlerFunc, mw ...middleware.Middleware) {
-	r.root.Delete(path, h, mw...)
+func (r *Router) Delete(path string, h http.HandlerFunc, mw ...middleware.Middleware) *Route {
+	return r.root.Delete(path, h, mw...)
 }

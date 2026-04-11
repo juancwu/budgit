@@ -8,6 +8,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/app"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/testutil"
 	"github.com/stretchr/testify/assert"
@@ -214,6 +215,18 @@ func TestSetupRoutes_NotFound(t *testing.T) {
 		// The catch-all route renders the NotFound page (handler returns 200).
 		// This test verifies the catch-all route is registered and handles unknown paths.
 		assert.Equal(t, http.StatusOK, w.Code)
+	})
+}
+
+func TestURL_ResolvesNamedRoute(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		a := newTestApp(dbi)
+		SetupRoutes(a)
+
+		assert.Equal(t, "/privacy", routeurl.URL("page.public.privacy"))
+		assert.Equal(t, "/app/spaces", routeurl.URL("page.app.spaces"))
+		assert.Equal(t, "/join/abc123", routeurl.URL("page.public.join-space", "token", "abc123"))
+		assert.Equal(t, "#", routeurl.URL("does.not.exist"))
 	})
 }
 
