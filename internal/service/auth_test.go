@@ -16,13 +16,16 @@ func newTestAuthService(dbi testutil.DBInfo) *AuthService {
 	userRepo := repository.NewUserRepository(dbi.DB)
 	tokenRepo := repository.NewTokenRepository(dbi.DB)
 	spaceRepo := repository.NewSpaceRepository(dbi.DB)
+	accountRepo := repository.NewAccountRepository(dbi.DB)
 	spaceSvc := NewSpaceService(spaceRepo)
+	accountSvc := NewAccountService(accountRepo)
 	emailSvc := NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
 	return NewAuthService(
 		emailSvc,
 		userRepo,
 		tokenRepo,
 		spaceSvc,
+		accountSvc,
 		cfg.JWTSecret,
 		cfg.JWTExpiry,
 		cfg.TokenMagicLinkExpiry,
@@ -179,11 +182,46 @@ func TestAuthService_CompleteOnboarding(t *testing.T) {
 		err := svc.CompleteOnboarding(user.ID, "New Name")
 		require.NoError(t, err)
 
-		// Verify user name was updated
+		// User name is updated
 		userRepo := repository.NewUserRepository(dbi.DB)
 		updated, err := userRepo.ByID(user.ID)
 		require.NoError(t, err)
-		assert.NotNil(t, updated.Name)
+		require.NotNil(t, updated.Name)
 		assert.Equal(t, "New Name", *updated.Name)
+
+		// A space named "<name>'s Space" was provisioned
+		spaceRepo := repository.NewSpaceRepository(dbi.DB)
+		spaces, err := spaceRepo.ByUserID(user.ID)
+		require.NoError(t, err)
+		require.Len(t, spaces, 1)
+		assert.Equal(t, "New Name's Space", spaces[0].Name)
+
+		// With a default account inside it
+		accountRepo := repository.NewAccountRepository(dbi.DB)
+		accounts, err := accountRepo.BySpaceID(spaces[0].ID)
+		require.NoError(t, err)
+		require.Len(t, accounts, 1)
+		assert.Equal(t, DefaultAccountName, accounts[0].Name)
+	})
+}
+
+func TestAuthService_CompleteOnboarding_Idempotent(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		svc := newTestAuthService(dbi)
+
+		user := testutil.CreateTestUser(t, dbi.DB, "idempotent@example.com", nil)
+
+		require.NoError(t, svc.CompleteOnboarding(user.ID, "Repeat User"))
+		require.NoError(t, svc.CompleteOnboarding(user.ID, "Repeat User"))
+
+		spaceRepo := repository.NewSpaceRepository(dbi.DB)
+		spaces, err := spaceRepo.ByUserID(user.ID)
+		require.NoError(t, err)
+		assert.Len(t, spaces, 1, "second onboarding call must not duplicate the space")
+
+		accountRepo := repository.NewAccountRepository(dbi.DB)
+		accounts, err := accountRepo.BySpaceID(spaces[0].ID)
+		require.NoError(t, err)
+		assert.Len(t, accounts, 1, "second onboarding call must not duplicate the default account")
 	})
 }

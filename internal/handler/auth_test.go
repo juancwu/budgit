@@ -19,10 +19,12 @@ func newTestAuthHandler(dbi testutil.DBInfo) *authHandler {
 	userRepo := repository.NewUserRepository(dbi.DB)
 	tokenRepo := repository.NewTokenRepository(dbi.DB)
 	spaceRepo := repository.NewSpaceRepository(dbi.DB)
+	accountRepo := repository.NewAccountRepository(dbi.DB)
 	inviteRepo := repository.NewInvitationRepository(dbi.DB)
 	spaceSvc := service.NewSpaceService(spaceRepo)
+	accountSvc := service.NewAccountService(accountRepo)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
-	authSvc := service.NewAuthService(emailSvc, userRepo, tokenRepo, spaceSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false)
+	authSvc := service.NewAuthService(emailSvc, userRepo, tokenRepo, spaceSvc, accountSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false)
 	inviteSvc := service.NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc)
 	return NewAuthHandler(authSvc, inviteSvc, spaceSvc)
 }
@@ -95,34 +97,14 @@ func TestAuthHandler_Logout(t *testing.T) {
 	})
 }
 
-func TestAuthHandler_CompleteOnboarding_Step2(t *testing.T) {
+func TestAuthHandler_CompleteOnboarding_Success(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		h := newTestAuthHandler(dbi)
 
 		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 
 		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/onboarding", user, url.Values{
-			"step": {"2"},
 			"name": {"John"},
-		})
-
-		w := httptest.NewRecorder()
-		h.CompleteOnboarding(w, req)
-
-		assert.Equal(t, http.StatusOK, w.Code)
-	})
-}
-
-func TestAuthHandler_CompleteOnboarding_Step3(t *testing.T) {
-	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		h := newTestAuthHandler(dbi)
-
-		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
-
-		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/onboarding", user, url.Values{
-			"step":       {"3"},
-			"name":       {"John"},
-			"space_name": {"My Space"},
 		})
 
 		w := httptest.NewRecorder()
@@ -130,5 +112,42 @@ func TestAuthHandler_CompleteOnboarding_Step3(t *testing.T) {
 
 		assert.Equal(t, http.StatusSeeOther, w.Code)
 		assert.Equal(t, "/app/dashboard", w.Header().Get("Location"))
+
+		// Space "John's Space" with a default account should now exist
+		spaceRepo := repository.NewSpaceRepository(dbi.DB)
+		spaces, err := spaceRepo.ByUserID(user.ID)
+		assert.NoError(t, err)
+		assert.Len(t, spaces, 1)
+		assert.Equal(t, "John's Space", spaces[0].Name)
+
+		accountRepo := repository.NewAccountRepository(dbi.DB)
+		accounts, err := accountRepo.BySpaceID(spaces[0].ID)
+		assert.NoError(t, err)
+		assert.Len(t, accounts, 1)
+		assert.Equal(t, service.DefaultAccountName, accounts[0].Name)
+	})
+}
+
+func TestAuthHandler_CompleteOnboarding_EmptyName(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		h := newTestAuthHandler(dbi)
+
+		user := testutil.CreateTestUser(t, dbi.DB, "empty@example.com", nil)
+
+		req := testutil.NewAuthenticatedRequest(t, http.MethodPost, "/auth/onboarding", user, url.Values{
+			"name": {"   "},
+		})
+
+		w := httptest.NewRecorder()
+		h.CompleteOnboarding(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), "Please enter your name")
+
+		// No space should have been created
+		spaceRepo := repository.NewSpaceRepository(dbi.DB)
+		spaces, err := spaceRepo.ByUserID(user.ID)
+		assert.NoError(t, err)
+		assert.Empty(t, spaces)
 	})
 }

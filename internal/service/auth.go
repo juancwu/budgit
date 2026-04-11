@@ -36,6 +36,7 @@ type AuthService struct {
 	userRepository       repository.UserRepository
 	tokenRepository      repository.TokenRepository
 	spaceService         *SpaceService
+	accountService       *AccountService
 	jwtSecret            string
 	jwtExpiry            time.Duration
 	tokenMagicLinkExpiry time.Duration
@@ -47,20 +48,22 @@ func NewAuthService(
 	userRepository repository.UserRepository,
 	tokenRepository repository.TokenRepository,
 	spaceService *SpaceService,
+	accountService *AccountService,
 	jwtSecret string,
 	jwtExpiry time.Duration,
 	tokenMagicLinkExpiry time.Duration,
 	isProduction bool,
 ) *AuthService {
 	return &AuthService{
-		emailService:    emailService,
-		userRepository:  userRepository,
-		tokenRepository: tokenRepository,
-		spaceService:    spaceService,
-		jwtSecret:       jwtSecret,
-		jwtExpiry:       jwtExpiry,
+		emailService:         emailService,
+		userRepository:       userRepository,
+		tokenRepository:      tokenRepository,
+		spaceService:         spaceService,
+		accountService:       accountService,
+		jwtSecret:            jwtSecret,
+		jwtExpiry:            jwtExpiry,
 		tokenMagicLinkExpiry: tokenMagicLinkExpiry,
-		isProduction:    isProduction,
+		isProduction:         isProduction,
 	}
 }
 
@@ -331,12 +334,16 @@ func (s *AuthService) NeedsOnboarding(userID string) (bool, error) {
 	return user.Name == nil || *user.Name == "", nil
 }
 
-// CompleteOnboarding sets the user's name during onboarding
+// CompleteOnboarding finalizes a user's onboarding by provisioning their first
+// space and its default account, then saving their display name.
+//
+// The user-name update happens LAST so that if any step fails partway through,
+// NeedsOnboarding still returns true and the user is routed back to retry.
+// A retry is idempotent: if the user already has a space, the provisioning
+// steps are skipped and only the name update runs.
 func (s *AuthService) CompleteOnboarding(userID, name string) error {
 	name = strings.TrimSpace(name)
-
-	err := validation.ValidateName(name)
-	if err != nil {
+	if err := validation.ValidateName(name); err != nil {
 		return err
 	}
 
@@ -345,18 +352,38 @@ func (s *AuthService) CompleteOnboarding(userID, name string) error {
 		return fmt.Errorf("failed to get user: %w", err)
 	}
 
-	user.Name = &name
-	err = s.userRepository.Update(user)
+	existing, err := s.spaceService.GetSpacesForUser(userID)
 	if err != nil {
+		return fmt.Errorf("failed to check existing spaces: %w", err)
+	}
+
+	if len(existing) == 0 {
+		spaceName := name + "'s Space"
+		space, err := s.spaceService.CreateSpace(spaceName, userID)
+		if err != nil {
+			return fmt.Errorf("failed to create onboarding space: %w", err)
+		}
+
+		if _, err := s.accountService.CreateAccount(space.ID, DefaultAccountName); err != nil {
+			if delErr := s.spaceService.DeleteSpace(space.ID); delErr != nil {
+				slog.Error("failed to roll back space after account creation error",
+					"space_id", space.ID, "error", delErr)
+			}
+			return fmt.Errorf("failed to create default account: %w", err)
+		}
+	}
+
+	user.Name = &name
+	if err := s.userRepository.Update(user); err != nil {
 		return fmt.Errorf("failed to update user: %w", err)
 	}
 
-	err = s.emailService.SendWelcomeEmail(user.Email, name)
-	if err != nil {
+	if err := s.emailService.SendWelcomeEmail(user.Email, name); err != nil {
 		slog.Warn("failed to send welcome email", "error", err, "email", user.Email)
 	}
 
-	slog.Info("onboarding completed", "user_id", user.ID, "name", name)
+	slog.Info("onboarding completed",
+		"user_id", user.ID, "name", name, "provisioned_space", len(existing) == 0)
 
 	return nil
 }

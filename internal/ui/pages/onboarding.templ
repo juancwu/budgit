@@ -14,7 +14,7 @@ import (
 
 templ stepIndicator(current int) {
 	<div class="flex items-center justify-center gap-2 mb-8">
-		for i := 1; i <= 3; i++ {
+		for i := 1; i <= 2; i++ {
 			if i == current {
 				<div class="w-2.5 h-2.5 rounded-full bg-primary"></div>
 			} else if i < current {
@@ -23,7 +23,7 @@ templ stepIndicator(current int) {
 				<div class="w-2.5 h-2.5 rounded-full bg-muted"></div>
 			}
 		}
-		<span class="text-xs text-muted-foreground ml-2">{ fmt.Sprintf("%d/3", current) }</span>
+		<span class="text-xs text-muted-foreground ml-2">{ fmt.Sprintf("%d/2", current) }</span>
 	</div>
 }
 
@@ -56,7 +56,7 @@ templ OnboardingWelcome() {
 						Let's get you set up in just a couple of steps.
 					</p>
 					@button.Button(button.Props{
-						Href:      "/auth/onboarding?step=2",
+						Href:      "/auth/onboarding?step=name",
 						FullWidth: true,
 					}) {
 						Get Started
@@ -107,7 +107,6 @@ templ OnboardingName(errorMsg string) {
 				</div>
 				<form action="/auth/onboarding" method="POST" class="space-y-6">
 					@csrf.Token()
-					<input type="hidden" name="step" value="2"/>
 					@form.Item() {
 						@label.Label(label.Props{
 							For:   "name",
@@ -140,7 +139,7 @@ templ OnboardingName(errorMsg string) {
 						@button.Submit(button.Props{
 							Class: "grow",
 						}) {
-							Continue
+							Finish
 							@icon.ArrowRight()
 						}
 					</div>
@@ -160,83 +159,3 @@ templ OnboardingName(errorMsg string) {
 	}
 }
 
-templ OnboardingSpace(name string, errorMsg string) {
-	{{ cfg := ctxkeys.Config(ctx) }}
-	@layouts.Auth(layouts.SEOProps{
-		Title:       "Create Your Space",
-		Description: "Create your first space",
-		Path:        ctxkeys.URLPath(ctx),
-	}) {
-		<div class="min-h-screen flex items-center justify-center p-4">
-			<div class="w-full max-w-sm">
-				<div class="text-center mb-8">
-					<div class="mb-8">
-						@button.Button(button.Props{
-							Variant: button.VariantSecondary,
-							Size:    button.SizeLg,
-							Href:    "/",
-						}) {
-							@icon.Layers()
-							{ cfg.AppName }
-						}
-					</div>
-					@stepIndicator(3)
-					<h2 class="text-3xl font-bold">Create your space</h2>
-					<p class="text-muted-foreground mt-2">
-						A space is where you organize expenses and lists. You can invite others later.
-					</p>
-				</div>
-				<form action="/auth/onboarding" method="POST" class="space-y-6">
-					@csrf.Token()
-					<input type="hidden" name="step" value="3"/>
-					<input type="hidden" name="name" value={ name }/>
-					@form.Item() {
-						@label.Label(label.Props{
-							For:   "space_name",
-							Class: "block mb-2",
-						}) {
-							Space Name
-						}
-						@input.Input(input.Props{
-							ID:          "space_name",
-							Name:        "space_name",
-							Type:        input.TypeText,
-							Placeholder: "My Household",
-							HasError:    errorMsg != "",
-							Attributes:  templ.Attributes{"autofocus": ""},
-						})
-						if errorMsg != "" {
-							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
-								{ errorMsg }
-							}
-						}
-					}
-					<div class="flex gap-3">
-						@button.Button(button.Props{
-							Variant: button.VariantOutline,
-							Href:    "/auth/onboarding?step=2",
-						}) {
-							@icon.ArrowLeft()
-							Back
-						}
-						@button.Submit(button.Props{
-							Class: "grow",
-						}) {
-							Create Space
-						}
-					</div>
-				</form>
-				<form action="/auth/logout" method="POST" class="text-center mt-6">
-					@csrf.Token()
-					<span class="text-sm text-muted-foreground">Not you? </span>
-					@button.Submit(button.Props{
-						Variant: button.VariantLink,
-						Class:   "p-0 h-auto text-sm",
-					}) {
-						Sign out
-					}
-				</form>
-			</div>
-		</div>
-	}
-}

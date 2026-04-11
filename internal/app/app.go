@@ -11,13 +11,14 @@ import (
 )
 
 type App struct {
-	Cfg           *config.Config
-	DB            *sqlx.DB
-	UserService   *service.UserService
-	AuthService   *service.AuthService
-	EmailService  *service.EmailService
-	SpaceService  *service.SpaceService
-	InviteService *service.InviteService
+	Cfg            *config.Config
+	DB             *sqlx.DB
+	UserService    *service.UserService
+	AuthService    *service.AuthService
+	EmailService   *service.EmailService
+	SpaceService   *service.SpaceService
+	AccountService *service.AccountService
+	InviteService  *service.InviteService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -37,11 +38,13 @@ func New(cfg *config.Config) (*App, error) {
 	userRepository := repository.NewUserRepository(database)
 	tokenRepository := repository.NewTokenRepository(database)
 	spaceRepository := repository.NewSpaceRepository(database)
+	accountRepository := repository.NewAccountRepository(database)
 	invitationRepository := repository.NewInvitationRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
 	spaceService := service.NewSpaceService(spaceRepository)
+	accountService := service.NewAccountService(accountRepository)
 	emailService := service.NewEmailService(
 		emailClient,
 		cfg.MailerEmailFrom,
@@ -54,6 +57,7 @@ func New(cfg *config.Config) (*App, error) {
 		userRepository,
 		tokenRepository,
 		spaceService,
+		accountService,
 		cfg.JWTSecret,
 		cfg.JWTExpiry,
 		cfg.TokenMagicLinkExpiry,
@@ -62,13 +66,14 @@ func New(cfg *config.Config) (*App, error) {
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
 
 	return &App{
-		Cfg:           cfg,
-		DB:            database,
-		UserService:   userService,
-		AuthService:   authService,
-		EmailService:  emailService,
-		SpaceService:  spaceService,
-		InviteService: inviteService,
+		Cfg:            cfg,
+		DB:             database,
+		UserService:    userService,
+		AuthService:    authService,
+		EmailService:   emailService,
+		SpaceService:   spaceService,
+		AccountService: accountService,
+		InviteService:  inviteService,
 	}, nil
 }
 

@@ -168,13 +168,11 @@ func (h *authHandler) completeLogin(w http.ResponseWriter, r *http.Request, user
 }
 
 func (h *authHandler) OnboardingPage(w http.ResponseWriter, r *http.Request) {
-	step := r.URL.Query().Get("step")
-	switch step {
-	case "2":
+	if r.URL.Query().Get("step") == "name" {
 		ui.Render(w, r, pages.OnboardingName(""))
-	default:
-		ui.Render(w, r, pages.OnboardingWelcome())
+		return
 	}
+	ui.Render(w, r, pages.OnboardingWelcome())
 }
 
 func (h *authHandler) CompleteOnboarding(w http.ResponseWriter, r *http.Request) {
@@ -184,50 +182,19 @@ func (h *authHandler) CompleteOnboarding(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	step := r.FormValue("step")
-
-	switch step {
-	case "2":
-		name := strings.TrimSpace(r.FormValue("name"))
-		if name == "" {
-			ui.Render(w, r, pages.OnboardingName("Please enter your name"))
-			return
-		}
-		ui.Render(w, r, pages.OnboardingSpace(name, ""))
-
-	case "3":
-		name := strings.TrimSpace(r.FormValue("name"))
-		spaceName := strings.TrimSpace(r.FormValue("space_name"))
-
-		if name == "" {
-			ui.Render(w, r, pages.OnboardingName("Please enter your name"))
-			return
-		}
-		if spaceName == "" {
-			ui.Render(w, r, pages.OnboardingSpace(name, "Please enter a space name"))
-			return
-		}
-
-		err := h.authService.CompleteOnboarding(user.ID, name)
-		if err != nil {
-			slog.Error("onboarding failed", "error", err, "user_id", user.ID)
-			ui.Render(w, r, pages.OnboardingName("Please enter a valid name"))
-			return
-		}
-
-		_, err = h.spaceService.CreateSpace(spaceName, user.ID)
-		if err != nil {
-			slog.Error("failed to create space during onboarding", "error", err, "user_id", user.ID)
-			ui.Render(w, r, pages.OnboardingSpace(name, "Failed to create space. Please try again."))
-			return
-		}
-
-		slog.Info("onboarding completed", "user_id", user.ID, "name", name, "space", spaceName)
-		http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
-
-	default:
-		ui.Render(w, r, pages.OnboardingWelcome())
+	name := strings.TrimSpace(r.FormValue("name"))
+	if name == "" {
+		ui.Render(w, r, pages.OnboardingName("Please enter your name"))
+		return
 	}
+
+	if err := h.authService.CompleteOnboarding(user.ID, name); err != nil {
+		slog.Error("onboarding failed", "error", err, "user_id", user.ID)
+		ui.Render(w, r, pages.OnboardingName("We couldn't finish setting you up. Please try again."))
+		return
+	}
+
+	http.Redirect(w, r, "/app/dashboard", http.StatusSeeOther)
 }
 
 func (h *authHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {

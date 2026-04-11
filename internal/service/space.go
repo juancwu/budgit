@@ -9,8 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-const PersonalSpaceName = "Personal Space"
-
 type SpaceService struct {
 	spaceRepo repository.SpaceRepository
 }
