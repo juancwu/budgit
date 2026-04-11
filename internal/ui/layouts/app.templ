@@ -11,13 +11,14 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/sidebar"
 	"strings"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 )
 
 templ App(title string) {
 	{{ cfg := ctxkeys.Config(ctx) }}
 	@Base(SEOProps{
 		Title:       title,
-		Description: "Application Dashboard",
+		Description: "List of Spaces",
 		Path:        ctxkeys.URLPath(ctx),
 	}) {
 		@sidebar.Layout() {
@@ -27,7 +28,7 @@ templ App(title string) {
 						@sidebar.MenuItem() {
 							@sidebar.MenuButton(sidebar.MenuButtonProps{
 								Size: sidebar.MenuButtonSizeLg,
-								Href: "/app/spaces",
+								Href: routeurl.URL("page.app.spaces"),
 							}) {
 								@icon.LayoutDashboard()
 								<div class="flex flex-col">
@@ -45,8 +46,8 @@ templ App(title string) {
 						@sidebar.Menu() {
 							@sidebar.MenuItem() {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
-									Href:     "/app/spaces",
-									IsActive: ctxkeys.URLPath(ctx) == "/app/spaces",
+									Href:     routeurl.URL("page.app.spaces"),
+									IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces"),
 									Tooltip:  "Spaces",
 								}) {
 									@icon.House(icon.Props{Class: "size-4"})
@@ -114,7 +115,11 @@ templ App(title string) {
 
 templ AppSidebarDropdown(user *model.User) {
 	{{ displayName := user.Email }}
-	{{ if user.Name != nil && *user.Name != "" { displayName = *user.Name } }}
+	{{
+		if user.Name != nil && *user.Name != "" {
+			displayName = *user.Name
+		}
+	}}
 	@dropdown.Dropdown() {
 		@dropdown.Trigger() {
 			@sidebar.MenuButton(sidebar.MenuButtonProps{
