@@ -8,15 +8,13 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 )
 
 templ AppSettings(hasPassword bool, errorMsg string) {
 	@layouts.App("Settings") {
 		<div class="container max-w-2xl px-6 py-8">
-			<div class="mb-8">
-				<h1 class="text-3xl font-bold">Settings</h1>
-				<p class="text-muted-foreground mt-2">Manage your account settings</p>
-			</div>
+			@blocks.PageHeader("Settings", "Manage your account settings")
 			@card.Card() {
 				@card.Header() {
 					@card.Title() {

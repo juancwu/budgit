@@ -1,0 +1,38 @@
+package blocks
+
+import "github.com/shopspring/decimal"
+import "strings"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "fmt"
+import "git.juancwu.dev/juancwu/budgit/internal/misc/currency"
+
+type SpaceCardInfo struct {
+	ID           string
+	Name         string
+	MemberCount  int
+	TotalBalance decimal.Decimal
+	Currency     currency.Currency
+}
+
+templ SpaceCard(info SpaceCardInfo) {
+	<a href="#" class="px-2 py-2 block rounded-md hover:bg-sidebar-accent">
+		<div class="flex items-center justify-between">
+			<div class="flex gap-4 items-center">
+				<div class="w-10 h-10 shrink-0 overflow-hidden rounded-md bg-muted flex items-center justify-center">
+					{ strings.ToUpper(string(info.Name[0])) }
+				</div>
+				<div>
+					<p class="font-semibold">{ info.Name }</p>
+					<p class="text-xs text-muted-foreground">
+						<span>{ info.TotalBalance.StringFixedBank(2) }</span>
+						<span>•</span>
+						<span>{ fmt.Sprintf("%d members", info.MemberCount) }</span>
+					</p>
+				</div>
+			</div>
+			<div class="h-full flex items-center justify-center">
+				@icon.ChevronRight()
+			</div>
+		</div>
+	</a>
+}

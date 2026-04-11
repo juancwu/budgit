@@ -5,7 +5,9 @@ import (
 
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
+	"github.com/shopspring/decimal"
 )
 
 type spaceHandler struct {
@@ -17,5 +19,10 @@ func NewSpaceHandler(spaceService *service.SpaceService) *spaceHandler {
 }
 
 func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
-	ui.Render(w, r, pages.Spaces())
+	ui.Render(w, r, pages.Spaces([]blocks.SpaceCardInfo{
+		{
+			ID: "test-1", Name: "My Space",
+			MemberCount: 3, TotalBalance: decimal.NewFromFloat(123.23),
+		},
+	}))
 }
