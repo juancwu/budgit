@@ -22,7 +22,7 @@ templ SpaceCard(info SpaceCardInfo) {
 				<div>
 					<p class="font-semibold">{ info.Name }</p>
 					<p class="text-xs text-muted-foreground">
-						<span>{ info.TotalBalance.StringFixedBank(2) }</span>
+						<span>${ info.TotalBalance.StringFixedBank(2) }</span>
 						<span>•</span>
 						<span>{ fmt.Sprintf("%d members", info.MemberCount) }</span>
 					</p>
