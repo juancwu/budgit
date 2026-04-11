@@ -94,3 +94,11 @@ func (s *SpaceService) UpdateSpaceName(spaceID, name string) error {
 func (s *SpaceService) DeleteSpace(spaceID string) error {
 	return s.spaceRepo.Delete(spaceID)
 }
+
+func (s *SpaceService) GetMemberCount(spaceID string) (int, error) {
+	count, err := s.spaceRepo.GetMemberCount(spaceID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get member count: %w", err)
+	}
+	return count, nil
+}

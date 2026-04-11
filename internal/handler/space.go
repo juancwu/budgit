@@ -37,15 +37,16 @@ func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 
 	cards := make([]blocks.SpaceCardInfo, 0, len(spaces))
 	for _, sp := range spaces {
-		members, err := h.spaceService.GetMembers(sp.ID)
+		memberCount, err := h.spaceService.GetMemberCount(sp.ID)
 		if err != nil {
-			slog.Error("failed to load space members", "error", err, "space_id", sp.ID)
-			members = nil
+			slog.Error("failed to get space member count", "error", err, "space_id", sp.ID)
+			memberCount = 0
 		}
+
 		cards = append(cards, blocks.SpaceCardInfo{
 			ID:           sp.ID,
 			Name:         sp.Name,
-			MemberCount:  len(members),
+			MemberCount:  memberCount,
 			TotalBalance: decimal.Zero,
 			Currency:     currency.CAD,
 		})
