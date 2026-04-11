@@ -33,9 +33,15 @@ func SetupRoutes(a *app.App) http.Handler {
 	)
 
 	// Static assets (bypass router groups — registered directly on mux)
-	sub, _ := fs.Sub(assets.AssetsFS, ".")
+	var assetsFS http.FileSystem
+	if a.Cfg.IsProduction() {
+		sub, _ := fs.Sub(assets.AssetsFS, ".")
+		assetsFS = http.FS(sub)
+	} else {
+		assetsFS = http.Dir("./assets")
+	}
 	r.Mux().Handle("GET /assets/",
-		middleware.CacheStatic(http.StripPrefix("/assets/", http.FileServer(http.FS(sub)))),
+		middleware.CacheStatic(http.StripPrefix("/assets/", http.FileServer(assetsFS))),
 	)
 
 	// Public pages

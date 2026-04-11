@@ -220,6 +220,9 @@ func TestSetupRoutes_NotFound(t *testing.T) {
 func TestSetupRoutes_StaticAssets(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		a := newTestApp(dbi)
+		// Force the embedded-FS branch so the test is independent of CWD;
+		// in dev we serve from ./assets on disk (see SetupRoutes).
+		a.Cfg.AppEnv = "production"
 		handler := SetupRoutes(a)
 
 		req := httptest.NewRequest(http.MethodGet, "/assets/css/output.css", nil)
