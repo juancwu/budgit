@@ -38,25 +38,6 @@ func TestSpaceService_CreateSpace_EmptyName(t *testing.T) {
 	})
 }
 
-func TestSpaceService_EnsurePersonalSpace(t *testing.T) {
-	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		spaceRepo := repository.NewSpaceRepository(dbi.DB)
-		svc := NewSpaceService(spaceRepo)
-
-		user := testutil.CreateTestUser(t, dbi.DB, "personal@example.com", nil)
-
-		// First call creates the personal space
-		space1, err := svc.EnsurePersonalSpace(user)
-		require.NoError(t, err)
-		assert.Equal(t, PersonalSpaceName, space1.Name)
-
-		// Second call returns the same space (idempotent)
-		space2, err := svc.EnsurePersonalSpace(user)
-		require.NoError(t, err)
-		assert.Equal(t, space1.ID, space2.ID)
-	})
-}
-
 func TestSpaceService_GetSpacesForUser(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		spaceRepo := repository.NewSpaceRepository(dbi.DB)

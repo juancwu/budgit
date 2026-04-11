@@ -43,25 +43,6 @@ func (s *SpaceService) CreateSpace(name string, ownerID string) (*model.Space, e
 	return space, nil
 }
 
-// EnsurePersonalSpace creates a "Personal Space" for a user if one doesn't exist.
-func (s *SpaceService) EnsurePersonalSpace(user *model.User) (*model.Space, error) {
-	spaces, err := s.spaceRepo.ByUserID(user.ID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get user spaces: %w", err)
-	}
-
-	// Check if a personal space already exists.
-	// We identify it by the user being the owner and the name being the default.
-	for _, space := range spaces {
-		if space.OwnerID == user.ID && space.Name == PersonalSpaceName {
-			return space, nil // Personal space already exists
-		}
-	}
-
-	// If no personal space, create one.
-	return s.CreateSpace(PersonalSpaceName, user.ID)
-}
-
 // GetSpacesForUser returns all spaces a user is a member of.
 func (s *SpaceService) GetSpacesForUser(userID string) ([]*model.Space, error) {
 	spaces, err := s.spaceRepo.ByUserID(userID)
@@ -110,7 +91,6 @@ func (s *SpaceService) UpdateSpaceName(spaceID, name string) error {
 	}
 	return s.spaceRepo.UpdateName(spaceID, name)
 }
-
 
 // DeleteSpace permanently deletes a space and all its associated data.
 func (s *SpaceService) DeleteSpace(spaceID string) error {
