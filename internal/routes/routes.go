@@ -85,6 +85,13 @@ func SetupRoutes(a *app.App) http.Handler {
 
 		g.SubGroup("/spaces", func(g *router.Group) {
 			g.Get("", spaceH.SpacesPage).Name("page.app.spaces")
+			g.Get("/create", spaceH.CreateSpacePage).Name("page.app.spaces.create")
+			g.Post("/create", spaceH.HandleCreateSpace).Name("action.app.spaces.create")
+			g.SubGroup("/{spaceID}", func(g *router.Group) {
+				spaceAccessMw := middleware.RequireSpaceAccess(a.SpaceService)
+				g.Use(spaceAccessMw)
+				g.Get("/overview", spaceH.SpaceOverviewPage).Name("page.app.spaces.space.overview")
+			})
 		})
 
 		g.SubGroup("/settings", func(g *router.Group) {

@@ -1,0 +1,48 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+
+templ CreateSpace(errMsg string, spaceName string) {
+	<form hx-post={ routeurl.URL("action.app.spaces.create") }>
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Content(card.ContentProps{Class: "p-4"}) {
+				@form.Item() {
+					@form.Label(form.LabelProps{
+						For: "space-name",
+					}) {
+						Space Name
+					}
+					@input.Input(input.Props{
+						ID:          "space-name",
+						Type:        input.TypeText,
+						Placeholder: "My Expenses",
+						Class:       "rounded-sm",
+						Name:        "name",
+						Value:       spaceName,
+						HasError:    errMsg != "",
+						Attributes: templ.Attributes{
+							"autocomplete": "off",
+						},
+					})
+					if errMsg != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ errMsg }
+						}
+					}
+					@form.Description() {
+						You can always rename your space later in space settings.
+					}
+				}
+			}
+			@card.Footer() {
+				@button.Button(button.Props{Class: "w-full", Type: button.TypeSubmit}) {
+					Create
+				}
+			}
+		}
+	</form>
+}

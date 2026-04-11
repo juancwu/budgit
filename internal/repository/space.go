@@ -21,6 +21,7 @@ type SpaceRepository interface {
 	RemoveMember(spaceID, userID string) error
 	IsMember(spaceID, userID string) (bool, error)
 	GetMembers(spaceID string) ([]*model.SpaceMemberWithProfile, error)
+	GetMember(spaceID string, userID string) (*model.SpaceMember, error)
 	UpdateName(spaceID, name string) error
 	GetMemberCount(spaceID string) (int, error)
 
@@ -123,6 +124,18 @@ func (r *spaceRepository) GetMembers(spaceID string) ([]*model.SpaceMemberWithPr
 		ORDER BY sm.role DESC, sm.joined_at ASC;`
 	err := r.db.Select(&members, query, spaceID)
 	return members, err
+}
+
+func (r *spaceRepository) GetMember(spaceID, userID string) (*model.SpaceMember, error) {
+	query := `SELECT * FROM space_members WHERE space_id = $1 AND user_id = $2;`
+
+	var member model.SpaceMember
+	err := r.db.Get(&member, query, spaceID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &member, nil
 }
 
 func (r *spaceRepository) UpdateName(spaceID, name string) error {

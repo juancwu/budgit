@@ -3,11 +3,13 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/forms"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
 	"github.com/shopspring/decimal"
 )
@@ -65,4 +67,53 @@ func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ui.Render(w, r, pages.Spaces(cards))
+}
+
+func (h *spaceHandler) CreateSpacePage(w http.ResponseWriter, r *http.Request) {
+	ui.Render(w, r, pages.CreateSpace())
+}
+
+func (h *spaceHandler) HandleCreateSpace(w http.ResponseWriter, r *http.Request) {
+	spaceName := strings.TrimSpace(r.FormValue("name"))
+
+	if spaceName == "" {
+		ui.Render(w, r, forms.CreateSpace("Space name can't be empty.", spaceName))
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+
+	isNameAvailable, err := h.spaceService.IsNameAvailable(spaceName, user.ID)
+	if err != nil {
+		slog.Error("failed to create new space", "error", err, "user_id", user.ID)
+		ui.Render(w, r, forms.CreateSpace("Something went wrong. Please try again later.", spaceName))
+		return
+	}
+
+	if !isNameAvailable {
+		ui.Render(w, r, forms.CreateSpace("Space name is not available. Please use another name.", spaceName))
+		return
+	}
+
+	sp, err := h.spaceService.CreateSpace(spaceName, user.ID)
+	if err != nil {
+		slog.Error("failed to create new space", "error", err, "user_id", user.ID)
+		ui.Render(w, r, forms.CreateSpace("Something went wrong. Please try again later.", spaceName))
+		return
+	}
+
+	ui.Render(w, r, forms.CreateSpaceSuccess(sp.ID))
+}
+
+func (h *spaceHandler) SpaceOverviewPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to fetch space data", "error", err, "spaceID", spaceID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceOverview(space.Name))
 }

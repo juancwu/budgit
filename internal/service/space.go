@@ -102,3 +102,18 @@ func (s *SpaceService) GetMemberCount(spaceID string) (int, error) {
 	}
 	return count, nil
 }
+
+func (s *SpaceService) IsNameAvailable(name string, userID string) (bool, error) {
+	spaces, err := s.GetSpacesForUser(userID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get spaces to check name availability: %w", err)
+	}
+
+	for _, sp := range spaces {
+		if sp.Name == name {
+			return false, nil
+		}
+	}
+
+	return true, nil
+}

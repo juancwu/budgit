@@ -1,0 +1,20 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+
+templ CreateSpaceSuccess(spaceID string) {
+	<div>
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Content(card.ContentProps{Class: "p-4"}) {
+				<p class="text-xl text-success">Space successfully created!</p>
+			}
+			@card.Footer() {
+				@button.Button(button.Props{Class: "w-full", Href: routeurl.URL("page.app.spaces.space.overview", "spaceID", spaceID)}) {
+					Start tracking expenses
+				}
+			}
+		}
+	</div>
+}

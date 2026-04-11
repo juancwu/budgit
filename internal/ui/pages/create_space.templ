@@ -1,0 +1,31 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+
+templ CreateSpace() {
+	@layouts.Base(layouts.SEOProps{
+		Title:       "Create Space",
+		Description: "Create space to manage and track expenses in a collaborative manner.",
+		Path:        ctxkeys.URLPath(ctx),
+	}) {
+		<div class="min-h-screen flex items-center justify-center p-4 relative">
+			<div class="absolute top-4 right-4 z-10">
+				@blocks.ThemeSwitcher()
+			</div>
+			<div class="w-full max-w-2xl md:grid md:grid-cols-2 md:gap-4">
+				<div class="space-y-2">
+					<h1 class="text-2xl">
+						Create Space
+					</h1>
+					<p class="text-sm text-muted-foreground">This is where you or your group can track expenses.</p>
+				</div>
+				<div class="mt-4 md:mt-0">
+					@forms.CreateSpace("", "")
+				</div>
+			</div>
+		</div>
+	}
+}
