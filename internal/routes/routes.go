@@ -9,8 +9,8 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/app"
 	"git.juancwu.dev/juancwu/budgit/internal/handler"
 	"git.juancwu.dev/juancwu/budgit/internal/middleware"
-	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 	"git.juancwu.dev/juancwu/budgit/internal/router"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 )
 
 func SetupRoutes(a *app.App) http.Handler {
@@ -19,7 +19,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()

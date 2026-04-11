@@ -4,14 +4,12 @@ import "github.com/shopspring/decimal"
 import "strings"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 import "fmt"
-import "git.juancwu.dev/juancwu/budgit/internal/misc/currency"
 
 type SpaceCardInfo struct {
 	ID           string
 	Name         string
 	MemberCount  int
 	TotalBalance decimal.Decimal
-	Currency     currency.Currency
 }
 
 templ SpaceCard(info SpaceCardInfo) {

@@ -5,7 +5,6 @@ import (
 	"net/http"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
-	"git.juancwu.dev/juancwu/budgit/internal/misc/currency"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
@@ -14,11 +13,12 @@ import (
 )
 
 type spaceHandler struct {
-	spaceService *service.SpaceService
+	spaceService   *service.SpaceService
+	accountService *service.AccountService
 }
 
-func NewSpaceHandler(spaceService *service.SpaceService) *spaceHandler {
-	return &spaceHandler{spaceService: spaceService}
+func NewSpaceHandler(spaceService *service.SpaceService, accountService *service.AccountService) *spaceHandler {
+	return &spaceHandler{spaceService: spaceService, accountService: accountService}
 }
 
 func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
@@ -41,14 +41,26 @@ func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			slog.Error("failed to get space member count", "error", err, "space_id", sp.ID)
 			memberCount = 0
+			err = nil
+		}
+
+		accounts, err := h.accountService.GetAccountsForSpace(sp.ID)
+		if err != nil {
+			slog.Error("failed to get space accounts", "error", err, "space_id", sp.ID)
+			accounts = nil
+			err = nil
+		}
+
+		totalBalance := decimal.Zero
+		for _, acc := range accounts {
+			totalBalance = totalBalance.Add(acc.Balance)
 		}
 
 		cards = append(cards, blocks.SpaceCardInfo{
 			ID:           sp.ID,
 			Name:         sp.Name,
 			MemberCount:  memberCount,
-			TotalBalance: decimal.Zero,
-			Currency:     currency.CAD,
+			TotalBalance: totalBalance,
 		})
 	}
 

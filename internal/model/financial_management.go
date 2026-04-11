@@ -7,11 +7,12 @@ import (
 )
 
 type Account struct {
-	ID        string    `db:"id"`
-	Name      string    `db:"name"`
-	SpaceID   string    `db:"space_id"`
-	CreatedAt time.Time `db:"created_at"`
-	UpdatedAt time.Time `db:"updated_at"`
+	ID        string          `db:"id"`
+	Name      string          `db:"name"`
+	SpaceID   string          `db:"space_id"`
+	Balance   decimal.Decimal `db:"balance"`
+	CreatedAt time.Time       `db:"created_at"`
+	UpdatedAt time.Time       `db:"updated_at"`
 }
 
 type TransactionType string
