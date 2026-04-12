@@ -50,10 +50,20 @@ templ App(title string) {
 								@sidebar.MenuButton(sidebar.MenuButtonProps{
 									Href:     routeurl.URL("page.app.spaces"),
 									IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces"),
-									Tooltip:  "Spaces",
+									Tooltip:  "My spaces",
 								}) {
-									@icon.House(icon.Props{Class: "size-4"})
-									<span>Spaces</span>
+									@icon.User()
+									<span>My spaces</span>
+								}
+							}
+							@sidebar.MenuItem() {
+								@sidebar.MenuButton(sidebar.MenuButtonProps{
+									Href:     routeurl.URL("page.app.shared-with-me"),
+									IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.shared-with-me"),
+									Tooltip:  "Shared with me",
+								}) {
+									@icon.Users()
+									<span>Shared with me</span>
 								}
 							}
 						}
