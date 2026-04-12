@@ -17,6 +17,8 @@ type SpaceRepository interface {
 	Create(space *model.Space) error
 	ByID(id string) (*model.Space, error)
 	ByUserID(userID string) ([]*model.Space, error)
+	ByOwnerID(userID string) ([]*model.Space, error)
+	SharedWithUser(userID string) ([]*model.Space, error)
 	AddMember(spaceID, userID string, role model.Role) error
 	RemoveMember(spaceID, userID string) error
 	IsMember(spaceID, userID string) (bool, error)
@@ -88,6 +90,37 @@ func (r *spaceRepository) ByUserID(userID string) ([]*model.Space, error) {
 		return nil, err
 	}
 
+	return spaces, nil
+}
+
+func (r *spaceRepository) ByOwnerID(userID string) ([]*model.Space, error) {
+	var spaces []*model.Space
+	query := `
+		SELECT s.*
+		FROM spaces s
+		WHERE s.owner_id = $1
+		ORDER BY s.created_at DESC;
+	`
+	err := r.db.Select(&spaces, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	return spaces, nil
+}
+
+func (r *spaceRepository) SharedWithUser(userID string) ([]*model.Space, error) {
+	var spaces []*model.Space
+	query := `
+		SELECT s.*
+		FROM spaces s
+		JOIN space_members sm ON s.id = sm.space_id
+		WHERE sm.user_id = $1 AND s.owner_id != $1
+		ORDER BY s.created_at DESC;
+	`
+	err := r.db.Select(&spaces, query, userID)
+	if err != nil {
+		return nil, err
+	}
 	return spaces, nil
 }
 

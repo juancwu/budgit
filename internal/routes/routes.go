@@ -96,7 +96,7 @@ func SetupRoutes(a *app.App) http.Handler {
 		})
 
 		g.SubGroup("/shared-with-me", func(g *router.Group) {
-			g.Get("", spaceH.SpacesPage).Name("page.app.shared-with-me")
+			g.Get("", spaceH.SharedSpacesPage).Name("page.app.shared-with-me")
 		})
 
 		g.SubGroup("/settings", func(g *router.Group) {

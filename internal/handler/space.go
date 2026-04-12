@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
@@ -30,27 +31,48 @@ func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spaces, err := h.spaceService.GetSpacesForUser(user.ID)
+	spaces, err := h.spaceService.GetOwnedSpaces(user.ID)
 	if err != nil {
 		slog.Error("failed to load spaces", "error", err, "user_id", user.ID)
 		ui.RenderError(w, r, "Failed to load spaces", http.StatusInternalServerError)
 		return
 	}
 
+	cards := h.buildSpaceCards(spaces)
+	ui.Render(w, r, pages.Spaces(cards))
+}
+
+func (h *spaceHandler) SharedSpacesPage(w http.ResponseWriter, r *http.Request) {
+	user := ctxkeys.User(r.Context())
+	if user == nil {
+		ui.RenderError(w, r, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	spaces, err := h.spaceService.GetSharedSpaces(user.ID)
+	if err != nil {
+		slog.Error("failed to load shared spaces", "error", err, "user_id", user.ID)
+		ui.RenderError(w, r, "Failed to load shared spaces", http.StatusInternalServerError)
+		return
+	}
+
+	cards := h.buildSpaceCards(spaces)
+	ui.Render(w, r, pages.SharedSpaces(cards))
+}
+
+func (h *spaceHandler) buildSpaceCards(spaces []*model.Space) []blocks.SpaceCardInfo {
 	cards := make([]blocks.SpaceCardInfo, 0, len(spaces))
 	for _, sp := range spaces {
 		memberCount, err := h.spaceService.GetMemberCount(sp.ID)
 		if err != nil {
 			slog.Error("failed to get space member count", "error", err, "space_id", sp.ID)
 			memberCount = 0
-			err = nil
 		}
 
 		accounts, err := h.accountService.GetAccountsForSpace(sp.ID)
 		if err != nil {
 			slog.Error("failed to get space accounts", "error", err, "space_id", sp.ID)
 			accounts = nil
-			err = nil
 		}
 
 		totalBalance := decimal.Zero
@@ -65,8 +87,7 @@ func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 			TotalBalance: totalBalance,
 		})
 	}
-
-	ui.Render(w, r, pages.Spaces(cards))
+	return cards
 }
 
 func (h *spaceHandler) CreateSpacePage(w http.ResponseWriter, r *http.Request) {

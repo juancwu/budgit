@@ -50,6 +50,24 @@ func (s *SpaceService) GetSpacesForUser(userID string) ([]*model.Space, error) {
 	return spaces, nil
 }
 
+// GetOwnedSpaces returns spaces owned by the user.
+func (s *SpaceService) GetOwnedSpaces(userID string) ([]*model.Space, error) {
+	spaces, err := s.spaceRepo.ByOwnerID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get owned spaces: %w", err)
+	}
+	return spaces, nil
+}
+
+// GetSharedSpaces returns spaces shared with the user (not owned by them).
+func (s *SpaceService) GetSharedSpaces(userID string) ([]*model.Space, error) {
+	spaces, err := s.spaceRepo.SharedWithUser(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get shared spaces: %w", err)
+	}
+	return spaces, nil
+}
+
 // GetSpace retrieves a single space by its ID.
 func (s *SpaceService) GetSpace(spaceID string) (*model.Space, error) {
 	space, err := s.spaceRepo.ByID(spaceID)
