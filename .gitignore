@@ -60,3 +60,4 @@ tmp/
 
 output.css
 .session
+.worktrees/
