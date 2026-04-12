@@ -4,6 +4,8 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
 
 templ CreateSpace() {
 	@layouts.Base(layouts.SEOProps{
@@ -16,11 +18,18 @@ templ CreateSpace() {
 				@blocks.ThemeSwitcher()
 			</div>
 			<div class="w-full max-w-2xl md:grid md:grid-cols-2 md:gap-4">
-				<div class="space-y-2">
-					<h1 class="text-2xl">
-						Create Space
-					</h1>
-					<p class="text-sm text-muted-foreground">This is where you or your group can track expenses.</p>
+				<div class="h-full flex flex-col justify-between">
+					<div class="space-y-2">
+						<h1 class="text-2xl">
+							Create Space
+						</h1>
+						<p class="text-sm text-muted-foreground">This is where you or your group can track expenses.</p>
+					</div>
+					<div>
+						@button.Button(button.Props{Variant: button.VariantGhost, Href: routeurl.URL("page.app.spaces")}) {
+							Cancel 
+						}
+					</div>
 				</div>
 				<div class="mt-4 md:mt-0">
 					@forms.CreateSpace("", "")
