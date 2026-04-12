@@ -1,20 +1,20 @@
 {
-	"$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
-	"packages": [
-		"go@1.25.5",
-		"templ@0.3.960",
-		"go-task@3.45.5",
-		"tailwindcss_4@4.2.1",
-		"nodejs@24",
-		"goose@latest"
-	],
-	"shell": {
-		"init_hook": [
-			"echo 'Welcome to devbox!' > /dev/null",
-			"unset DEVELOPER_DIR"
-		],
-		"scripts": {
-			"setup": ["go install github.com/mfridman/tparse@latest"]
-		}
-	}
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "go@1.25.5",
+    "go-task@3.45.5",
+    "tailwindcss_4@4.2.1",
+    "nodejs@24",
+    "goose@latest",
+    "templ@0.3.1001"
+  ],
+  "shell": {
+    "init_hook": [
+      "echo 'Welcome to devbox!' > /dev/null",
+      "unset DEVELOPER_DIR"
+    ],
+    "scripts": {
+      "setup": ["go install github.com/mfridman/tparse@latest"]
+    }
+  }
 }

@@ -156,7 +156,7 @@ templ AppSidebarDropdown(user *model.User) {
 				Href: "/app/settings",
 			}) {
 				<span class="flex items-center">
-					@icon.Settings(icon.Props{Size: 16, Class: "mr-2"})
+					@icon.Settings(icon.Props{Class: "mr-2"})
 					Settings
 				</span>
 			}
@@ -168,7 +168,7 @@ templ AppSidebarDropdown(user *model.User) {
 					},
 				}) {
 					<span class="flex items-center">
-						@icon.LogOut(icon.Props{Size: 16, Class: "mr-2"})
+						@icon.LogOut(icon.Props{Class: "mr-2"})
 						Log out
 					</span>
 				}

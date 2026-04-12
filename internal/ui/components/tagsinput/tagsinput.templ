@@ -1,10 +1,11 @@
-// templui component tagsinput - version: v1.2.0 installed by templui v1.2.0
+// templui component tagsinput - version: v1.9.5 installed by templui v1.9.5
 // 📚 Documentation: https://templui.io/docs/components/tags-input
 package tagsinput
 
 import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/popover"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 )
 
@@ -19,19 +20,26 @@ type Props struct {
 	Attributes  templ.Attributes
 	Disabled    bool
 	Readonly    bool
+	Suggestions []string
 }
 
 templ TagsInput(props ...Props) {
-	{{ var p Props }}
-	if len(props) > 0 {
-		{{ p = props[0] }}
-	}
+	{{
+		var p Props
+		if len(props) > 0 {
+			p = props[0]
+		}
+		if p.ID == "" {
+			p.ID = utils.RandomID()
+		}
+		suggestionsID := p.ID + "-suggestions"
+	}}
 	<div
 		id={ p.ID + "-container" }
 		class={
 			utils.TwMerge(
 				// Base styles
-				"flex items-center flex-wrap gap-2 p-2 rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none",
+				"flex flex-col gap-2 p-2 rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] outline-none",
 				// Dark mode background
 				"dark:bg-input/30",
 				// Focus styles
@@ -48,9 +56,13 @@ templ TagsInput(props ...Props) {
 		data-tui-tagsinput
 		data-tui-tagsinput-name={ p.Name }
 		data-tui-tagsinput-form={ p.Form }
+		if len(p.Suggestions) > 0 {
+			data-tui-tagsinput-suggestions-id={ suggestionsID }
+		}
 		{ p.Attributes... }
 	>
-		<div class="flex items-center flex-wrap gap-2" data-tui-tagsinput-container>
+		<!-- Tags row (hidden when empty) -->
+		<div class="flex flex-wrap gap-2 empty:hidden" data-tui-tagsinput-chips>
 			for _, tag := range p.Value {
 				@badge.Badge(badge.Props{
 					Attributes: templ.Attributes{"data-tui-tagsinput-chip": ""},
@@ -69,19 +81,65 @@ templ TagsInput(props ...Props) {
 				}
 			}
 		</div>
-		@input.Input(input.Props{
-			ID:          p.ID,
-			Class:       "border-0 shadow-none focus-visible:ring-0 h-auto py-0 px-0 bg-transparent rounded-none min-h-0 disabled:opacity-100 dark:bg-transparent",
-			Type:        input.TypeText,
-			Placeholder: p.Placeholder,
-			Disabled:    p.Disabled,
-			Readonly:    p.Readonly,
-			Attributes: utils.MergeAttributes(
-				templ.Attributes{"data-tui-tagsinput-text-input": ""},
-				p.Attributes,
-			),
-		})
-		<div data-tui-tagsinput-hidden-inputs>
+		<!-- Input row -->
+		if len(p.Suggestions) > 0 {
+			@popover.Root(popover.RootProps{
+				ID: suggestionsID,
+			}) {
+				@popover.Trigger(popover.TriggerProps{
+					TriggerType: popover.TriggerTypeManual,
+				}) {
+					<div class="relative w-full">
+						@input.Input(input.Props{
+							ID:          p.ID,
+							Class:       "border-0 shadow-none focus-visible:ring-0 h-auto py-0 px-0 bg-transparent rounded-none min-h-0 disabled:opacity-100 dark:bg-transparent w-full",
+							Type:        input.TypeText,
+							Placeholder: p.Placeholder,
+							Disabled:    p.Disabled,
+							Readonly:    p.Readonly,
+							Attributes: utils.MergeAttributes(
+								templ.Attributes{"data-tui-tagsinput-text-input": ""},
+								p.Attributes,
+							),
+						})
+					</div>
+				}
+				@popover.Content(popover.ContentProps{
+					Placement:        popover.PlacementBottomStart,
+					DisableClickAway: true,
+					Class:            "p-1 max-h-[200px] overflow-y-auto min-w-[var(--trigger-width,12rem)] w-[var(--trigger-width,12rem)]",
+					Attributes: templ.Attributes{
+						"data-tui-tagsinput-suggestions-content": "true",
+					},
+				}) {
+					for _, suggestion := range p.Suggestions {
+						<div
+							class="relative flex w-full cursor-pointer select-none items-center rounded-sm py-1.5 px-2 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+							data-tui-tagsinput-suggestion
+							data-tui-tagsinput-suggestion-value={ suggestion }
+						>
+							{ suggestion }
+						</div>
+					}
+				}
+			}
+		} else {
+			<div class="relative w-full">
+				@input.Input(input.Props{
+					ID:          p.ID,
+					Class:       "border-0 shadow-none focus-visible:ring-0 h-auto py-0 px-0 bg-transparent rounded-none min-h-0 disabled:opacity-100 dark:bg-transparent w-full",
+					Type:        input.TypeText,
+					Placeholder: p.Placeholder,
+					Disabled:    p.Disabled,
+					Readonly:    p.Readonly,
+					Attributes: utils.MergeAttributes(
+						templ.Attributes{"data-tui-tagsinput-text-input": ""},
+						p.Attributes,
+					),
+				})
+			</div>
+		}
+		<div data-tui-tagsinput-hidden-inputs class="hidden">
 			for _, tag := range p.Value {
 				<input type="hidden" name={ p.Name } value={ tag }/>
 			}
@@ -89,6 +147,11 @@ templ TagsInput(props ...Props) {
 	</div>
 }
 
+var scriptOnce = templ.NewOnceHandle()
+
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/tagsinput.min.js") }></script>
+	@scriptOnce.Once() {
+		@popover.Script()
+		@utils.ComponentScript("tagsinput")
+	}
 }

@@ -1,4 +1,4 @@
-// templui component pagination - version: v1.2.0 installed by templui v1.2.0
+// templui component pagination - version: v1.9.5 installed by templui v1.9.5
 // 📚 Documentation: https://templui.io/docs/components/pagination
 package pagination
 
@@ -145,7 +145,7 @@ templ Previous(props ...PreviousProps) {
 		Class:      utils.TwMerge("gap-1", p.Class),
 		Attributes: p.Attributes,
 	}) {
-		@icon.ChevronLeft(icon.Props{Size: 16})
+		@icon.ChevronLeft(icon.Props{Class: "size-4"})
 		if p.Label != "" {
 			<span>{ p.Label }</span>
 		}
@@ -168,12 +168,12 @@ templ Next(props ...NextProps) {
 		if p.Label != "" {
 			<span>{ p.Label }</span>
 		}
-		@icon.ChevronRight(icon.Props{Size: 16})
+		@icon.ChevronRight(icon.Props{Class: "size-4"})
 	}
 }
 
 templ Ellipsis() {
-	@icon.Ellipsis(icon.Props{Size: 16})
+	@icon.Ellipsis(icon.Props{Class: "size-4"})
 }
 
 func CreatePagination(currentPage, totalPages, maxVisible int) struct {

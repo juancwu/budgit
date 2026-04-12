@@ -1,4 +1,4 @@
-// templui component copybutton - version: v1.2.0 installed by templui v1.2.0
+// templui component copybutton - version: v1.9.5 installed by templui v1.9.5
 // 📚 Documentation: https://templui.io/docs/components/copy-button
 package copybutton
 
@@ -34,15 +34,19 @@ templ CopyButton(props Props) {
 			Type:       button.TypeButton,
 		}) {
 			<span data-copy-icon-clipboard>
-				@icon.Clipboard(icon.Props{Size: 16})
+				@icon.Clipboard(icon.Props{Class: "size-4"})
 			</span>
 			<span data-copy-icon-check class="hidden">
-				@icon.Check(icon.Props{Size: 16})
+				@icon.Check(icon.Props{Class: "size-4"})
 			</span>
 		}
 	</div>
 }
 
+var scriptOnce = templ.NewOnceHandle()
+
 templ Script() {
-	<script defer nonce={ templ.GetNonce(ctx) } src={ utils.ScriptURL("/assets/js/copybutton.min.js") }></script>
+	@scriptOnce.Once() {
+		@utils.ComponentScript("copybutton")
+	}
 }
