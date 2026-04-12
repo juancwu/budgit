@@ -33,6 +33,7 @@ func SetupRoutes(a *app.App) http.Handler {
 		middleware.CSRFProtection,
 		middleware.AuthMiddleware(a.AuthService, a.UserService),
 		middleware.WithURLPath,
+		middleware.WithSidebarState,
 	)
 
 	// Static assets (bypass router groups — registered directly on mux)

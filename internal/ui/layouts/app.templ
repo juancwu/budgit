@@ -22,7 +22,9 @@ templ App(title string) {
 		Path:        ctxkeys.URLPath(ctx),
 	}) {
 		@sidebar.Layout() {
-			@sidebar.Sidebar() {
+			@sidebar.Sidebar(sidebar.Props{
+			Collapsed: ctxkeys.SidebarCollapsed(ctx),
+		}) {
 				@sidebar.Header() {
 					@sidebar.Menu() {
 						@sidebar.MenuItem() {

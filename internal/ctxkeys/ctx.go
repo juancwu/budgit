@@ -13,7 +13,8 @@ const (
 	URLPathKey    string = "url_path"
 	ConfigKey     string = "config"
 	CSRFTokenKey  string = "csrf_token"
-	AppVersionKey string = "app_version"
+	AppVersionKey        string = "app_version"
+	SidebarCollapsedKey  string = "sidebar_collapsed"
 )
 
 func User(ctx context.Context) *model.User {
@@ -60,4 +61,13 @@ func AppVersion(ctx context.Context) string {
 
 func WithAppVersion(ctx context.Context, version string) context.Context {
 	return context.WithValue(ctx, AppVersionKey, version)
+}
+
+func SidebarCollapsed(ctx context.Context) bool {
+	collapsed, _ := ctx.Value(SidebarCollapsedKey).(bool)
+	return collapsed
+}
+
+func WithSidebarCollapsed(ctx context.Context, collapsed bool) context.Context {
+	return context.WithValue(ctx, SidebarCollapsedKey, collapsed)
 }
