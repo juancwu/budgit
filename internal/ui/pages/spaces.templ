@@ -38,7 +38,7 @@ templ Spaces(spaces []blocks.SpaceCardInfo) {
 }
 
 templ SharedSpaces(spaces []blocks.SpaceCardInfo) {
-	@layouts.App("Shared with me") {
+	@layouts.App("Shared with me", spaceOverviewSidebarContent()) {
 		<div class="container px-6 py-8 mx-auto">
 			<div class="mb-8">
 				<h1 class="text-3xl font-bold">Shared with me</h1>
