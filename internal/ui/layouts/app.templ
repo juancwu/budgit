@@ -3,6 +3,7 @@ package layouts
 import (
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/avatar"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/breadcrumb"
@@ -11,10 +12,9 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/sidebar"
 	"strings"
-	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 )
 
-templ App(title string) {
+templ App(title string, sidebarContent ...templ.Component) {
 	{{ cfg := ctxkeys.Config(ctx) }}
 	@Base(SEOProps{
 		Title:       title,
@@ -41,32 +41,8 @@ templ App(title string) {
 					}
 				}
 				@sidebar.Content() {
-					@sidebar.Group() {
-						@sidebar.GroupLabel() {
-							Overview
-						}
-						@sidebar.Menu() {
-							@sidebar.MenuItem() {
-								@sidebar.MenuButton(sidebar.MenuButtonProps{
-									Href:     routeurl.URL("page.app.spaces"),
-									IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces"),
-									Tooltip:  "My spaces",
-								}) {
-									@icon.User()
-									<span>My spaces</span>
-								}
-							}
-							@sidebar.MenuItem() {
-								@sidebar.MenuButton(sidebar.MenuButtonProps{
-									Href:     routeurl.URL("page.app.shared-with-me"),
-									IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.shared-with-me"),
-									Tooltip:  "Shared with me",
-								}) {
-									@icon.Users()
-									<span>Shared with me</span>
-								}
-							}
-						}
+					for _, content := range sidebarContent {
+						@content
 					}
 				}
 				@sidebar.Footer() {

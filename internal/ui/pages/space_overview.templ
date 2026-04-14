@@ -1,0 +1,58 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/sidebar"
+
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+
+type SpaceOverviewProps struct {
+	SpaceID   string
+	SpaceName string
+	Accounts  []blocks.AccountCardInfo
+}
+
+templ SpaceOverview(props SpaceOverviewProps) {
+	@layouts.App("Space Overview", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+		<div class="container px-6 py-8 mx-auto">
+			<div class="mb-8">
+				<h1 class="text-3xl font-bold">{ props.SpaceName }</h1>
+				<p class="text-muted-foreground mt-2">Space overview</p>
+			</div>
+			<div class="mb-8">
+				<h2 class="text-xl font-semibold mb-4">Accounts</h2>
+				if len(props.Accounts) == 0 {
+					<p class="text-muted-foreground text-sm">No accounts yet.</p>
+				} else {
+					<div>
+						for _, account := range props.Accounts {
+							@blocks.AccountCard(account)
+						}
+					</div>
+				}
+			</div>
+		</div>
+	}
+}
+
+templ spaceSpecificSidebarContent(spaceID string) {
+	@sidebar.Group() {
+		@sidebar.GroupLabel() {
+			Space
+		}
+		@sidebar.Menu() {
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.overview", "spaceID", spaceID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.overview", "spaceID", spaceID),
+					Tooltip:  "Space Overview",
+				}) {
+					@icon.LayoutDashboard()
+					<span>Space Overview</span>
+				}
+			}
+		}
+	}
+}
