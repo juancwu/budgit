@@ -113,12 +113,12 @@ func TestAuthHandler_CompleteOnboarding_Success(t *testing.T) {
 		assert.Equal(t, http.StatusSeeOther, w.Code)
 		assert.Equal(t, "/app/dashboard", w.Header().Get("Location"))
 
-		// Space "John's Space" with a default account should now exist
+		// Default space with a default account should now exist
 		spaceRepo := repository.NewSpaceRepository(dbi.DB)
 		spaces, err := spaceRepo.ByUserID(user.ID)
 		assert.NoError(t, err)
 		assert.Len(t, spaces, 1)
-		assert.Equal(t, "John's Space", spaces[0].Name)
+		assert.Equal(t, service.DefaultSpaceName, spaces[0].Name)
 
 		accountRepo := repository.NewAccountRepository(dbi.DB)
 		accounts, err := accountRepo.BySpaceID(spaces[0].ID)

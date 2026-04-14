@@ -358,8 +358,7 @@ func (s *AuthService) CompleteOnboarding(userID, name string) error {
 	}
 
 	if len(existing) == 0 {
-		spaceName := name + "'s Space"
-		space, err := s.spaceService.CreateSpace(spaceName, userID)
+		space, err := s.spaceService.CreateSpace(DefaultSpaceName, userID)
 		if err != nil {
 			return fmt.Errorf("failed to create onboarding space: %w", err)
 		}

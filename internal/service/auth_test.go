@@ -189,12 +189,12 @@ func TestAuthService_CompleteOnboarding(t *testing.T) {
 		require.NotNil(t, updated.Name)
 		assert.Equal(t, "New Name", *updated.Name)
 
-		// A space named "<name>'s Space" was provisioned
+		// A space named DefaultSpaceName was provisioned
 		spaceRepo := repository.NewSpaceRepository(dbi.DB)
 		spaces, err := spaceRepo.ByUserID(user.ID)
 		require.NoError(t, err)
 		require.Len(t, spaces, 1)
-		assert.Equal(t, "New Name's Space", spaces[0].Name)
+		assert.Equal(t, DefaultSpaceName, spaces[0].Name)
 
 		// With a default account inside it
 		accountRepo := repository.NewAccountRepository(dbi.DB)
