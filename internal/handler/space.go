@@ -136,5 +136,25 @@ func (h *spaceHandler) SpaceOverviewPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ui.Render(w, r, pages.SpaceOverview(space.Name))
+	accounts, err := h.accountService.GetAccountsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to fetch accounts for space", "error", err, "spaceID", spaceID)
+		ui.RenderError(w, r, "Failed to load accounts", http.StatusInternalServerError)
+		return
+	}
+
+	accountCards := make([]blocks.AccountCardInfo, 0, len(accounts))
+	for _, a := range accounts {
+		accountCards = append(accountCards, blocks.AccountCardInfo{
+			ID:      a.ID,
+			Name:    a.Name,
+			Balance: a.Balance,
+		})
+	}
+
+	ui.Render(w, r, pages.SpaceOverview(pages.SpaceOverviewProps{
+		SpaceID:   space.ID,
+		SpaceName: space.Name,
+		Accounts:  accountCards,
+	}))
 }
