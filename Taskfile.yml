@@ -1,4 +1,5 @@
 version: "3"
+dotenv: ['.env']
 vars:
   TEMPL_PROXYBIND: '{{.TEMPL_PROXYBIND | default "127.0.0.1"}}'
   TEMPL_PROXYPORT: '{{.TEMPL_PROXYPORT | default "7331"}}'
@@ -52,7 +53,28 @@ tasks:
     desc: Sets up the local development environment
     cmds:
       - cp .env.include.example .env
-      - go-task generate-secrets
+      - task generate-secrets
+      - task migrate-up
+  migrate-status:
+    desc: Check migration status
+    cmds:
+      - goose status
+  migrate-up:
+    desc: Apply migrations
+    cmds:
+      - goose up
+  migrate-down:
+    desc: Rollback one migration
+    cmds:
+      - goose down
+  migrate-down-all:
+    desc: Rollback all migrations
+    cmds:
+      - goose down-to 0
+  make-migration:
+    desc: Create a new migration
+    cmds:
+      - goose create {{.CLI_ARGS}} sql -s
   generate-secrets:
     desc: Generates a random GOSHOP_APP_KEY and sets it in .env
     cmds:
