@@ -1,0 +1,99 @@
+package pages
+
+import "github.com/shopspring/decimal"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+
+type SpaceAccountPageProps struct {
+	SpaceID            string
+	AccountID          string
+	AccountName        string
+	AccountDescription string
+	AccountNumber      string
+	AccountBalance     decimal.Decimal
+}
+
+templ SpaceAccountPage(props SpaceAccountPageProps) {
+	{{
+		balanceTextClasses := []string{"text-4xl font-bold"}
+		if props.AccountBalance.IsPositive() {
+			balanceTextClasses = append(balanceTextClasses, "text-green-600 dark:text-green-400")
+		} else {
+			balanceTextClasses = append(balanceTextClasses, "text-red-600 dark:text-red-400")
+		}
+	}}
+	@layouts.App("Space Account", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+		<div class="container px-6 py-8 mx-auto space-y-8">
+			<div class="grid gap-4 grid-cols-1 md:grid-cols-12">
+				@card.Card(card.Props{
+					Class: "rounded-sm col-span-full md:col-span-8",
+				}) {
+					@card.Header() {
+						@card.Title() {
+							{ props.AccountName }
+						}
+						@card.Description(card.DescriptionProps{Class: "text-sm"}) {
+							{ props.AccountDescription }
+						}
+					}
+					@card.Content() {
+						<h1 class={ utils.TwMerge(balanceTextClasses...) }>${ utils.FormatDecimalWithThousands(props.AccountBalance.StringFixedBank(2)) }</h1>
+						<p class="text-sm text-muted-foreground">Available Balance</p>
+						<p class="mt-8 text-sm text-muted-foreground">
+							Account <span>•••• { props.AccountNumber }</span>
+						</p>
+					}
+				}
+				@card.Card(card.Props{Class: "rounded-sm col-span-full md:col-span-4"}) {
+					@card.Header() {
+						@card.Title() {
+							Quick Actions 
+						}
+					}
+					@card.Content(card.ContentProps{Class: "space-y-4"}) {
+						@button.Button(button.Props{
+							Class:   "w-full flex gap-2 md:gap-4 items-center",
+							Variant: button.VariantDefault,
+						}) {
+							Pay Bills
+							@icon.HandCoins()
+						}
+						@button.Button(button.Props{
+							Class:   "w-full flex gap-2 md:gap-4 items-center",
+							Variant: button.VariantSecondary,
+						}) {
+							Deposit Funds
+							@icon.BanknoteArrowDown()
+						}
+						@button.Button(button.Props{
+							Class:   "w-full flex gap-2 md:gap-4 items-center",
+							Variant: button.VariantLink,
+						}) {
+							Account Settings
+							@icon.Settings()
+						}
+					}
+				}
+			</div>
+			<div>
+				@card.Card() {
+					@card.Header() {
+						<div>
+							@card.Title() {
+								Transaction History 
+							}
+							@card.Description() {
+								Overview of your activity for August 2024 
+							}
+						</div>
+					}
+					@card.Content() {
+					}
+				}
+			</div>
+		</div>
+	}
+}

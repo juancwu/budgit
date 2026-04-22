@@ -92,6 +92,10 @@ func SetupRoutes(a *app.App) http.Handler {
 				spaceAccessMw := middleware.RequireSpaceAccess(a.SpaceService)
 				g.Use(spaceAccessMw)
 				g.Get("/overview", spaceH.SpaceOverviewPage).Name("page.app.spaces.space.overview")
+
+				g.SubGroup("/accounts/{accountID}", func(g *router.Group) {
+					g.Get("/overview", spaceH.SpaceAccountPage).Name("page.app.spaces.space.accounts.account.overview")
+				})
 			})
 		})
 

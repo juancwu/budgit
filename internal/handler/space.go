@@ -146,6 +146,7 @@ func (h *spaceHandler) SpaceOverviewPage(w http.ResponseWriter, r *http.Request)
 	accountCards := make([]blocks.AccountCardInfo, 0, len(accounts))
 	for _, a := range accounts {
 		accountCards = append(accountCards, blocks.AccountCardInfo{
+			SpaceID: space.ID,
 			ID:      a.ID,
 			Name:    a.Name,
 			Balance: a.Balance,
@@ -156,5 +157,19 @@ func (h *spaceHandler) SpaceOverviewPage(w http.ResponseWriter, r *http.Request)
 		SpaceID:   space.ID,
 		SpaceName: space.Name,
 		Accounts:  accountCards,
+	}))
+}
+
+func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
+		SpaceID:            spaceID,
+		AccountID:          accountID,
+		AccountName:        "Money Account",
+		AccountDescription: "Vault Infinite Priority",
+		AccountNumber:      "4492",
+		AccountBalance:     decimal.NewFromFloat(32093.11),
 	}))
 }
