@@ -4,9 +4,9 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/avatar"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/breadcrumb"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dropdown"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
@@ -49,6 +49,18 @@ templ App(title string, sidebarContent ...templ.Component) {
 					@sidebar.Menu() {
 						@sidebar.MenuItem() {
 							@sidebar.MenuButton(sidebar.MenuButtonProps{
+								Size: sidebar.MenuButtonSizeSm,
+								Attributes: templ.Attributes{
+									"data-theme-switcher": "true",
+									"aria-label":          "Toggle theme",
+								},
+							}) {
+								@icon.Eclipse(icon.Props{Class: "size-4"})
+								<span>Theme</span>
+							}
+						}
+						@sidebar.MenuItem() {
+							@sidebar.MenuButton(sidebar.MenuButtonProps{
 								Href: "mailto:" + cfg.SupportEmail,
 								Size: sidebar.MenuButtonSizeSm,
 							}) {
@@ -60,15 +72,6 @@ templ App(title string, sidebarContent ...templ.Component) {
 					<div class="px-2 py-1">
 						<span class="text-xs text-muted-foreground">App version: { cfg.Version }</span>
 					</div>
-					@sidebar.Separator()
-					@sidebar.Menu() {
-						@sidebar.MenuItem() {
-							{{ user := ctxkeys.User(ctx) }}
-							if user != nil {
-								@AppSidebarDropdown(user)
-							}
-						}
-					}
 				}
 			}
 			@sidebar.Inset() {
@@ -88,7 +91,10 @@ templ App(title string, sidebarContent ...templ.Component) {
 							}
 						</div>
 						<div class="ml-auto flex items-center gap-4">
-							@blocks.ThemeSwitcher()
+							{{ user := ctxkeys.User(ctx) }}
+							if user != nil {
+								@AppAccountDropdown(user)
+							}
 						</div>
 					</div>
 				</header>
@@ -101,7 +107,7 @@ templ App(title string, sidebarContent ...templ.Component) {
 	}
 }
 
-templ AppSidebarDropdown(user *model.User) {
+templ AppAccountDropdown(user *model.User) {
 	{{ displayName := user.Email }}
 	{{
 		if user.Name != nil && *user.Name != "" {
@@ -110,28 +116,28 @@ templ AppSidebarDropdown(user *model.User) {
 	}}
 	@dropdown.Dropdown() {
 		@dropdown.Trigger() {
-			@sidebar.MenuButton(sidebar.MenuButtonProps{
-				Size: sidebar.MenuButtonSizeLg,
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeIcon,
+				Class:   "rounded-full",
+				Attributes: templ.Attributes{
+					"aria-label": "Account menu",
+				},
 			}) {
-				<div id="sidebar-avatar" hx-swap-oob="true">
-					@avatar.Avatar(avatar.Props{Class: "size-8 rounded-lg"}) {
+				<div id="account-avatar" hx-swap-oob="true">
+					@avatar.Avatar(avatar.Props{Class: "size-8 rounded-full"}) {
 						@avatar.Fallback() {
 							{ strings.ToUpper(string(displayName[0])) }
 						}
 					}
 				</div>
-				<div id="sidebar-user-name" hx-swap-oob="true" class="grid flex-1 text-left text-sm leading-tight">
-					<span class="truncate font-medium">{ displayName }</span>
-					<span class="truncate text-xs text-muted-foreground">{ user.Email }</span>
-				</div>
-				@icon.ChevronsUpDown(icon.Props{Class: "ml-auto size-4"})
 			}
 		}
 		@dropdown.Content(dropdown.ContentProps{
 			Class:     "w-56",
-			Placement: dropdown.PlacementTopStart,
+			Placement: dropdown.PlacementBottomEnd,
 		}) {
-			<div id="dropdown-user-label" hx-swap-oob="true">
+			<div id="account-dropdown-label" hx-swap-oob="true">
 				@dropdown.Label() {
 					<div class="flex flex-col">
 						<span class="font-medium">{ displayName }</span>
@@ -144,7 +150,7 @@ templ AppSidebarDropdown(user *model.User) {
 				Href: "/app/settings",
 			}) {
 				<span class="flex items-center">
-					@icon.Settings(icon.Props{Class: "mr-2"})
+					@icon.Settings(icon.Props{Class: "size-4 mr-2"})
 					Settings
 				</span>
 			}
@@ -156,7 +162,7 @@ templ AppSidebarDropdown(user *model.User) {
 					},
 				}) {
 					<span class="flex items-center">
-						@icon.LogOut(icon.Props{Class: "mr-2"})
+						@icon.LogOut(icon.Props{Class: "size-4 mr-2"})
 						Log out
 					</span>
 				}
