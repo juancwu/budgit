@@ -19,7 +19,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -95,6 +95,8 @@ func SetupRoutes(a *app.App) http.Handler {
 
 				g.SubGroup("/accounts/{accountID}", func(g *router.Group) {
 					g.Get("/overview", spaceH.SpaceAccountPage).Name("page.app.spaces.space.accounts.account.overview")
+					g.Get("/bills/create", spaceH.SpaceCreateBillPage).Name("page.app.spaces.space.accounts.account.bills.create")
+					g.Post("/bills/create", spaceH.HandleCreateBill).Name("action.app.spaces.space.accounts.account.bills.create")
 				})
 			})
 		})

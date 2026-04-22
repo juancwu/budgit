@@ -4,9 +4,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
 	"git.juancwu.dev/juancwu/budgit/internal/ui"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
@@ -16,12 +18,21 @@ import (
 )
 
 type spaceHandler struct {
-	spaceService   *service.SpaceService
-	accountService *service.AccountService
+	spaceService       *service.SpaceService
+	accountService     *service.AccountService
+	transactionService *service.TransactionService
 }
 
-func NewSpaceHandler(spaceService *service.SpaceService, accountService *service.AccountService) *spaceHandler {
-	return &spaceHandler{spaceService: spaceService, accountService: accountService}
+func NewSpaceHandler(
+	spaceService *service.SpaceService,
+	accountService *service.AccountService,
+	transactionService *service.TransactionService,
+) *spaceHandler {
+	return &spaceHandler{
+		spaceService:       spaceService,
+		accountService:     accountService,
+		transactionService: transactionService,
+	}
 }
 
 func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
@@ -164,12 +175,154 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 	spaceID := r.PathValue("spaceID")
 	accountID := r.PathValue("accountID")
 
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load account", "error", err, "account_id", accountID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	if account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
 	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
-		SpaceID:            spaceID,
-		AccountID:          accountID,
-		AccountName:        "Money Account",
-		AccountDescription: "Vault Infinite Priority",
-		AccountNumber:      "4492",
-		AccountBalance:     decimal.NewFromFloat(32093.11),
+		SpaceID:        spaceID,
+		AccountID:      accountID,
+		AccountName:    account.Name,
+		AccountBalance: account.Balance,
 	}))
+}
+
+func (h *spaceHandler) SpaceCreateBillPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load account", "error", err, "account_id", accountID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+	if account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	categories, err := h.transactionService.ListCategories()
+	if err != nil {
+		slog.Error("failed to load categories", "error", err)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceCreateBillPage(pages.SpaceCreateBillPageProps{
+		SpaceID:     spaceID,
+		AccountID:   accountID,
+		AccountName: account.Name,
+		Form: forms.CreateBillProps{
+			SpaceID:    spaceID,
+			AccountID:  accountID,
+			Categories: categories,
+			Date:       time.Now().Format("2006-01-02"),
+		},
+	}))
+}
+
+func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	titleInput := strings.TrimSpace(r.FormValue("title"))
+	amountInput := strings.TrimSpace(r.FormValue("amount"))
+	dateInput := strings.TrimSpace(r.FormValue("date"))
+	descriptionInput := strings.TrimSpace(r.FormValue("description"))
+	categoryInput := strings.TrimSpace(r.FormValue("category"))
+
+	categories, err := h.transactionService.ListCategories()
+	if err != nil {
+		slog.Error("failed to load categories", "error", err)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
+
+	formProps := forms.CreateBillProps{
+		SpaceID:     spaceID,
+		AccountID:   accountID,
+		Categories:  categories,
+		Title:       titleInput,
+		Amount:      amountInput,
+		Date:        dateInput,
+		Description: descriptionInput,
+		CategoryID:  categoryInput,
+	}
+
+	hasErr := false
+	if titleInput == "" {
+		formProps.TitleErr = "Title is required."
+		hasErr = true
+	}
+
+	var amount decimal.Decimal
+	if amountInput == "" {
+		formProps.AmountErr = "Amount is required."
+		hasErr = true
+	} else {
+		amt, err := decimal.NewFromString(amountInput)
+		if err != nil {
+			formProps.AmountErr = "Enter a valid amount (e.g. 12.34)."
+			hasErr = true
+		} else if !amt.IsPositive() {
+			formProps.AmountErr = "Amount must be greater than zero."
+			hasErr = true
+		} else if amt.Exponent() < -2 {
+			formProps.AmountErr = "Amount can have at most 2 decimal places."
+			hasErr = true
+		} else {
+			amount = amt
+		}
+	}
+
+	var occurredAt time.Time
+	if dateInput == "" {
+		formProps.DateErr = "Date is required."
+		hasErr = true
+	} else {
+		parsed, err := time.Parse("2006-01-02", dateInput)
+		if err != nil {
+			formProps.DateErr = "Enter a valid date."
+			hasErr = true
+		} else {
+			occurredAt = parsed
+		}
+	}
+
+	if hasErr {
+		ui.Render(w, r, forms.CreateBill(formProps))
+		return
+	}
+
+	_, err = h.transactionService.PayBill(service.PayBillInput{
+		AccountID:   accountID,
+		Title:       titleInput,
+		Amount:      amount,
+		OccurredAt:  occurredAt,
+		Description: descriptionInput,
+		CategoryID:  categoryInput,
+	})
+	if err != nil {
+		slog.Error("failed to create bill", "error", err, "account_id", accountID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.CreateBill(formProps))
+		return
+	}
+
+	redirectTo := routeurl.URL(
+		"page.app.spaces.space.accounts.account.overview",
+		"spaceID", spaceID,
+		"accountID", accountID,
+	)
+	w.Header().Set("HX-Redirect", redirectTo)
+	w.WriteHeader(http.StatusOK)
 }

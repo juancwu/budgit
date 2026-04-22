@@ -1,4 +1,25 @@
 package pages
 
-templ SpaceCreateBill() {
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceCreateBillPageProps struct {
+	SpaceID     string
+	AccountID   string
+	AccountName string
+	Form        forms.CreateBillProps
+}
+
+templ SpaceCreateBillPage(props SpaceCreateBillPageProps) {
+	@layouts.App("Pay Bills", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Pay Bills</h1>
+				<p class="text-muted-foreground mt-2">
+					Record a bill paid from { props.AccountName }.
+				</p>
+			</div>
+			@forms.CreateBill(props.Form)
+		</div>
+	}
 }

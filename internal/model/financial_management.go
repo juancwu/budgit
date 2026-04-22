@@ -23,14 +23,15 @@ const (
 )
 
 type Transaction struct {
-	ID                   string          `db:"id"`
-	Value                decimal.Decimal `db:"value"`
-	Type                 TransactionType `db:"type"`
-	AccountID            string          `db:"account_id"`
-	Description          *string         `db:"description"`
-	RelatedTransactionID *string         `db:"related_transaction_id"`
-	CreatedAt            time.Time       `db:"created_at"`
-	UpdatedAt            time.Time       `db:"updated_at"`
+	ID          string          `db:"id"`
+	Value       decimal.Decimal `db:"value"`
+	Type        TransactionType `db:"type"`
+	AccountID   string          `db:"account_id"`
+	Title       string          `db:"title"`
+	Description *string         `db:"description"`
+	OccurredAt  time.Time       `db:"occurred_at"`
+	CreatedAt   time.Time       `db:"created_at"`
+	UpdatedAt   time.Time       `db:"updated_at"`
 }
 
 type Tag struct {

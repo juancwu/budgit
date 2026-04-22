@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	UserKey       string = "user"
+	UserKey string = "user"
 
-	URLPathKey    string = "url_path"
-	ConfigKey     string = "config"
-	CSRFTokenKey  string = "csrf_token"
-	AppVersionKey        string = "app_version"
-	SidebarCollapsedKey  string = "sidebar_collapsed"
+	URLPathKey          string = "url_path"
+	ConfigKey           string = "config"
+	CSRFTokenKey        string = "csrf_token"
+	AppVersionKey       string = "app_version"
+	SidebarCollapsedKey string = "sidebar_collapsed"
 )
 
 func User(ctx context.Context) *model.User {
@@ -25,7 +25,6 @@ func User(ctx context.Context) *model.User {
 func WithUser(ctx context.Context, user *model.User) context.Context {
 	return context.WithValue(ctx, UserKey, user)
 }
-
 
 func URLPath(ctx context.Context) string {
 	path, _ := ctx.Value(URLPathKey).(string)
