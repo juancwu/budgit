@@ -336,7 +336,7 @@ templ Sidebar(props ...Props) {
 		Open: false,
 	}) {
 		@sheet.Content(sheet.ContentProps{
-			Class:           "md:hidden bg-sidebar text-sidebar-foreground !p-0 !gap-0 flex flex-col h-full",
+			Class:           "md:hidden bg-sidebar text-sidebar-foreground !p-0 !gap-0 flex flex-col h-full [&_[data-tui-dialog-panel]]:flex [&_[data-tui-dialog-panel]]:flex-col [&_[data-tui-dialog-panel]]:flex-1 [&_[data-tui-dialog-panel]]:!gap-0",
 			HideCloseButton: true,
 		}) {
 			<!-- Mobile content wrapper: visible only on mobile via JS -->
