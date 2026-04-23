@@ -1,18 +1,22 @@
 package pages
 
 import (
-	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/sidebar"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
 templ AppSettings(hasPassword bool, errorMsg string) {
-	@layouts.App("Settings") {
+	@layouts.App("Settings", spaceOverviewSidebarContent(), settingsSidebarContent()) {
 		<div class="container max-w-2xl px-6 py-8">
 			@blocks.PageHeader("Settings", "Manage your account settings")
 			@card.Card() {
@@ -98,5 +102,25 @@ templ AppSettings(hasPassword bool, errorMsg string) {
 				}
 			}
 		</div>
+	}
+}
+
+templ settingsSidebarContent() {
+	@sidebar.Group() {
+		@sidebar.GroupLabel() {
+			Settings
+		}
+		@sidebar.Menu() {
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.settings"),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.settings"),
+					Tooltip:  "Security",
+				}) {
+					@icon.Lock()
+					<span>Security</span>
+				}
+			}
+		}
 	}
 }
