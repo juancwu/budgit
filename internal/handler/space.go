@@ -50,7 +50,13 @@ func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cards := h.buildSpaceCards(spaces)
-	ui.Render(w, r, pages.Spaces(cards))
+
+	total := decimal.Zero
+	for _, c := range cards {
+		total = total.Add(c.TotalBalance)
+	}
+
+	ui.Render(w, r, pages.Spaces(cards, total))
 }
 
 func (h *spaceHandler) SharedSpacesPage(w http.ResponseWriter, r *http.Request) {

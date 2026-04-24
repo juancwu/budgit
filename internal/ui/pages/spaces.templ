@@ -1,6 +1,8 @@
 package pages
 
 import (
+	"fmt"
+
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
@@ -8,15 +10,35 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/sidebar"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+	"github.com/shopspring/decimal"
 )
 
-templ Spaces(spaces []blocks.SpaceCardInfo) {
-	@layouts.App("Spaces", spaceOverviewSidebarContent()) {
+templ Spaces(spaces []blocks.SpaceCardInfo, totalBalance decimal.Decimal) {
+	{{
+		user := ctxkeys.User(ctx)
+		displayName := ""
+		if user != nil {
+			displayName = *user.Name
+		}
+	}}
+	@layouts.App("My Spaces", spaceOverviewSidebarContent()) {
 		<div class="container px-6 py-8 mx-auto">
-			<div class="mb-8 w-full flex justify-between items-center">
-				<div>
-					<h1 class="text-3xl font-bold">My Spaces</h1>
-					<p class="text-muted-foreground mt-2">Manage and monitor your expenses.</p>
+			<div class="mb-8 w-full space-y-2 md:space-y-0 md:flex justify-between items-end">
+				<div class="space-y-2">
+					<p class="text-muted-foreground text-sm">My Spaces</p>
+					<h1 class="text-2xl font-bold">Good Evening, { displayName }</h1>
+					if len(spaces) == 0 {
+						<p class="text-muted-foreground">Create a space to start tracking your expenses.</p>
+					} else {
+						{{
+							countPhrase := fmt.Sprintf("Across %d spaces", len(spaces))
+							if len(spaces) == 1 {
+								countPhrase = "Across 1 space"
+							}
+						}}
+						<p class="text-muted-foreground">{ countPhrase } you have <span class="font-medium text-foreground">${ utils.FormatDecimalWithThousands(totalBalance.StringFixedBank(2)) }</span> tracked.</p>
+					}
 				</div>
 				<div>
 					@button.Button(button.Props{
