@@ -1,0 +1,206 @@
+package pages
+
+import "encoding/json"
+import "fmt"
+import "strings"
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceActivityPageProps struct {
+	SpaceID     string
+	SpaceName   string
+	Logs        []*model.SpaceAuditLogWithActor
+	CurrentPage int
+	TotalPages  int
+	TotalCount  int
+	PerPage     int
+}
+
+templ SpaceActivityPage(props SpaceActivityPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Activity",
+		spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "Activity"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-6">
+			<div>
+				<h1 class="text-3xl font-bold">Activity</h1>
+				<p class="text-muted-foreground mt-2">
+					An audit log of changes to { props.SpaceName }.
+				</p>
+			</div>
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Content(card.ContentProps{Class: "p-0"}) {
+					if len(props.Logs) == 0 {
+						<p class="px-6 py-10 text-sm text-muted-foreground text-center">
+							No activity yet.
+						</p>
+					} else {
+						<ol class="divide-y">
+							for _, log := range props.Logs {
+								@activityRow(log)
+							}
+						</ol>
+					}
+				}
+			}
+			if props.TotalPages > 1 {
+				@activityPagination(props)
+			}
+		</div>
+	}
+}
+
+templ activityRow(log *model.SpaceAuditLogWithActor) {
+	<li class="flex gap-3 px-6 py-4">
+		<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+			@activityIcon(log.Action)
+		</div>
+		<div class="flex-1 min-w-0">
+			<p class="text-sm">
+				@templ.Raw(activityMessage(log))
+			</p>
+			<p class="text-xs text-muted-foreground mt-1">
+				{ log.CreatedAt.Format("Jan 2, 2006 · 3:04 PM") }
+			</p>
+		</div>
+	</li>
+}
+
+templ activityIcon(action model.SpaceAuditAction) {
+	switch action {
+		case model.SpaceAuditActionRenamed:
+			@icon.Pencil(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionDeleted:
+			@icon.Trash2(icon.Props{Class: "size-4 text-destructive"})
+		case model.SpaceAuditActionMemberInvited:
+			@icon.Mail(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionMemberJoined:
+			@icon.UserPlus(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionMemberRemoved:
+			@icon.UserMinus(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionInviteCancelled:
+			@icon.X(icon.Props{Class: "size-4 text-muted-foreground"})
+		default:
+			@icon.History(icon.Props{Class: "size-4 text-muted-foreground"})
+	}
+}
+
+func actorLabel(log *model.SpaceAuditLogWithActor) string {
+	if log.ActorName != nil && *log.ActorName != "" {
+		return *log.ActorName
+	}
+	if log.ActorEmail != nil && *log.ActorEmail != "" {
+		return *log.ActorEmail
+	}
+	return "Someone"
+}
+
+func targetLabel(log *model.SpaceAuditLogWithActor) string {
+	if log.TargetUserName != nil && *log.TargetUserName != "" {
+		return *log.TargetUserName
+	}
+	if log.TargetUserEmail != nil && *log.TargetUserEmail != "" {
+		return *log.TargetUserEmail
+	}
+	if log.TargetEmail != nil && *log.TargetEmail != "" {
+		return *log.TargetEmail
+	}
+	return "a member"
+}
+
+// activityMessage returns a pre-escaped HTML string. Field values are escaped via
+// templ.EscapeString; only the bold tags around them are intentional markup.
+func activityMessage(log *model.SpaceAuditLogWithActor) string {
+	actor := bold(actorLabel(log))
+	target := bold(targetLabel(log))
+
+	switch log.Action {
+	case model.SpaceAuditActionRenamed:
+		var meta struct {
+			OldName string `json:"old_name"`
+			NewName string `json:"new_name"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		return fmt.Sprintf("%s renamed the space from %s to %s.",
+			actor, bold(meta.OldName), bold(meta.NewName))
+	case model.SpaceAuditActionDeleted:
+		var meta struct {
+			SpaceName string `json:"space_name"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		name := meta.SpaceName
+		if name == "" {
+			name = "the space"
+		}
+		return fmt.Sprintf("%s deleted %s.", actor, bold(name))
+	case model.SpaceAuditActionMemberInvited:
+		return fmt.Sprintf("%s invited %s to join.", actor, target)
+	case model.SpaceAuditActionMemberJoined:
+		return fmt.Sprintf("%s joined the space.", target)
+	case model.SpaceAuditActionMemberRemoved:
+		return fmt.Sprintf("%s removed %s from the space.", actor, target)
+	case model.SpaceAuditActionInviteCancelled:
+		return fmt.Sprintf("%s cancelled the invitation for %s.", actor, target)
+	default:
+		return fmt.Sprintf("%s performed %s.", actor, bold(string(log.Action)))
+	}
+}
+
+func bold(s string) string {
+	return "<strong>" + templEscape(s) + "</strong>"
+}
+
+func templEscape(s string) string {
+	r := strings.NewReplacer(
+		"&", "&amp;",
+		"<", "&lt;",
+		">", "&gt;",
+		"\"", "&#34;",
+		"'", "&#39;",
+	)
+	return r.Replace(s)
+}
+
+func activityPageURL(spaceID string, page int) string {
+	return fmt.Sprintf("%s?page=%d",
+		routeurl.URL("page.app.spaces.space.activity", "spaceID", spaceID), page)
+}
+
+templ activityPagination(props SpaceActivityPageProps) {
+	{{ p := pagination.CreatePagination(props.CurrentPage, props.TotalPages, 5) }}
+	@pagination.Pagination() {
+		@pagination.Content() {
+			@pagination.Item() {
+				@pagination.Previous(pagination.PreviousProps{
+					Href:     activityPageURL(props.SpaceID, p.CurrentPage-1),
+					Disabled: !p.HasPrevious,
+					Label:    "Previous",
+				})
+			}
+			for _, page := range p.Pages {
+				@pagination.Item() {
+					@pagination.Link(pagination.LinkProps{
+						Href:     activityPageURL(props.SpaceID, page),
+						IsActive: page == p.CurrentPage,
+					}) {
+						{ fmt.Sprintf("%d", page) }
+					}
+				}
+			}
+			@pagination.Item() {
+				@pagination.Next(pagination.NextProps{
+					Href:     activityPageURL(props.SpaceID, p.CurrentPage+1),
+					Disabled: !p.HasNext,
+					Label:    "Next",
+				})
+			}
+		}
+	}
+}

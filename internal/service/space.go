@@ -13,12 +13,20 @@ const DefaultSpaceName = "My Space"
 
 type SpaceService struct {
 	spaceRepo repository.SpaceRepository
+	auditSvc  *SpaceAuditLogService
 }
 
 func NewSpaceService(spaceRepo repository.SpaceRepository) *SpaceService {
 	return &SpaceService{
 		spaceRepo: spaceRepo,
 	}
+}
+
+// SetAuditLogger wires the audit log service after construction. Kept separate from
+// the constructor to avoid disturbing existing callers (especially tests) that don't
+// care about auditing.
+func (s *SpaceService) SetAuditLogger(audit *SpaceAuditLogService) {
+	s.auditSvc = audit
 }
 
 // CreateSpace creates a new space and sets the owner.
@@ -98,20 +106,62 @@ func (s *SpaceService) GetMembers(spaceID string) ([]*model.SpaceMemberWithProfi
 }
 
 // RemoveMember removes a member from a space.
-func (s *SpaceService) RemoveMember(spaceID, userID string) error {
-	return s.spaceRepo.RemoveMember(spaceID, userID)
+func (s *SpaceService) RemoveMember(spaceID, userID, actorID string) error {
+	if err := s.spaceRepo.RemoveMember(spaceID, userID); err != nil {
+		return err
+	}
+	s.auditSvc.Record(RecordOptions{
+		SpaceID:      spaceID,
+		ActorID:      actorID,
+		Action:       model.SpaceAuditActionMemberRemoved,
+		TargetUserID: userID,
+	})
+	return nil
 }
 
 // UpdateSpaceName updates the name of a space.
-func (s *SpaceService) UpdateSpaceName(spaceID, name string) error {
+func (s *SpaceService) UpdateSpaceName(spaceID, name, actorID string) error {
 	if name == "" {
 		return fmt.Errorf("space name cannot be empty")
 	}
-	return s.spaceRepo.UpdateName(spaceID, name)
+	current, err := s.spaceRepo.ByID(spaceID)
+	if err != nil {
+		return err
+	}
+	oldName := current.Name
+	if err := s.spaceRepo.UpdateName(spaceID, name); err != nil {
+		return err
+	}
+	if oldName != name {
+		s.auditSvc.Record(RecordOptions{
+			SpaceID: spaceID,
+			ActorID: actorID,
+			Action:  model.SpaceAuditActionRenamed,
+			Metadata: map[string]any{
+				"old_name": oldName,
+				"new_name": name,
+			},
+		})
+	}
+	return nil
 }
 
 // DeleteSpace permanently deletes a space and all its associated data.
-func (s *SpaceService) DeleteSpace(spaceID string) error {
+func (s *SpaceService) DeleteSpace(spaceID, actorID string) error {
+	current, err := s.spaceRepo.ByID(spaceID)
+	if err != nil {
+		return err
+	}
+	// Record before deleting so the audit row is written while the space still exists.
+	// The audit table intentionally does not foreign-key space_id, so the entry survives.
+	s.auditSvc.Record(RecordOptions{
+		SpaceID: spaceID,
+		ActorID: actorID,
+		Action:  model.SpaceAuditActionDeleted,
+		Metadata: map[string]any{
+			"space_name": current.Name,
+		},
+	})
 	return s.spaceRepo.Delete(spaceID)
 }
 

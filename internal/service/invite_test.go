@@ -14,7 +14,7 @@ func newTestInviteService(dbi testutil.DBInfo) *InviteService {
 	spaceRepo := repository.NewSpaceRepository(dbi.DB)
 	userRepo := repository.NewUserRepository(dbi.DB)
 	emailSvc := NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
-	return NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc)
+	return NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc, nil)
 }
 
 func TestInviteService_CreateInvite(t *testing.T) {
@@ -64,7 +64,7 @@ func TestInviteService_CancelInvite(t *testing.T) {
 		space := testutil.CreateTestSpace(t, dbi.DB, owner.ID, "Cancel Space")
 		invitation := testutil.CreateTestInvitation(t, dbi.DB, space.ID, owner.ID, "cancelee@example.com")
 
-		err := svc.CancelInvite(invitation.Token)
+		err := svc.CancelInvite(invitation.Token, owner.ID)
 		require.NoError(t, err)
 
 		// Verify invitation is gone

@@ -20,6 +20,7 @@ type App struct {
 	AccountService     *service.AccountService
 	TransactionService *service.TransactionService
 	InviteService      *service.InviteService
+	AuditLogService    *service.SpaceAuditLogService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -43,10 +44,13 @@ func New(cfg *config.Config) (*App, error) {
 	transactionRepository := repository.NewTransactionRepository(database)
 	categoryRepository := repository.NewCategoryRepository(database)
 	invitationRepository := repository.NewInvitationRepository(database)
+	auditLogRepository := repository.NewSpaceAuditLogRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
+	auditLogService := service.NewSpaceAuditLogService(auditLogRepository)
 	spaceService := service.NewSpaceService(spaceRepository)
+	spaceService.SetAuditLogger(auditLogService)
 	accountService := service.NewAccountService(accountRepository)
 	transactionService := service.NewTransactionService(transactionRepository, categoryRepository, accountService)
 	emailService := service.NewEmailService(
@@ -67,7 +71,7 @@ func New(cfg *config.Config) (*App, error) {
 		cfg.TokenMagicLinkExpiry,
 		cfg.IsProduction(),
 	)
-	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService)
+	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService, auditLogService)
 
 	return &App{
 		Cfg:                cfg,
@@ -79,6 +83,7 @@ func New(cfg *config.Config) (*App, error) {
 		AccountService:     accountService,
 		TransactionService: transactionService,
 		InviteService:      inviteService,
+		AuditLogService:    auditLogService,
 	}, nil
 }
 

@@ -128,7 +128,7 @@ func TestSpaceService_RemoveMember(t *testing.T) {
 		assert.True(t, isMember)
 
 		// Remove member
-		err = svc.RemoveMember(space.ID, member.ID)
+		err = svc.RemoveMember(space.ID, member.ID, "")
 		require.NoError(t, err)
 
 		// Verify member was removed
@@ -146,7 +146,7 @@ func TestSpaceService_UpdateSpaceName(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "rename@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "Old Name")
 
-		err := svc.UpdateSpaceName(space.ID, "New Name")
+		err := svc.UpdateSpaceName(space.ID, "New Name", "")
 		require.NoError(t, err)
 
 		// Verify name was updated by fetching the space

@@ -25,6 +25,7 @@ type spaceHandler struct {
 	accountService     *service.AccountService
 	transactionService *service.TransactionService
 	inviteService      *service.InviteService
+	auditLogService    *service.SpaceAuditLogService
 }
 
 func NewSpaceHandler(
@@ -32,12 +33,14 @@ func NewSpaceHandler(
 	accountService *service.AccountService,
 	transactionService *service.TransactionService,
 	inviteService *service.InviteService,
+	auditLogService *service.SpaceAuditLogService,
 ) *spaceHandler {
 	return &spaceHandler{
 		spaceService:       spaceService,
 		accountService:     accountService,
 		transactionService: transactionService,
 		inviteService:      inviteService,
+		auditLogService:    auditLogService,
 	}
 }
 
@@ -456,7 +459,7 @@ func (h *spaceHandler) HandleRenameSpace(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	if err := h.spaceService.UpdateSpaceName(spaceID, nameInput); err != nil {
+	if err := h.spaceService.UpdateSpaceName(spaceID, nameInput, user.ID); err != nil {
 		slog.Error("failed to rename space", "error", err, "space_id", spaceID)
 		formProps.GeneralErr = "Something went wrong. Please try again."
 		ui.Render(w, r, forms.UpdateSpace(formProps))
@@ -482,7 +485,7 @@ func (h *spaceHandler) HandleDeleteSpace(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	if err := h.spaceService.DeleteSpace(spaceID); err != nil {
+	if err := h.spaceService.DeleteSpace(spaceID, user.ID); err != nil {
 		slog.Error("failed to delete space", "error", err, "space_id", spaceID)
 		ui.RenderError(w, r, "Failed to delete space", http.StatusInternalServerError)
 		return
@@ -608,7 +611,7 @@ func (h *spaceHandler) HandleRemoveMember(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.spaceService.RemoveMember(spaceID, userID); err != nil {
+	if err := h.spaceService.RemoveMember(spaceID, userID, user.ID); err != nil {
 		slog.Error("failed to remove member", "error", err, "space_id", spaceID, "user_id", userID)
 		ui.RenderError(w, r, "Failed to remove member", http.StatusInternalServerError)
 		return
@@ -634,7 +637,7 @@ func (h *spaceHandler) HandleCancelInvite(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := h.inviteService.CancelInvite(token); err != nil {
+	if err := h.inviteService.CancelInvite(token, user.ID); err != nil {
 		slog.Error("failed to cancel invite", "error", err, "token", token)
 		ui.RenderError(w, r, "Failed to cancel invitation", http.StatusInternalServerError)
 		return
@@ -642,6 +645,57 @@ func (h *spaceHandler) HandleCancelInvite(w http.ResponseWriter, r *http.Request
 
 	w.Header().Set("HX-Refresh", "true")
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *spaceHandler) SpaceActivityPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	const perPage = 25
+	page := 1
+	if p := strings.TrimSpace(r.URL.Query().Get("page")); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	total, err := h.auditLogService.Count(spaceID)
+	if err != nil {
+		slog.Error("failed to count audit logs", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	totalPages := (total + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	logs, err := h.auditLogService.List(spaceID, perPage, (page-1)*perPage)
+	if err != nil {
+		slog.Error("failed to list audit logs", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceActivityPage(pages.SpaceActivityPageProps{
+		SpaceID:     space.ID,
+		SpaceName:   space.Name,
+		Logs:        logs,
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		TotalCount:  total,
+		PerPage:     perPage,
+	}))
 }
 
 func (h *spaceHandler) SpaceAccountSettingsPage(w http.ResponseWriter, r *http.Request) {

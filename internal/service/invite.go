@@ -21,14 +21,16 @@ type InviteService struct {
 	spaceRepo  repository.SpaceRepository
 	userRepo   repository.UserRepository
 	emailSvc   *EmailService
+	auditSvc   *SpaceAuditLogService
 }
 
-func NewInviteService(ir repository.InvitationRepository, sr repository.SpaceRepository, ur repository.UserRepository, es *EmailService) *InviteService {
+func NewInviteService(ir repository.InvitationRepository, sr repository.SpaceRepository, ur repository.UserRepository, es *EmailService, audit *SpaceAuditLogService) *InviteService {
 	return &InviteService{
 		inviteRepo: ir,
 		spaceRepo:  sr,
 		userRepo:   ur,
 		emailSvc:   es,
+		auditSvc:   audit,
 	}
 }
 
@@ -96,6 +98,13 @@ func (s *InviteService) CreateInvite(spaceID, inviterID, email string) (*model.S
 	// Send Email
 	go s.emailSvc.SendInvitationEmail(email, space.Name, inviterName, token)
 
+	s.auditSvc.Record(RecordOptions{
+		SpaceID:     spaceID,
+		ActorID:     inviterID,
+		Action:      model.SpaceAuditActionMemberInvited,
+		TargetEmail: email,
+	})
+
 	return invitation, nil
 }
 
@@ -120,10 +129,19 @@ func (s *InviteService) AcceptInvite(token, userID string) (string, error) {
 		return "", err
 	}
 
+	s.auditSvc.Record(RecordOptions{
+		SpaceID:      invite.SpaceID,
+		ActorID:      userID,
+		Action:       model.SpaceAuditActionMemberJoined,
+		TargetUserID: userID,
+		TargetEmail:  invite.Email,
+		Metadata:     map[string]any{"invited_by": invite.InviterID},
+	})
+
 	return invite.SpaceID, s.inviteRepo.UpdateStatus(token, model.InvitationStatusAccepted)
 }
 
-func (s *InviteService) CancelInvite(token string) error {
+func (s *InviteService) CancelInvite(token, actorID string) error {
 	invite, err := s.inviteRepo.GetByToken(token)
 	if err != nil {
 		return err
@@ -133,7 +151,18 @@ func (s *InviteService) CancelInvite(token string) error {
 		return errors.New("invitation is not pending")
 	}
 
-	return s.inviteRepo.Delete(token)
+	if err := s.inviteRepo.Delete(token); err != nil {
+		return err
+	}
+
+	s.auditSvc.Record(RecordOptions{
+		SpaceID:     invite.SpaceID,
+		ActorID:     actorID,
+		Action:      model.SpaceAuditActionInviteCancelled,
+		TargetEmail: invite.Email,
+	})
+
+	return nil
 }
 
 type InviteContext struct {

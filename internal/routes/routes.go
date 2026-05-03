@@ -19,7 +19,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.InviteService)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.InviteService, a.AuditLogService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -98,6 +98,7 @@ func SetupRoutes(a *app.App) http.Handler {
 				g.Get("/settings", spaceH.SpaceSettingsPage).Name("page.app.spaces.space.settings")
 				g.Post("/settings/rename", spaceH.HandleRenameSpace).Name("action.app.spaces.space.settings.rename")
 				g.Post("/settings/delete", spaceH.HandleDeleteSpace).Name("action.app.spaces.space.settings.delete")
+				g.Get("/activity", spaceH.SpaceActivityPage).Name("page.app.spaces.space.activity")
 				g.Get("/members", spaceH.SpaceMembersPage).Name("page.app.spaces.space.members")
 				g.Post("/members/invite", spaceH.HandleInviteMember).Name("action.app.spaces.space.members.invite")
 				g.Post("/members/{userID}/remove", spaceH.HandleRemoveMember).Name("action.app.spaces.space.members.remove")
