@@ -676,9 +676,9 @@ func (h *spaceHandler) SpaceActivityPage(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
-	total, err := h.auditLogService.Count(spaceID)
+	total, err := h.accountActivitySvc.CountSpace(spaceID)
 	if err != nil {
-		slog.Error("failed to count audit logs", "error", err, "space_id", spaceID)
+		slog.Error("failed to count space activity", "error", err, "space_id", spaceID)
 		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
 		return
 	}
@@ -691,9 +691,9 @@ func (h *spaceHandler) SpaceActivityPage(w http.ResponseWriter, r *http.Request)
 		page = totalPages
 	}
 
-	logs, err := h.auditLogService.List(spaceID, perPage, (page-1)*perPage)
+	rows, err := h.accountActivitySvc.ListSpace(spaceID, perPage, (page-1)*perPage)
 	if err != nil {
-		slog.Error("failed to list audit logs", "error", err, "space_id", spaceID)
+		slog.Error("failed to list space activity", "error", err, "space_id", spaceID)
 		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
 		return
 	}
@@ -701,7 +701,7 @@ func (h *spaceHandler) SpaceActivityPage(w http.ResponseWriter, r *http.Request)
 	ui.Render(w, r, pages.SpaceActivityPage(pages.SpaceActivityPageProps{
 		SpaceID:     space.ID,
 		SpaceName:   space.Name,
-		Logs:        logs,
+		Rows:        rows,
 		CurrentPage: page,
 		TotalPages:  totalPages,
 		TotalCount:  total,

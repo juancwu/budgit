@@ -17,7 +17,7 @@ type SpaceAccountActivityPageProps struct {
 	SpaceName   string
 	AccountID   string
 	AccountName string
-	Rows        []model.AccountActivityRow
+	Rows        []model.ActivityRow
 	CurrentPage int
 	TotalPages  int
 	TotalCount  int
@@ -72,7 +72,7 @@ templ SpaceAccountActivityPage(props SpaceAccountActivityPageProps) {
 	}
 }
 
-templ accountActivityRow(spaceID, accountID string, row model.AccountActivityRow) {
+templ accountActivityRow(spaceID, accountID string, row model.ActivityRow) {
 	if row.SpaceLog != nil {
 		<li class="flex gap-3 px-6 py-4">
 			<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">

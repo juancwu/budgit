@@ -14,7 +14,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 type SpaceActivityPageProps struct {
 	SpaceID     string
 	SpaceName   string
-	Logs        []*model.SpaceAuditLogWithActor
+	Rows        []model.ActivityRow
 	CurrentPage int
 	TotalPages  int
 	TotalCount  int
@@ -37,14 +37,14 @@ templ SpaceActivityPage(props SpaceActivityPageProps) {
 			</div>
 			@card.Card(card.Props{Class: "rounded-sm"}) {
 				@card.Content(card.ContentProps{Class: "p-0"}) {
-					if len(props.Logs) == 0 {
+					if len(props.Rows) == 0 {
 						<p class="px-6 py-10 text-sm text-muted-foreground text-center">
 							No activity yet.
 						</p>
 					} else {
 						<ol class="divide-y">
-							for _, log := range props.Logs {
-								@activityRow(log)
+							for _, row := range props.Rows {
+								@accountActivityRow(props.SpaceID, txAccountIDFromRow(row), row)
 							}
 						</ol>
 					}
@@ -55,22 +55,6 @@ templ SpaceActivityPage(props SpaceActivityPageProps) {
 			}
 		</div>
 	}
-}
-
-templ activityRow(log *model.SpaceAuditLogWithActor) {
-	<li class="flex gap-3 px-6 py-4">
-		<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
-			@activityIcon(log.Action)
-		</div>
-		<div class="flex-1 min-w-0">
-			<p class="text-sm">
-				@templ.Raw(activityMessage(log))
-			</p>
-			<p class="text-xs text-muted-foreground mt-1">
-				{ log.CreatedAt.Format("Jan 2, 2006 · 3:04 PM") }
-			</p>
-		</div>
-	</li>
 }
 
 templ activityIcon(action model.SpaceAuditAction) {
@@ -185,6 +169,20 @@ func activityMessage(log *model.SpaceAuditLogWithActor) string {
 	default:
 		return fmt.Sprintf("%s performed %s.", actor, bold(string(log.Action)))
 	}
+}
+
+// txAccountIDFromRow extracts the account_id from a transaction audit row's metadata.
+// All transaction audit entries (created/edited/deleted) embed account_id, so this
+// gives the templ a stable handle for building links from the space-level feed.
+func txAccountIDFromRow(row model.ActivityRow) string {
+	if row.TxLog == nil || len(row.TxLog.Metadata) == 0 {
+		return ""
+	}
+	var meta struct {
+		AccountID string `json:"account_id"`
+	}
+	_ = json.Unmarshal(row.TxLog.Metadata, &meta)
+	return meta.AccountID
 }
 
 func bold(s string) string {

@@ -248,7 +248,11 @@ func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transacti
 			TransactionID: input.TransactionID,
 			ActorID:       input.ActorID,
 			Action:        model.TransactionAuditActionEdited,
-			Metadata:      map[string]any{"changes": changes},
+			Metadata: map[string]any{
+				"account_id":       existing.AccountID,
+				"transaction_type": string(existing.Type),
+				"changes":          changes,
+			},
 		})
 	}
 	return existing, nil
@@ -314,7 +318,11 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 			TransactionID: input.TransactionID,
 			ActorID:       input.ActorID,
 			Action:        model.TransactionAuditActionEdited,
-			Metadata:      map[string]any{"changes": changes},
+			Metadata: map[string]any{
+				"account_id":       existing.AccountID,
+				"transaction_type": string(existing.Type),
+				"changes":          changes,
+			},
 		})
 	}
 	return existing, nil
