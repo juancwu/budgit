@@ -16,7 +16,7 @@ type SpaceSettingsPageProps struct {
 }
 
 templ SpaceSettingsPage(props SpaceSettingsPageProps) {
-	@layouts.App("Space Settings", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+	@layouts.AppWithBreadcrumb("Space Settings", spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "Settings"), spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
 		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
 			<div>
 				<h1 class="text-3xl font-bold">Space Settings</h1>

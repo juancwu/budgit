@@ -10,17 +10,19 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 
 type SpaceAccountSettingsPageProps struct {
 	SpaceID     string
+	SpaceName   string
 	AccountID   string
 	AccountName string
 	UpdateForm  forms.UpdateAccountProps
 }
 
 templ SpaceAccountSettingsPage(props SpaceAccountSettingsPageProps) {
-	@layouts.App(
+	@layouts.AppWithBreadcrumb(
 		"Account Settings",
+		accountChildBreadcrumb(props.SpaceID, props.SpaceName, props.AccountID, props.AccountName, "Settings"),
 		spaceOverviewSidebarContent(),
 		spaceSpecificSidebarContent(props.SpaceID),
-		spaceAccountSidebarContent(props.SpaceID, props.AccountID, props.AccountName),
+		spaceAccountSidebarContent(props.SpaceID, props.AccountID),
 	) {
 		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
 			<div>

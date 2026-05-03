@@ -260,6 +260,13 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load account", http.StatusInternalServerError)
+		return
+	}
+
 	recent, err := h.transactionService.ListByAccount(accountID, 5, 0)
 	if err != nil {
 		slog.Error("failed to load recent transactions", "error", err, "account_id", accountID)
@@ -268,6 +275,7 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 
 	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
 		SpaceID:            spaceID,
+		SpaceName:          space.Name,
 		AccountID:          accountID,
 		AccountName:        account.Name,
 		AccountBalance:     account.Balance,
@@ -287,6 +295,13 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 	}
 	if account.SpaceID != spaceID {
 		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load transactions", http.StatusInternalServerError)
 		return
 	}
 
@@ -323,6 +338,7 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 
 	ui.Render(w, r, pages.SpaceAccountTransactionsPage(pages.SpaceAccountTransactionsPageProps{
 		SpaceID:      spaceID,
+		SpaceName:    space.Name,
 		AccountID:    accountID,
 		AccountName:  account.Name,
 		Transactions: txns,
@@ -450,8 +466,16 @@ func (h *spaceHandler) SpaceAccountSettingsPage(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load account settings", http.StatusInternalServerError)
+		return
+	}
+
 	ui.Render(w, r, pages.SpaceAccountSettingsPage(pages.SpaceAccountSettingsPageProps{
 		SpaceID:     spaceID,
+		SpaceName:   space.Name,
 		AccountID:   accountID,
 		AccountName: account.Name,
 		UpdateForm: forms.UpdateAccountProps{
@@ -559,8 +583,16 @@ func (h *spaceHandler) SpaceCreateBillPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load page", http.StatusInternalServerError)
+		return
+	}
+
 	ui.Render(w, r, pages.SpaceCreateBillPage(pages.SpaceCreateBillPageProps{
 		SpaceID:     spaceID,
+		SpaceName:   space.Name,
 		AccountID:   accountID,
 		AccountName: account.Name,
 		Form: forms.CreateBillProps{
@@ -587,8 +619,16 @@ func (h *spaceHandler) SpaceCreateDepositPage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load page", http.StatusInternalServerError)
+		return
+	}
+
 	ui.Render(w, r, pages.SpaceCreateDepositPage(pages.SpaceCreateDepositPageProps{
 		SpaceID:     spaceID,
+		SpaceName:   space.Name,
 		AccountID:   accountID,
 		AccountName: account.Name,
 		Form: forms.CreateDepositProps{

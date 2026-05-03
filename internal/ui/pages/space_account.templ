@@ -12,6 +12,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 
 type SpaceAccountPageProps struct {
 	SpaceID            string
+	SpaceName          string
 	AccountID          string
 	AccountName        string
 	AccountBalance     decimal.Decimal
@@ -27,7 +28,7 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 			balanceTextClasses = append(balanceTextClasses, "text-red-600 dark:text-red-400")
 		}
 	}}
-	@layouts.App("Space Account", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID), spaceAccountSidebarContent(props.SpaceID, props.AccountID, props.AccountName)) {
+	@layouts.AppWithBreadcrumb("Space Account", accountChildBreadcrumb(props.SpaceID, props.SpaceName, props.AccountID, props.AccountName, "Overview"), spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID), spaceAccountSidebarContent(props.SpaceID, props.AccountID)) {
 		<div class="container px-6 py-8 mx-auto space-y-8">
 			<div class="grid gap-4 grid-cols-1 md:grid-cols-12">
 				@card.Card(card.Props{

@@ -1,0 +1,64 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/breadcrumb"
+
+templ spaceLeafBreadcrumb(spaceName string) {
+	@breadcrumb.Breadcrumb() {
+		@breadcrumb.List() {
+			@breadcrumb.Item() {
+				@breadcrumb.Page() {
+					{ spaceName }
+				}
+			}
+		}
+	}
+}
+
+templ spaceChildBreadcrumb(spaceID, spaceName, leaf string) {
+	@breadcrumb.Breadcrumb() {
+		@breadcrumb.List() {
+			@breadcrumb.Item() {
+				@breadcrumb.Link(breadcrumb.LinkProps{
+					Href: routeurl.URL("page.app.spaces.space.overview", "spaceID", spaceID),
+				}) {
+					{ spaceName }
+				}
+			}
+			@breadcrumb.Separator()
+			@breadcrumb.Item() {
+				@breadcrumb.Page() {
+					{ leaf }
+				}
+			}
+		}
+	}
+}
+
+templ accountChildBreadcrumb(spaceID, spaceName, accountID, accountName, leaf string) {
+	@breadcrumb.Breadcrumb() {
+		@breadcrumb.List() {
+			@breadcrumb.Item() {
+				@breadcrumb.Link(breadcrumb.LinkProps{
+					Href: routeurl.URL("page.app.spaces.space.overview", "spaceID", spaceID),
+				}) {
+					{ spaceName }
+				}
+			}
+			@breadcrumb.Separator()
+			@breadcrumb.Item() {
+				@breadcrumb.Link(breadcrumb.LinkProps{
+					Href: routeurl.URL("page.app.spaces.space.accounts.account.overview", "spaceID", spaceID, "accountID", accountID),
+				}) {
+					{ accountName }
+				}
+			}
+			@breadcrumb.Separator()
+			@breadcrumb.Item() {
+				@breadcrumb.Page() {
+					{ leaf }
+				}
+			}
+		}
+	}
+}

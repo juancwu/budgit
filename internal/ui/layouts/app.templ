@@ -15,6 +15,12 @@ import (
 )
 
 templ App(title string, sidebarContent ...templ.Component) {
+	@AppWithBreadcrumb(title, defaultBreadcrumb(title), sidebarContent...) {
+		{ children... }
+	}
+}
+
+templ AppWithBreadcrumb(title string, breadcrumbContent templ.Component, sidebarContent ...templ.Component) {
 	{{ cfg := ctxkeys.Config(ctx) }}
 	@Base(SEOProps{
 		Title:       title,
@@ -80,15 +86,7 @@ templ App(title string, sidebarContent ...templ.Component) {
 					<div class="flex h-14 items-center px-6">
 						<div class="flex items-center gap-4">
 							@sidebar.Trigger()
-							@breadcrumb.Breadcrumb() {
-								@breadcrumb.List() {
-									@breadcrumb.Item() {
-										@breadcrumb.Page() {
-											{ title }
-										}
-									}
-								}
-							}
+							@breadcrumbContent
 						</div>
 						<div class="ml-auto flex items-center gap-4">
 							{{ user := ctxkeys.User(ctx) }}
@@ -102,6 +100,18 @@ templ App(title string, sidebarContent ...templ.Component) {
 				<main class="flex-1">
 					{ children... }
 				</main>
+			}
+		}
+	}
+}
+
+templ defaultBreadcrumb(title string) {
+	@breadcrumb.Breadcrumb() {
+		@breadcrumb.List() {
+			@breadcrumb.Item() {
+				@breadcrumb.Page() {
+					{ title }
+				}
 			}
 		}
 	}
