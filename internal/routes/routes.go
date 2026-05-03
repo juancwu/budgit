@@ -92,6 +92,9 @@ func SetupRoutes(a *app.App) http.Handler {
 				spaceAccessMw := middleware.RequireSpaceAccess(a.SpaceService)
 				g.Use(spaceAccessMw)
 				g.Get("/overview", spaceH.SpaceOverviewPage).Name("page.app.spaces.space.overview")
+				g.Get("/settings", spaceH.SpaceSettingsPage).Name("page.app.spaces.space.settings")
+				g.Post("/settings/rename", spaceH.HandleRenameSpace).Name("action.app.spaces.space.settings.rename")
+				g.Post("/settings/delete", spaceH.HandleDeleteSpace).Name("action.app.spaces.space.settings.delete")
 				g.Get("/accounts/create", spaceH.SpaceCreateAccountPage).Name("page.app.spaces.space.accounts.create")
 				g.Post("/accounts/create", spaceH.HandleCreateAccount).Name("action.app.spaces.space.accounts.create")
 

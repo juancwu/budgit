@@ -1,0 +1,82 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+
+type SpaceSettingsPageProps struct {
+	SpaceID    string
+	SpaceName  string
+	CanDelete  bool
+	UpdateForm forms.UpdateSpaceProps
+}
+
+templ SpaceSettingsPage(props SpaceSettingsPageProps) {
+	@layouts.App("Space Settings", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Space Settings</h1>
+				<p class="text-muted-foreground mt-2">
+					Manage settings for { props.SpaceName }.
+				</p>
+			</div>
+			@forms.UpdateSpace(props.UpdateForm)
+			if props.CanDelete {
+				@card.Card(card.Props{Class: "rounded-sm border-destructive"}) {
+					@card.Header() {
+						@card.Title(card.TitleProps{Class: "text-destructive"}) {
+							Danger Zone
+						}
+						@card.Description() {
+							Deleting a space permanently removes the space and all of its accounts, transactions, and members. This cannot be undone.
+						}
+					}
+					@card.Footer(card.FooterProps{Class: "flex justify-end pt-8"}) {
+						@dialog.Dialog() {
+							@dialog.Trigger() {
+								@button.Button(button.Props{
+									Variant: button.VariantDestructive,
+									Class:   "flex gap-2 items-center",
+								}) {
+									@icon.Trash2()
+									Delete Space
+								}
+							}
+							@dialog.Content() {
+								@dialog.Header() {
+									@dialog.Title() {
+										Delete { props.SpaceName }?
+									}
+									@dialog.Description() {
+										This permanently removes the space along with all of its accounts, transactions, and members. This cannot be undone.
+									}
+								}
+								@dialog.Footer(dialog.FooterProps{Class: "mt-2"}) {
+									@dialog.Close() {
+										@button.Button(button.Props{Variant: button.VariantOutline}) {
+											Cancel
+										}
+									}
+									<form hx-post={ routeurl.URL("action.app.spaces.space.settings.delete", "spaceID", props.SpaceID) }>
+										@button.Button(button.Props{
+											Type:    button.TypeSubmit,
+											Variant: button.VariantDestructive,
+											Class:   "flex gap-2 items-center",
+										}) {
+											@icon.Trash2()
+											Delete Space
+										}
+									</form>
+								}
+							}
+						}
+					}
+				}
+			}
+		</div>
+	}
+}

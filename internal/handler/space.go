@@ -333,6 +333,108 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 	}))
 }
 
+func (h *spaceHandler) SpaceSettingsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to fetch space", "error", err, "space_id", spaceID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	canDelete := user != nil && user.ID == space.OwnerID
+
+	ui.Render(w, r, pages.SpaceSettingsPage(pages.SpaceSettingsPageProps{
+		SpaceID:   space.ID,
+		SpaceName: space.Name,
+		CanDelete: canDelete,
+		UpdateForm: forms.UpdateSpaceProps{
+			SpaceID: space.ID,
+			Name:    space.Name,
+		},
+	}))
+}
+
+func (h *spaceHandler) HandleRenameSpace(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	if user == nil || user.ID != space.OwnerID {
+		ui.RenderError(w, r, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	nameInput := strings.TrimSpace(r.FormValue("name"))
+	formProps := forms.UpdateSpaceProps{
+		SpaceID: spaceID,
+		Name:    nameInput,
+	}
+
+	if nameInput == "" {
+		formProps.NameErr = "Space name is required."
+		ui.Render(w, r, forms.UpdateSpace(formProps))
+		return
+	}
+
+	if !strings.EqualFold(nameInput, space.Name) {
+		available, err := h.spaceService.IsNameAvailable(nameInput, user.ID)
+		if err != nil {
+			slog.Error("failed to check name availability", "error", err, "user_id", user.ID)
+			formProps.GeneralErr = "Something went wrong. Please try again."
+			ui.Render(w, r, forms.UpdateSpace(formProps))
+			return
+		}
+		if !available {
+			formProps.NameErr = "You already have a space with this name."
+			ui.Render(w, r, forms.UpdateSpace(formProps))
+			return
+		}
+	}
+
+	if err := h.spaceService.UpdateSpaceName(spaceID, nameInput); err != nil {
+		slog.Error("failed to rename space", "error", err, "space_id", spaceID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.UpdateSpace(formProps))
+		return
+	}
+
+	formProps.SuccessMsg = "Space name updated."
+	ui.Render(w, r, forms.UpdateSpace(formProps))
+}
+
+func (h *spaceHandler) HandleDeleteSpace(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	if user == nil || user.ID != space.OwnerID {
+		ui.RenderError(w, r, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := h.spaceService.DeleteSpace(spaceID); err != nil {
+		slog.Error("failed to delete space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to delete space", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Redirect", routeurl.URL("page.app.spaces"))
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *spaceHandler) SpaceAccountSettingsPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	accountID := r.PathValue("accountID")
