@@ -61,7 +61,11 @@ templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
 					}
 				}
 				@card.Content() {
-					@blocks.TransactionList(props.Transactions)
+					@blocks.TransactionList(blocks.TransactionListProps{
+						SpaceID:      props.SpaceID,
+						AccountID:    props.AccountID,
+						Transactions: props.Transactions,
+					})
 				}
 				if props.TotalPages > 1 {
 					@card.Footer() {

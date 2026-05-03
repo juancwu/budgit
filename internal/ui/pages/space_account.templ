@@ -91,7 +91,11 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 						</div>
 					}
 					@card.Content() {
-						@blocks.TransactionList(props.RecentTransactions)
+						@blocks.TransactionList(blocks.TransactionListProps{
+							SpaceID:      props.SpaceID,
+							AccountID:    props.AccountID,
+							Transactions: props.RecentTransactions,
+						})
 					}
 					@card.Footer(card.FooterProps{Class: "justify-end"}) {
 						@button.Button(button.Props{

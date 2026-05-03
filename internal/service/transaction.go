@@ -144,6 +144,140 @@ func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, er
 	return txn, nil
 }
 
+type UpdateBillInput struct {
+	TransactionID string
+	Title         string
+	Amount        decimal.Decimal
+	OccurredAt    time.Time
+	Description   string
+	CategoryID    string
+}
+
+func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transaction, error) {
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if input.TransactionID == "" {
+		return nil, fmt.Errorf("transaction id is required")
+	}
+	if !input.Amount.IsPositive() {
+		return nil, fmt.Errorf("amount must be greater than zero")
+	}
+	if input.OccurredAt.IsZero() {
+		return nil, fmt.Errorf("date is required")
+	}
+
+	existing, err := s.transactionRepo.GetByID(input.TransactionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load transaction: %w", err)
+	}
+	if existing.Type != model.TransactionTypeWithdrawal {
+		return nil, fmt.Errorf("transaction is not a bill")
+	}
+
+	account, err := s.accountService.GetAccount(existing.AccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load account: %w", err)
+	}
+
+	newBalance := account.Balance.Add(existing.Value).Sub(input.Amount)
+
+	var description *string
+	if d := strings.TrimSpace(input.Description); d != "" {
+		description = &d
+	}
+	var categoryID *string
+	if c := strings.TrimSpace(input.CategoryID); c != "" {
+		categoryID = &c
+	}
+
+	existing.Value = input.Amount
+	existing.Title = title
+	existing.Description = description
+	existing.OccurredAt = input.OccurredAt
+	existing.UpdatedAt = time.Now()
+
+	if err := s.transactionRepo.UpdateBillAtomic(existing, newBalance, categoryID); err != nil {
+		return nil, fmt.Errorf("failed to update bill transaction: %w", err)
+	}
+	return existing, nil
+}
+
+type UpdateDepositInput struct {
+	TransactionID string
+	Title         string
+	Amount        decimal.Decimal
+	OccurredAt    time.Time
+	Description   string
+}
+
+func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Transaction, error) {
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if input.TransactionID == "" {
+		return nil, fmt.Errorf("transaction id is required")
+	}
+	if !input.Amount.IsPositive() {
+		return nil, fmt.Errorf("amount must be greater than zero")
+	}
+	if input.OccurredAt.IsZero() {
+		return nil, fmt.Errorf("date is required")
+	}
+
+	existing, err := s.transactionRepo.GetByID(input.TransactionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load transaction: %w", err)
+	}
+	if existing.Type != model.TransactionTypeDeposit {
+		return nil, fmt.Errorf("transaction is not a deposit")
+	}
+
+	account, err := s.accountService.GetAccount(existing.AccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load account: %w", err)
+	}
+
+	newBalance := account.Balance.Sub(existing.Value).Add(input.Amount)
+
+	var description *string
+	if d := strings.TrimSpace(input.Description); d != "" {
+		description = &d
+	}
+
+	existing.Value = input.Amount
+	existing.Title = title
+	existing.Description = description
+	existing.OccurredAt = input.OccurredAt
+	existing.UpdatedAt = time.Now()
+
+	if err := s.transactionRepo.UpdateDepositAtomic(existing, newBalance); err != nil {
+		return nil, fmt.Errorf("failed to update deposit transaction: %w", err)
+	}
+	return existing, nil
+}
+
+func (s *TransactionService) GetTransaction(id string) (*model.Transaction, error) {
+	txn, err := s.transactionRepo.GetByID(id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load transaction: %w", err)
+	}
+	return txn, nil
+}
+
+func (s *TransactionService) GetTransactionCategoryID(transactionID string) (string, error) {
+	id, err := s.transactionRepo.GetCategoryID(transactionID)
+	if err != nil {
+		return "", fmt.Errorf("failed to load transaction category: %w", err)
+	}
+	if id == nil {
+		return "", nil
+	}
+	return *id, nil
+}
+
 func (s *TransactionService) ListByAccount(accountID string, limit, offset int) ([]*model.Transaction, error) {
 	if limit <= 0 {
 		limit = 25

@@ -1,0 +1,105 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+
+type SpaceTransactionPageProps struct {
+	SpaceID      string
+	SpaceName    string
+	AccountID    string
+	AccountName  string
+	Transaction  *model.Transaction
+	CategoryName string
+}
+
+templ SpaceTransactionPage(props SpaceTransactionPageProps) {
+	@layouts.AppWithBreadcrumb("Transaction", accountChildBreadcrumb(props.SpaceID, props.SpaceName, props.AccountID, props.AccountName, props.Transaction.Title), spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID), spaceAccountSidebarContent(props.SpaceID, props.AccountID)) {
+		{{
+			isDeposit := props.Transaction.Type == model.TransactionTypeDeposit
+			amountClasses := []string{"text-3xl font-semibold tabular-nums"}
+			sign := "-"
+			label := "Bill"
+			if isDeposit {
+				amountClasses = append(amountClasses, "text-green-600 dark:text-green-400")
+				sign = "+"
+				label = "Deposit"
+			} else {
+				amountClasses = append(amountClasses, "text-red-600 dark:text-red-400")
+			}
+		}}
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-6">
+			<div class="flex items-center gap-2">
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions", "spaceID", props.SpaceID, "accountID", props.AccountID),
+					Class:   "flex items-center gap-1 -ml-2",
+				}) {
+					@icon.ChevronLeft(icon.Props{Class: "size-4"})
+					Back to all transactions
+				}
+			</div>
+			<div class="flex items-start justify-between flex-wrap gap-4">
+				<div>
+					<h1 class="text-3xl font-bold">{ props.Transaction.Title }</h1>
+					<p class="text-muted-foreground mt-1">
+						{ label } in { props.AccountName }
+					</p>
+				</div>
+				@button.Button(button.Props{
+					Variant: button.VariantDefault,
+					Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction.edit", "spaceID", props.SpaceID, "accountID", props.AccountID, "transactionID", props.Transaction.ID),
+					Class:   "flex items-center gap-2",
+				}) {
+					@icon.Pencil(icon.Props{Class: "size-4"})
+					Edit
+				}
+			</div>
+			@card.Card() {
+				@card.Content(card.ContentProps{Class: "p-6 space-y-6"}) {
+					<div>
+						<p class="text-sm text-muted-foreground">Amount</p>
+						<p class={ utils.TwMerge(amountClasses...) }>
+							{ sign }${ utils.FormatDecimalWithThousands(props.Transaction.Value.StringFixedBank(2)) }
+						</p>
+					</div>
+					<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+						<div>
+							<p class="text-sm text-muted-foreground">Date</p>
+							<p class="font-medium">{ props.Transaction.OccurredAt.Format("January 2, 2006") }</p>
+						</div>
+						<div>
+							<p class="text-sm text-muted-foreground">Type</p>
+							<p class="font-medium">{ label }</p>
+						</div>
+						if !isDeposit {
+							<div>
+								<p class="text-sm text-muted-foreground">Category</p>
+								if props.CategoryName != "" {
+									<p class="font-medium">{ props.CategoryName }</p>
+								} else {
+									<p class="font-medium text-muted-foreground">Uncategorized</p>
+								}
+							</div>
+						}
+						<div>
+							<p class="text-sm text-muted-foreground">Last updated</p>
+							<p class="font-medium">{ props.Transaction.UpdatedAt.Format("Jan 2, 2006 3:04 PM") }</p>
+						</div>
+					</div>
+					if props.Transaction.Description != nil && *props.Transaction.Description != "" {
+						<div>
+							<p class="text-sm text-muted-foreground">Description</p>
+							<p class="whitespace-pre-wrap">{ *props.Transaction.Description }</p>
+						</div>
+					}
+				}
+			}
+		</div>
+	}
+}

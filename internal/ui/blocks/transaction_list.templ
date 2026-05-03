@@ -1,24 +1,32 @@
 package blocks
 
 import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 
-templ TransactionList(txns []*model.Transaction) {
-	if len(txns) == 0 {
+type TransactionListProps struct {
+	SpaceID      string
+	AccountID    string
+	Transactions []*model.Transaction
+}
+
+templ TransactionList(props TransactionListProps) {
+	if len(props.Transactions) == 0 {
 		<div class="text-sm text-muted-foreground py-6 text-center">
 			No transactions yet.
 		</div>
 	} else {
 		<ul class="divide-y">
-			for _, t := range txns {
-				@transactionRow(t)
+			for _, t := range props.Transactions {
+				@transactionRow(props.SpaceID, props.AccountID, t)
 			}
 		</ul>
 	}
 }
 
-templ transactionRow(t *model.Transaction) {
+templ transactionRow(spaceID, accountID string, t *model.Transaction) {
 	{{
 		isDeposit := t.Type == model.TransactionTypeDeposit
 		amountClasses := []string{"text-sm font-semibold tabular-nums"}
@@ -40,16 +48,41 @@ templ transactionRow(t *model.Transaction) {
 				}
 			</div>
 			<div class="min-w-0">
-				<p class="font-medium truncate">{ t.Title }</p>
+				if spaceID != "" && accountID != "" {
+					<a
+						href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction", "spaceID", spaceID, "accountID", accountID, "transactionID", t.ID)) }
+						class="font-medium truncate block hover:underline"
+					>
+						{ t.Title }
+					</a>
+				} else {
+					<p class="font-medium truncate">{ t.Title }</p>
+				}
 				<p class="text-xs text-muted-foreground">{ t.OccurredAt.Format("Jan 2, 2006") }</p>
 			</div>
 		</div>
-		<div class="text-right shrink-0">
-			<p class={ utils.TwMerge(amountClasses...) }>
-				{ sign }${ utils.FormatDecimalWithThousands(t.Value.StringFixedBank(2)) }
-			</p>
-			if t.Description != nil && *t.Description != "" {
-				<p class="text-xs text-muted-foreground truncate max-w-[200px]">{ *t.Description }</p>
+		<div class="flex items-center gap-3 shrink-0">
+			<div class="text-right">
+				<p class={ utils.TwMerge(amountClasses...) }>
+					{ sign }${ utils.FormatDecimalWithThousands(t.Value.StringFixedBank(2)) }
+				</p>
+				if t.Description != nil && *t.Description != "" {
+					<p class="text-xs text-muted-foreground truncate max-w-[200px]">{ *t.Description }</p>
+				}
+			</div>
+			if spaceID != "" && accountID != "" {
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeIcon,
+					Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction.edit", "spaceID", spaceID, "accountID", accountID, "transactionID", t.ID),
+					Class:   "h-8 w-8",
+					Attributes: templ.Attributes{
+						"aria-label": "Edit transaction",
+						"title":      "Edit transaction",
+					},
+				}) {
+					@icon.Pencil(icon.Props{Class: "size-4"})
+				}
 			}
 		</div>
 	</li>
