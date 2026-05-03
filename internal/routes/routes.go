@@ -109,6 +109,9 @@ func SetupRoutes(a *app.App) http.Handler {
 				g.SubGroup("/accounts/{accountID}", func(g *router.Group) {
 					g.Get("/overview", spaceH.SpaceAccountPage).Name("page.app.spaces.space.accounts.account.overview")
 					g.Get("/transactions", spaceH.SpaceAccountTransactionsPage).Name("page.app.spaces.space.accounts.account.transactions")
+					g.Get("/transactions/{transactionID}", spaceH.SpaceTransactionPage).Name("page.app.spaces.space.accounts.account.transactions.transaction")
+					g.Get("/transactions/{transactionID}/edit", spaceH.SpaceEditTransactionPage).Name("page.app.spaces.space.accounts.account.transactions.transaction.edit")
+					g.Post("/transactions/{transactionID}/edit", spaceH.HandleEditTransaction).Name("action.app.spaces.space.accounts.account.transactions.transaction.edit")
 					g.Get("/settings", spaceH.SpaceAccountSettingsPage).Name("page.app.spaces.space.accounts.account.settings")
 					g.Post("/settings/rename", spaceH.HandleRenameAccount).Name("action.app.spaces.space.accounts.account.settings.rename")
 					g.Post("/settings/delete", spaceH.HandleDeleteAccount).Name("action.app.spaces.space.accounts.account.settings.delete")

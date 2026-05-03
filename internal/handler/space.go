@@ -972,6 +972,287 @@ func (h *spaceHandler) HandleCreateDeposit(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *spaceHandler) SpaceTransactionPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+	transactionID := r.PathValue("transactionID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	txn, err := h.transactionService.GetTransaction(transactionID)
+	if err != nil || txn.AccountID != accountID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load page", http.StatusInternalServerError)
+		return
+	}
+
+	categoryName := ""
+	if txn.Type == model.TransactionTypeWithdrawal {
+		categoryID, err := h.transactionService.GetTransactionCategoryID(transactionID)
+		if err != nil {
+			slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
+		} else if categoryID != "" {
+			categories, err := h.transactionService.ListCategories()
+			if err != nil {
+				slog.Error("failed to load categories", "error", err)
+			} else {
+				for _, c := range categories {
+					if c.ID == categoryID {
+						categoryName = c.Name
+						break
+					}
+				}
+			}
+		}
+	}
+
+	ui.Render(w, r, pages.SpaceTransactionPage(pages.SpaceTransactionPageProps{
+		SpaceID:      spaceID,
+		SpaceName:    space.Name,
+		AccountID:    accountID,
+		AccountName:  account.Name,
+		Transaction:  txn,
+		CategoryName: categoryName,
+	}))
+}
+
+func (h *spaceHandler) SpaceEditTransactionPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+	transactionID := r.PathValue("transactionID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	txn, err := h.transactionService.GetTransaction(transactionID)
+	if err != nil || txn.AccountID != accountID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load page", http.StatusInternalServerError)
+		return
+	}
+
+	description := ""
+	if txn.Description != nil {
+		description = *txn.Description
+	}
+
+	pageProps := pages.SpaceEditTransactionPageProps{
+		SpaceID:         spaceID,
+		SpaceName:       space.Name,
+		AccountID:       accountID,
+		AccountName:     account.Name,
+		TransactionType: txn.Type,
+	}
+
+	if txn.Type == model.TransactionTypeDeposit {
+		pageProps.DepositForm = forms.EditDepositProps{
+			SpaceID:       spaceID,
+			AccountID:     accountID,
+			TransactionID: transactionID,
+			Title:         txn.Title,
+			Amount:        txn.Value.StringFixedBank(2),
+			Date:          txn.OccurredAt.Format("2006-01-02"),
+			Description:   description,
+		}
+	} else {
+		categories, err := h.transactionService.ListCategories()
+		if err != nil {
+			slog.Error("failed to load categories", "error", err)
+			ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+			return
+		}
+		categoryID, err := h.transactionService.GetTransactionCategoryID(transactionID)
+		if err != nil {
+			slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
+			categoryID = ""
+		}
+		pageProps.BillForm = forms.EditBillProps{
+			SpaceID:       spaceID,
+			AccountID:     accountID,
+			TransactionID: transactionID,
+			Categories:    categories,
+			Title:         txn.Title,
+			Amount:        txn.Value.StringFixedBank(2),
+			Date:          txn.OccurredAt.Format("2006-01-02"),
+			Description:   description,
+			CategoryID:    categoryID,
+		}
+	}
+
+	ui.Render(w, r, pages.SpaceEditTransactionPage(pageProps))
+}
+
+func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+	transactionID := r.PathValue("transactionID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
+		return
+	}
+
+	txn, err := h.transactionService.GetTransaction(transactionID)
+	if err != nil || txn.AccountID != accountID {
+		ui.RenderError(w, r, "Transaction not found", http.StatusNotFound)
+		return
+	}
+
+	titleInput := strings.TrimSpace(r.FormValue("title"))
+	amountInput := strings.TrimSpace(r.FormValue("amount"))
+	dateInput := strings.TrimSpace(r.FormValue("date"))
+	descriptionInput := strings.TrimSpace(r.FormValue("description"))
+
+	titleErr, amountErr, dateErr := "", "", ""
+	hasErr := false
+
+	if titleInput == "" {
+		titleErr = "Title is required."
+		hasErr = true
+	}
+
+	var amount decimal.Decimal
+	if amountInput == "" {
+		amountErr = "Amount is required."
+		hasErr = true
+	} else {
+		amt, err := decimal.NewFromString(amountInput)
+		if err != nil {
+			amountErr = "Enter a valid amount (e.g. 12.34)."
+			hasErr = true
+		} else if !amt.IsPositive() {
+			amountErr = "Amount must be greater than zero."
+			hasErr = true
+		} else if amt.Exponent() < -2 {
+			amountErr = "Amount can have at most 2 decimal places."
+			hasErr = true
+		} else {
+			amount = amt
+		}
+	}
+
+	var occurredAt time.Time
+	if dateInput == "" {
+		dateErr = "Date is required."
+		hasErr = true
+	} else {
+		parsed, err := time.Parse("2006-01-02", dateInput)
+		if err != nil {
+			dateErr = "Enter a valid date."
+			hasErr = true
+		} else {
+			occurredAt = parsed
+		}
+	}
+
+	if txn.Type == model.TransactionTypeDeposit {
+		formProps := forms.EditDepositProps{
+			SpaceID:       spaceID,
+			AccountID:     accountID,
+			TransactionID: transactionID,
+			Title:         titleInput,
+			Amount:        amountInput,
+			Date:          dateInput,
+			Description:   descriptionInput,
+			TitleErr:      titleErr,
+			AmountErr:     amountErr,
+			DateErr:       dateErr,
+		}
+		if hasErr {
+			ui.Render(w, r, forms.EditDeposit(formProps))
+			return
+		}
+		if _, err := h.transactionService.UpdateDeposit(service.UpdateDepositInput{
+			TransactionID: transactionID,
+			Title:         titleInput,
+			Amount:        amount,
+			OccurredAt:    occurredAt,
+			Description:   descriptionInput,
+		}); err != nil {
+			slog.Error("failed to update deposit", "error", err, "transaction_id", transactionID)
+			formProps.GeneralErr = "Something went wrong. Please try again."
+			ui.Render(w, r, forms.EditDeposit(formProps))
+			return
+		}
+		redirectTo := routeurl.URL(
+			"page.app.spaces.space.accounts.account.transactions.transaction",
+			"spaceID", spaceID,
+			"accountID", accountID,
+			"transactionID", transactionID,
+		)
+		w.Header().Set("HX-Redirect", redirectTo)
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+
+	categoryInput := strings.TrimSpace(r.FormValue("category"))
+	categories, err := h.transactionService.ListCategories()
+	if err != nil {
+		slog.Error("failed to load categories", "error", err)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
+	formProps := forms.EditBillProps{
+		SpaceID:       spaceID,
+		AccountID:     accountID,
+		TransactionID: transactionID,
+		Categories:    categories,
+		Title:         titleInput,
+		Amount:        amountInput,
+		Date:          dateInput,
+		Description:   descriptionInput,
+		CategoryID:    categoryInput,
+		TitleErr:      titleErr,
+		AmountErr:     amountErr,
+		DateErr:       dateErr,
+	}
+	if hasErr {
+		ui.Render(w, r, forms.EditBill(formProps))
+		return
+	}
+	if _, err := h.transactionService.UpdateBill(service.UpdateBillInput{
+		TransactionID: transactionID,
+		Title:         titleInput,
+		Amount:        amount,
+		OccurredAt:    occurredAt,
+		Description:   descriptionInput,
+		CategoryID:    categoryInput,
+	}); err != nil {
+		slog.Error("failed to update bill", "error", err, "transaction_id", transactionID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.EditBill(formProps))
+		return
+	}
+	redirectTo := routeurl.URL(
+		"page.app.spaces.space.accounts.account.transactions.transaction",
+		"spaceID", spaceID,
+		"accountID", accountID,
+		"transactionID", transactionID,
+	)
+	w.Header().Set("HX-Redirect", redirectTo)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	accountID := r.PathValue("accountID")
