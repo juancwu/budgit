@@ -89,6 +89,61 @@ func (s *TransactionService) PayBill(input PayBillInput) (*model.Transaction, er
 	return txn, nil
 }
 
+type DepositInput struct {
+	AccountID   string
+	Title       string
+	Amount      decimal.Decimal
+	OccurredAt  time.Time
+	Description string
+}
+
+func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, error) {
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if input.AccountID == "" {
+		return nil, fmt.Errorf("account id is required")
+	}
+	if !input.Amount.IsPositive() {
+		return nil, fmt.Errorf("amount must be greater than zero")
+	}
+	if input.OccurredAt.IsZero() {
+		return nil, fmt.Errorf("date is required")
+	}
+
+	account, err := s.accountService.GetAccount(input.AccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load account: %w", err)
+	}
+
+	newBalance := account.Balance.Add(input.Amount)
+
+	now := time.Now()
+	var description *string
+	if d := strings.TrimSpace(input.Description); d != "" {
+		description = &d
+	}
+
+	txn := &model.Transaction{
+		ID:          uuid.NewString(),
+		Value:       input.Amount,
+		Type:        model.TransactionTypeDeposit,
+		AccountID:   input.AccountID,
+		Title:       title,
+		Description: description,
+		OccurredAt:  input.OccurredAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := s.transactionRepo.CreateDepositAtomic(txn, newBalance); err != nil {
+		return nil, fmt.Errorf("failed to create deposit transaction: %w", err)
+	}
+
+	return txn, nil
+}
+
 func (s *TransactionService) ListByAccount(accountID string, limit, offset int) ([]*model.Transaction, error) {
 	if limit <= 0 {
 		limit = 25

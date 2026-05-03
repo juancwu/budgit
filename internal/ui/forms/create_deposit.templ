@@ -1,0 +1,134 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/textarea"
+
+type CreateDepositProps struct {
+	SpaceID   string
+	AccountID string
+
+	Title       string
+	Amount      string
+	Date        string
+	Description string
+
+	TitleErr   string
+	AmountErr  string
+	DateErr    string
+	GeneralErr string
+}
+
+templ CreateDeposit(props CreateDepositProps) {
+	<form hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.deposits.create", "spaceID", props.SpaceID, "accountID", props.AccountID) }>
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Content(card.ContentProps{Class: "p-4 space-y-4"}) {
+				if props.GeneralErr != "" {
+					@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+						{ props.GeneralErr }
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "title"}) {
+						Title
+					}
+					@input.Input(input.Props{
+						ID:          "title",
+						Name:        "title",
+						Type:        input.TypeText,
+						Placeholder: "e.g. Paycheck",
+						Class:       "rounded-sm",
+						Value:       props.Title,
+						HasError:    props.TitleErr != "",
+						Required:    true,
+						Attributes: templ.Attributes{
+							"autocomplete": "off",
+							"autofocus":    "",
+						},
+					})
+					if props.TitleErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.TitleErr }
+						}
+					}
+				}
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "amount"}) {
+							Amount
+						}
+						@input.Input(input.Props{
+							ID:          "amount",
+							Name:        "amount",
+							Type:        input.TypeNumber,
+							Placeholder: "0.00",
+							Class:       "rounded-sm",
+							Value:       props.Amount,
+							HasError:    props.AmountErr != "",
+							Required:    true,
+							Attributes: templ.Attributes{
+								"step":         "0.01",
+								"min":          "0",
+								"inputmode":    "decimal",
+								"autocomplete": "off",
+							},
+						})
+						if props.AmountErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.AmountErr }
+							}
+						}
+					}
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "date"}) {
+							Date
+						}
+						@input.Input(input.Props{
+							ID:       "date",
+							Name:     "date",
+							Type:     input.TypeDate,
+							Class:    "rounded-sm",
+							Value:    props.Date,
+							HasError: props.DateErr != "",
+							Required: true,
+						})
+						if props.DateErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.DateErr }
+							}
+						}
+					}
+				</div>
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "description"}) {
+						Description
+					}
+					@textarea.Textarea(textarea.Props{
+						ID:          "description",
+						Name:        "description",
+						Placeholder: "Anything extra worth remembering",
+						Rows:        3,
+						Value:       props.Description,
+					})
+					@form.Description() {
+						Optional.
+					}
+				}
+			}
+			@card.Footer(card.FooterProps{Class: "flex justify-end gap-2"}) {
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Href:    routeurl.URL("page.app.spaces.space.accounts.account.overview", "spaceID", props.SpaceID, "accountID", props.AccountID),
+				}) {
+					Cancel
+				}
+				@button.Button(button.Props{Type: button.TypeSubmit}) {
+					Deposit
+				}
+			}
+		}
+	</form>
+}

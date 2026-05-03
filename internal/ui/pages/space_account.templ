@@ -61,6 +61,7 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 						@button.Button(button.Props{
 							Class:   "w-full flex gap-2 md:gap-4 items-center",
 							Variant: button.VariantSecondary,
+							Href:    routeurl.URL("page.app.spaces.space.accounts.account.deposits.create", "spaceID", props.SpaceID, "accountID", props.AccountID),
 						}) {
 							Deposit Funds
 							@icon.BanknoteArrowDown()

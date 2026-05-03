@@ -302,6 +302,119 @@ func (h *spaceHandler) SpaceCreateBillPage(w http.ResponseWriter, r *http.Reques
 	}))
 }
 
+func (h *spaceHandler) SpaceCreateDepositPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load account", "error", err, "account_id", accountID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+	if account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceCreateDepositPage(pages.SpaceCreateDepositPageProps{
+		SpaceID:     spaceID,
+		AccountID:   accountID,
+		AccountName: account.Name,
+		Form: forms.CreateDepositProps{
+			SpaceID:   spaceID,
+			AccountID: accountID,
+			Date:      time.Now().Format("2006-01-02"),
+		},
+	}))
+}
+
+func (h *spaceHandler) HandleCreateDeposit(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	titleInput := strings.TrimSpace(r.FormValue("title"))
+	amountInput := strings.TrimSpace(r.FormValue("amount"))
+	dateInput := strings.TrimSpace(r.FormValue("date"))
+	descriptionInput := strings.TrimSpace(r.FormValue("description"))
+
+	formProps := forms.CreateDepositProps{
+		SpaceID:     spaceID,
+		AccountID:   accountID,
+		Title:       titleInput,
+		Amount:      amountInput,
+		Date:        dateInput,
+		Description: descriptionInput,
+	}
+
+	hasErr := false
+	if titleInput == "" {
+		formProps.TitleErr = "Title is required."
+		hasErr = true
+	}
+
+	var amount decimal.Decimal
+	if amountInput == "" {
+		formProps.AmountErr = "Amount is required."
+		hasErr = true
+	} else {
+		amt, err := decimal.NewFromString(amountInput)
+		if err != nil {
+			formProps.AmountErr = "Enter a valid amount (e.g. 12.34)."
+			hasErr = true
+		} else if !amt.IsPositive() {
+			formProps.AmountErr = "Amount must be greater than zero."
+			hasErr = true
+		} else if amt.Exponent() < -2 {
+			formProps.AmountErr = "Amount can have at most 2 decimal places."
+			hasErr = true
+		} else {
+			amount = amt
+		}
+	}
+
+	var occurredAt time.Time
+	if dateInput == "" {
+		formProps.DateErr = "Date is required."
+		hasErr = true
+	} else {
+		parsed, err := time.Parse("2006-01-02", dateInput)
+		if err != nil {
+			formProps.DateErr = "Enter a valid date."
+			hasErr = true
+		} else {
+			occurredAt = parsed
+		}
+	}
+
+	if hasErr {
+		ui.Render(w, r, forms.CreateDeposit(formProps))
+		return
+	}
+
+	_, err := h.transactionService.Deposit(service.DepositInput{
+		AccountID:   accountID,
+		Title:       titleInput,
+		Amount:      amount,
+		OccurredAt:  occurredAt,
+		Description: descriptionInput,
+	})
+	if err != nil {
+		slog.Error("failed to create deposit", "error", err, "account_id", accountID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.CreateDeposit(formProps))
+		return
+	}
+
+	redirectTo := routeurl.URL(
+		"page.app.spaces.space.accounts.account.overview",
+		"spaceID", spaceID,
+		"accountID", accountID,
+	)
+	w.Header().Set("HX-Redirect", redirectTo)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	accountID := r.PathValue("accountID")

@@ -98,6 +98,8 @@ func SetupRoutes(a *app.App) http.Handler {
 					g.Get("/transactions", spaceH.SpaceAccountTransactionsPage).Name("page.app.spaces.space.accounts.account.transactions")
 					g.Get("/bills/create", spaceH.SpaceCreateBillPage).Name("page.app.spaces.space.accounts.account.bills.create")
 					g.Post("/bills/create", spaceH.HandleCreateBill).Name("action.app.spaces.space.accounts.account.bills.create")
+					g.Get("/deposits/create", spaceH.SpaceCreateDepositPage).Name("page.app.spaces.space.accounts.account.deposits.create")
+					g.Post("/deposits/create", spaceH.HandleCreateDeposit).Name("action.app.spaces.space.accounts.account.deposits.create")
 				})
 			})
 		})

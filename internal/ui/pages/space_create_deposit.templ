@@ -1,4 +1,25 @@
 package pages
 
-templ SpaceCreateDeposit() {
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceCreateDepositPageProps struct {
+	SpaceID     string
+	AccountID   string
+	AccountName string
+	Form        forms.CreateDepositProps
+}
+
+templ SpaceCreateDepositPage(props SpaceCreateDepositPageProps) {
+	@layouts.App("Deposit Funds", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Deposit Funds</h1>
+				<p class="text-muted-foreground mt-2">
+					Record a deposit into { props.AccountName }.
+				</p>
+			</div>
+			@forms.CreateDeposit(props.Form)
+		</div>
+	}
 }
