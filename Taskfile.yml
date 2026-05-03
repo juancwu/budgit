@@ -34,7 +34,7 @@ tasks:
   test:integration:
     desc: Run tests against both SQLite and PostgreSQL
     cmds:
-      - docker run --name budgit-test-pg -d -p 5433:5432 -e POSTGRES_USER=budgit_test -e POSTGRES_PASSWORD=testpass -e POSTGRES_DB=budgit_test postgres:16-alpine
+      - docker run --name budgit-test-pg -d -p 5433:5432 -e POSTGRES_USER=budgit_test -e POSTGRES_PASSWORD=testpass -e POSTGRES_DB=budgit_test postgres:17-alpine
       - defer: docker rm -f budgit-test-pg
       - cmd: sleep 3
       - cmd: BUDGIT_TEST_POSTGRES_URL="postgres://budgit_test:testpass@localhost:5433/budgit_test?sslmode=disable" set -o pipefail && go test ./... -json | tparse -all
