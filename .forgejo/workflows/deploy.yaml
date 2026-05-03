@@ -8,7 +8,7 @@ jobs:
         runs-on: ubuntu-full-24.04
         services:
             postgres:
-                image: postgres:16-alpine
+                image: postgres:17-alpine
                 env:
                     POSTGRES_USER: budgit_test
                     POSTGRES_PASSWORD: testpass
