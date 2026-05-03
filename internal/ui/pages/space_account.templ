@@ -1,7 +1,9 @@
 package pages
 
 import "github.com/shopspring/decimal"
+import "git.juancwu.dev/juancwu/budgit/internal/model"
 import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
@@ -9,10 +11,11 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 
 type SpaceAccountPageProps struct {
-	SpaceID        string
-	AccountID      string
-	AccountName    string
-	AccountBalance decimal.Decimal
+	SpaceID            string
+	AccountID          string
+	AccountName        string
+	AccountBalance     decimal.Decimal
+	RecentTransactions []*model.Transaction
 }
 
 templ SpaceAccountPage(props SpaceAccountPageProps) {
@@ -43,7 +46,7 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 				@card.Card(card.Props{Class: "rounded-sm col-span-full md:col-span-4"}) {
 					@card.Header() {
 						@card.Title() {
-							Quick Actions 
+							Quick Actions
 						}
 					}
 					@card.Content(card.ContentProps{Class: "space-y-4"}) {
@@ -77,14 +80,24 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 					@card.Header() {
 						<div>
 							@card.Title() {
-								Transaction History 
+								Recent Transactions
 							}
 							@card.Description() {
-								Overview of your activity for August 2024 
+								Your latest activity on this account.
 							}
 						</div>
 					}
 					@card.Content() {
+						@blocks.TransactionList(props.RecentTransactions)
+					}
+					@card.Footer(card.FooterProps{Class: "justify-end"}) {
+						@button.Button(button.Props{
+							Variant: button.VariantLink,
+							Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions", "spaceID", props.SpaceID, "accountID", props.AccountID),
+						}) {
+							View all transactions
+							@icon.ChevronRight()
+						}
 					}
 				}
 			</div>

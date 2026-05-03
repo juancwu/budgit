@@ -1,0 +1,56 @@
+package blocks
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+
+templ TransactionList(txns []*model.Transaction) {
+	if len(txns) == 0 {
+		<div class="text-sm text-muted-foreground py-6 text-center">
+			No transactions yet.
+		</div>
+	} else {
+		<ul class="divide-y">
+			for _, t := range txns {
+				@transactionRow(t)
+			}
+		</ul>
+	}
+}
+
+templ transactionRow(t *model.Transaction) {
+	{{
+		isDeposit := t.Type == model.TransactionTypeDeposit
+		amountClasses := []string{"text-sm font-semibold tabular-nums"}
+		sign := "-"
+		if isDeposit {
+			amountClasses = append(amountClasses, "text-green-600 dark:text-green-400")
+			sign = "+"
+		} else {
+			amountClasses = append(amountClasses, "text-red-600 dark:text-red-400")
+		}
+	}}
+	<li class="flex items-center justify-between gap-4 py-3">
+		<div class="flex items-center gap-3 min-w-0">
+			<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+				if isDeposit {
+					@icon.BanknoteArrowDown(icon.Props{Class: "size-4 text-green-600 dark:text-green-400"})
+				} else {
+					@icon.HandCoins(icon.Props{Class: "size-4 text-red-600 dark:text-red-400"})
+				}
+			</div>
+			<div class="min-w-0">
+				<p class="font-medium truncate">{ t.Title }</p>
+				<p class="text-xs text-muted-foreground">{ t.OccurredAt.Format("Jan 2, 2006") }</p>
+			</div>
+		</div>
+		<div class="text-right shrink-0">
+			<p class={ utils.TwMerge(amountClasses...) }>
+				{ sign }${ utils.FormatDecimalWithThousands(t.Value.StringFixedBank(2)) }
+			</p>
+			if t.Description != nil && *t.Description != "" {
+				<p class="text-xs text-muted-foreground truncate max-w-[200px]">{ *t.Description }</p>
+			}
+		</div>
+	</li>
+}

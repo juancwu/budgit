@@ -1,0 +1,118 @@
+package pages
+
+import "fmt"
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
+
+type SpaceAccountTransactionsPageProps struct {
+	SpaceID      string
+	AccountID    string
+	AccountName  string
+	Transactions []*model.Transaction
+	CurrentPage  int
+	TotalPages   int
+	TotalCount   int
+	PerPage      int
+}
+
+templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
+	@layouts.App("Transactions", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+		<div class="container px-6 py-8 mx-auto space-y-8">
+			<div class="flex items-start justify-between flex-wrap gap-4">
+				<div>
+					<h1 class="text-3xl font-bold">Transactions</h1>
+					<p class="text-muted-foreground mt-1">
+						All activity for { props.AccountName }.
+					</p>
+				</div>
+				<div class="flex gap-2 flex-wrap">
+					@button.Button(button.Props{
+						Variant: button.VariantDefault,
+						Href:    routeurl.URL("page.app.spaces.space.accounts.account.bills.create", "spaceID", props.SpaceID, "accountID", props.AccountID),
+						Class:   "flex gap-2 items-center",
+					}) {
+						@icon.HandCoins()
+						Pay Bills
+					}
+					@button.Button(button.Props{
+						Variant: button.VariantSecondary,
+						Class:   "flex gap-2 items-center",
+					}) {
+						@icon.BanknoteArrowDown()
+						Deposit Funds
+					}
+				</div>
+			</div>
+			@card.Card() {
+				@card.Header() {
+					@card.Title() {
+						All Transactions
+					}
+					@card.Description() {
+						{ transactionsRangeLabel(props) }
+					}
+				}
+				@card.Content() {
+					@blocks.TransactionList(props.Transactions)
+				}
+				if props.TotalPages > 1 {
+					@card.Footer() {
+						@transactionsPagination(props)
+					}
+				}
+			}
+		</div>
+	}
+}
+
+func transactionsRangeLabel(props SpaceAccountTransactionsPageProps) string {
+	if props.TotalCount == 0 {
+		return "No transactions yet."
+	}
+	start := (props.CurrentPage-1)*props.PerPage + 1
+	end := start + len(props.Transactions) - 1
+	return fmt.Sprintf("Showing %d–%d of %d", start, end, props.TotalCount)
+}
+
+func transactionsPageURL(spaceID, accountID string, page int) string {
+	base := routeurl.URL("page.app.spaces.space.accounts.account.transactions", "spaceID", spaceID, "accountID", accountID)
+	return fmt.Sprintf("%s?page=%d", base, page)
+}
+
+templ transactionsPagination(props SpaceAccountTransactionsPageProps) {
+	{{ p := pagination.CreatePagination(props.CurrentPage, props.TotalPages, 5) }}
+	@pagination.Pagination() {
+		@pagination.Content() {
+			@pagination.Item() {
+				@pagination.Previous(pagination.PreviousProps{
+					Href:     transactionsPageURL(props.SpaceID, props.AccountID, p.CurrentPage-1),
+					Disabled: !p.HasPrevious,
+					Label:    "Previous",
+				})
+			}
+			for _, page := range p.Pages {
+				@pagination.Item() {
+					@pagination.Link(pagination.LinkProps{
+						Href:     transactionsPageURL(props.SpaceID, props.AccountID, page),
+						IsActive: page == p.CurrentPage,
+					}) {
+						{ fmt.Sprintf("%d", page) }
+					}
+				}
+			}
+			@pagination.Item() {
+				@pagination.Next(pagination.NextProps{
+					Href:     transactionsPageURL(props.SpaceID, props.AccountID, p.CurrentPage+1),
+					Disabled: !p.HasNext,
+					Label:    "Next",
+				})
+			}
+		}
+	}
+}

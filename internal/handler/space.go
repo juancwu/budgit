@@ -3,6 +3,7 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -193,11 +194,76 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	recent, err := h.transactionService.ListByAccount(accountID, 5, 0)
+	if err != nil {
+		slog.Error("failed to load recent transactions", "error", err, "account_id", accountID)
+		recent = nil
+	}
+
 	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
-		SpaceID:        spaceID,
-		AccountID:      accountID,
-		AccountName:    account.Name,
-		AccountBalance: account.Balance,
+		SpaceID:            spaceID,
+		AccountID:          accountID,
+		AccountName:        account.Name,
+		AccountBalance:     account.Balance,
+		RecentTransactions: recent,
+	}))
+}
+
+func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load account", "error", err, "account_id", accountID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+	if account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	const perPage = 25
+	page := 1
+	if p := strings.TrimSpace(r.URL.Query().Get("page")); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	total, err := h.transactionService.CountByAccount(accountID)
+	if err != nil {
+		slog.Error("failed to count transactions", "error", err, "account_id", accountID)
+		ui.RenderError(w, r, "Failed to load transactions", http.StatusInternalServerError)
+		return
+	}
+
+	totalPages := (total + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	offset := (page - 1) * perPage
+	txns, err := h.transactionService.ListByAccount(accountID, perPage, offset)
+	if err != nil {
+		slog.Error("failed to load transactions", "error", err, "account_id", accountID)
+		ui.RenderError(w, r, "Failed to load transactions", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceAccountTransactionsPage(pages.SpaceAccountTransactionsPageProps{
+		SpaceID:      spaceID,
+		AccountID:    accountID,
+		AccountName:  account.Name,
+		Transactions: txns,
+		CurrentPage:  page,
+		TotalPages:   totalPages,
+		TotalCount:   total,
+		PerPage:      perPage,
 	}))
 }
 

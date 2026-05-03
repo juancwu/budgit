@@ -51,7 +51,7 @@ func main() {
 	})
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
+		Addr:    cfg.Host + ":" + cfg.Port,
 		Handler: finalHandler,
 	}
 

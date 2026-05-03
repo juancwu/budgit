@@ -10,6 +10,8 @@ import (
 
 type TransactionRepository interface {
 	CreateBillAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error
+	ListByAccount(accountID string, limit, offset int) ([]*model.Transaction, error)
+	CountByAccount(accountID string) (int, error)
 }
 
 type transactionRepository struct {
@@ -50,4 +52,27 @@ func (r *transactionRepository) CreateBillAtomic(t *model.Transaction, newBalanc
 
 		return nil
 	})
+}
+
+func (r *transactionRepository) ListByAccount(accountID string, limit, offset int) ([]*model.Transaction, error) {
+	query := `
+		SELECT id, value, type, account_id, title, description, occurred_at, created_at, updated_at
+		FROM transactions
+		WHERE account_id = $1
+		ORDER BY occurred_at DESC, created_at DESC
+		LIMIT $2 OFFSET $3;
+	`
+	txns := []*model.Transaction{}
+	if err := r.db.Select(&txns, query, accountID, limit, offset); err != nil {
+		return nil, err
+	}
+	return txns, nil
+}
+
+func (r *transactionRepository) CountByAccount(accountID string) (int, error) {
+	var count int
+	if err := r.db.Get(&count, `SELECT COUNT(*) FROM transactions WHERE account_id = $1;`, accountID); err != nil {
+		return 0, err
+	}
+	return count, nil
 }
