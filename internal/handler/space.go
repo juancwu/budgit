@@ -178,6 +178,72 @@ func (h *spaceHandler) SpaceOverviewPage(w http.ResponseWriter, r *http.Request)
 	}))
 }
 
+func (h *spaceHandler) SpaceCreateAccountPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to fetch space", "error", err, "space_id", spaceID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceCreateAccountPage(pages.SpaceCreateAccountPageProps{
+		SpaceID:   space.ID,
+		SpaceName: space.Name,
+		Form: forms.CreateAccountProps{
+			SpaceID: space.ID,
+		},
+	}))
+}
+
+func (h *spaceHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	nameInput := strings.TrimSpace(r.FormValue("name"))
+
+	formProps := forms.CreateAccountProps{
+		SpaceID: spaceID,
+		Name:    nameInput,
+	}
+
+	if nameInput == "" {
+		formProps.NameErr = "Account name is required."
+		ui.Render(w, r, forms.CreateAccount(formProps))
+		return
+	}
+
+	existing, err := h.accountService.GetAccountsForSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load accounts", "error", err, "space_id", spaceID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.CreateAccount(formProps))
+		return
+	}
+	for _, a := range existing {
+		if strings.EqualFold(strings.TrimSpace(a.Name), nameInput) {
+			formProps.NameErr = "An account with this name already exists in this space."
+			ui.Render(w, r, forms.CreateAccount(formProps))
+			return
+		}
+	}
+
+	account, err := h.accountService.CreateAccount(spaceID, nameInput)
+	if err != nil {
+		slog.Error("failed to create account", "error", err, "space_id", spaceID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.CreateAccount(formProps))
+		return
+	}
+
+	redirectTo := routeurl.URL(
+		"page.app.spaces.space.accounts.account.overview",
+		"spaceID", spaceID,
+		"accountID", account.ID,
+	)
+	w.Header().Set("HX-Redirect", redirectTo)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	accountID := r.PathValue("accountID")
