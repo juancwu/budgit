@@ -41,6 +41,42 @@ func NewSpaceHandler(
 	}
 }
 
+func (h *spaceHandler) HomePage(w http.ResponseWriter, r *http.Request) {
+	user := ctxkeys.User(r.Context())
+	if user == nil {
+		ui.RenderError(w, r, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	owned, err := h.spaceService.GetOwnedSpaces(user.ID)
+	if err != nil {
+		slog.Error("failed to load owned spaces", "error", err, "user_id", user.ID)
+		ui.RenderError(w, r, "Failed to load spaces", http.StatusInternalServerError)
+		return
+	}
+
+	shared, err := h.spaceService.GetSharedSpaces(user.ID)
+	if err != nil {
+		slog.Error("failed to load shared spaces", "error", err, "user_id", user.ID)
+		ui.RenderError(w, r, "Failed to load spaces", http.StatusInternalServerError)
+		return
+	}
+
+	ownedCards := h.buildSpaceCards(owned)
+	sharedCards := h.buildSpaceCards(shared)
+
+	total := decimal.Zero
+	for _, c := range ownedCards {
+		total = total.Add(c.TotalBalance)
+	}
+
+	ui.Render(w, r, pages.Home(pages.HomeProps{
+		OwnedSpaces:  ownedCards,
+		SharedSpaces: sharedCards,
+		TotalBalance: total,
+	}))
+}
+
 func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 	user := ctxkeys.User(r.Context())
 	if user == nil {

@@ -83,6 +83,16 @@ templ spaceOverviewSidebarContent() {
 		@sidebar.Menu() {
 			@sidebar.MenuItem() {
 				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.home"),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.home"),
+					Tooltip:  "Home",
+				}) {
+					@icon.House()
+					<span>Home</span>
+				}
+			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
 					Href:     routeurl.URL("page.app.spaces"),
 					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces"),
 					Tooltip:  "My spaces",

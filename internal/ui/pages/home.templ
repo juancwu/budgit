@@ -1,0 +1,91 @@
+package pages
+
+import (
+	"fmt"
+
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+	"github.com/shopspring/decimal"
+)
+
+type HomeProps struct {
+	OwnedSpaces  []blocks.SpaceCardInfo
+	SharedSpaces []blocks.SpaceCardInfo
+	TotalBalance decimal.Decimal
+}
+
+templ Home(props HomeProps) {
+	{{
+		user := ctxkeys.User(ctx)
+		displayName := ""
+		if user != nil && user.Name != nil {
+			displayName = *user.Name
+		}
+		totalSpaces := len(props.OwnedSpaces) + len(props.SharedSpaces)
+	}}
+	@layouts.App("Home", spaceOverviewSidebarContent()) {
+		<div class="container px-6 py-8 mx-auto space-y-10">
+			<div class="w-full space-y-2 md:space-y-0 md:flex justify-between items-end">
+				<div class="space-y-2">
+					<p class="text-muted-foreground text-sm">Home</p>
+					<h1 class="text-2xl font-bold">Hello, { displayName }</h1>
+					if totalSpaces == 0 {
+						<p class="text-muted-foreground">Create a space to start tracking your expenses.</p>
+					} else {
+						{{
+							countPhrase := fmt.Sprintf("Across %d spaces", totalSpaces)
+							if totalSpaces == 1 {
+								countPhrase = "Across 1 space"
+							}
+						}}
+						<p class="text-muted-foreground">{ countPhrase } you own you have <span class="font-medium text-foreground">${ utils.FormatDecimalWithThousands(props.TotalBalance.StringFixedBank(2)) }</span> tracked.</p>
+					}
+				</div>
+				<div>
+					@button.Button(button.Props{
+						Class: "flex gap-2 items-center",
+						Href:  routeurl.URL("page.app.spaces.create"),
+					}) {
+						@icon.Plus()
+						Create space
+					}
+				</div>
+			</div>
+			<section class="space-y-3">
+				<div class="flex items-center justify-between">
+					<h2 class="text-lg font-semibold">My spaces</h2>
+					<span class="text-xs text-muted-foreground">{ fmt.Sprintf("%d", len(props.OwnedSpaces)) }</span>
+				</div>
+				if len(props.OwnedSpaces) == 0 {
+					<p class="text-sm text-muted-foreground">You don't own any spaces yet.</p>
+				} else {
+					<div>
+						for _, space := range props.OwnedSpaces {
+							@blocks.SpaceCard(space)
+						}
+					</div>
+				}
+			</section>
+			<section class="space-y-3">
+				<div class="flex items-center justify-between">
+					<h2 class="text-lg font-semibold">Shared with me</h2>
+					<span class="text-xs text-muted-foreground">{ fmt.Sprintf("%d", len(props.SharedSpaces)) }</span>
+				</div>
+				if len(props.SharedSpaces) == 0 {
+					<p class="text-sm text-muted-foreground">No spaces have been shared with you.</p>
+				} else {
+					<div>
+						for _, space := range props.SharedSpaces {
+							@blocks.SpaceCard(space)
+						}
+					</div>
+				}
+			</section>
+		</div>
+	}
+}

@@ -85,6 +85,8 @@ func SetupRoutes(a *app.App) http.Handler {
 	r.Group("/app", func(g *router.Group) {
 		g.Use(middleware.RequireAuth)
 
+		g.Get("/home", spaceH.HomePage).Name("page.app.home")
+
 		g.SubGroup("/spaces", func(g *router.Group) {
 			g.Get("", spaceH.SpacesPage).Name("page.app.spaces")
 			g.Get("/create", spaceH.CreateSpacePage).Name("page.app.spaces.create")

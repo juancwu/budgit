@@ -17,5 +17,5 @@ func TestRedirectHandler_RederictToSpaces(t *testing.T) {
 	h.Spaces(w, req)
 
 	assert.Equal(t, http.StatusMovedPermanently, w.Code)
-	assert.Equal(t, "/app/spaces", w.Header().Get("Location"))
+	assert.Equal(t, "/app/home", w.Header().Get("Location"))
 }

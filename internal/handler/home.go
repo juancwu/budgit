@@ -21,7 +21,7 @@ func (h *homeHandler) HomePage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/auth", http.StatusSeeOther)
 		return
 	}
-	http.Redirect(w, r, "/app/spaces", http.StatusSeeOther)
+	http.Redirect(w, r, "/app/home", http.StatusSeeOther)
 }
 
 func (h *homeHandler) PrivacyPage(w http.ResponseWriter, r *http.Request) {
