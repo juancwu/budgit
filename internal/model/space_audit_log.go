@@ -11,6 +11,9 @@ const (
 	SpaceAuditActionMemberJoined    SpaceAuditAction = "member.joined"
 	SpaceAuditActionMemberRemoved   SpaceAuditAction = "member.removed"
 	SpaceAuditActionInviteCancelled SpaceAuditAction = "invite.cancelled"
+	SpaceAuditActionAccountCreated  SpaceAuditAction = "account.created"
+	SpaceAuditActionAccountRenamed  SpaceAuditAction = "account.renamed"
+	SpaceAuditActionAccountDeleted  SpaceAuditAction = "account.deleted"
 )
 
 type SpaceAuditLog struct {

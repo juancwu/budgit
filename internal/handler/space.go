@@ -26,6 +26,8 @@ type spaceHandler struct {
 	transactionService *service.TransactionService
 	inviteService      *service.InviteService
 	auditLogService    *service.SpaceAuditLogService
+	txAuditLogService  *service.TransactionAuditLogService
+	accountActivitySvc *service.AccountActivityService
 }
 
 func NewSpaceHandler(
@@ -34,6 +36,8 @@ func NewSpaceHandler(
 	transactionService *service.TransactionService,
 	inviteService *service.InviteService,
 	auditLogService *service.SpaceAuditLogService,
+	txAuditLogService *service.TransactionAuditLogService,
+	accountActivitySvc *service.AccountActivityService,
 ) *spaceHandler {
 	return &spaceHandler{
 		spaceService:       spaceService,
@@ -41,6 +45,8 @@ func NewSpaceHandler(
 		transactionService: transactionService,
 		inviteService:      inviteService,
 		auditLogService:    auditLogService,
+		txAuditLogService:  txAuditLogService,
+		accountActivitySvc: accountActivitySvc,
 	}
 }
 
@@ -271,7 +277,12 @@ func (h *spaceHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	account, err := h.accountService.CreateAccount(spaceID, nameInput)
+	user := ctxkeys.User(r.Context())
+	actorID := ""
+	if user != nil {
+		actorID = user.ID
+	}
+	account, err := h.accountService.CreateAccount(spaceID, nameInput, actorID)
 	if err != nil {
 		slog.Error("failed to create account", "error", err, "space_id", spaceID)
 		formProps.GeneralErr = "Something went wrong. Please try again."
@@ -776,7 +787,12 @@ func (h *spaceHandler) HandleRenameAccount(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	if err := h.accountService.RenameAccount(accountID, nameInput); err != nil {
+	user := ctxkeys.User(r.Context())
+	actorID := ""
+	if user != nil {
+		actorID = user.ID
+	}
+	if err := h.accountService.RenameAccount(accountID, nameInput, actorID); err != nil {
 		slog.Error("failed to rename account", "error", err, "account_id", accountID)
 		formProps.GeneralErr = "Something went wrong. Please try again."
 		ui.Render(w, r, forms.UpdateAccount(formProps))
@@ -797,7 +813,12 @@ func (h *spaceHandler) HandleDeleteAccount(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if err := h.accountService.DeleteAccount(accountID); err != nil {
+	user := ctxkeys.User(r.Context())
+	actorID := ""
+	if user != nil {
+		actorID = user.ID
+	}
+	if err := h.accountService.DeleteAccount(accountID, actorID); err != nil {
 		slog.Error("failed to delete account", "error", err, "account_id", accountID)
 		ui.RenderError(w, r, "Failed to delete account", http.StatusInternalServerError)
 		return
@@ -949,12 +970,17 @@ func (h *spaceHandler) HandleCreateDeposit(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	actorID := ""
+	if u := ctxkeys.User(r.Context()); u != nil {
+		actorID = u.ID
+	}
 	_, err := h.transactionService.Deposit(service.DepositInput{
 		AccountID:   accountID,
 		Title:       titleInput,
 		Amount:      amount,
 		OccurredAt:  occurredAt,
 		Description: descriptionInput,
+		ActorID:     actorID,
 	})
 	if err != nil {
 		slog.Error("failed to create deposit", "error", err, "account_id", accountID)
@@ -1016,13 +1042,155 @@ func (h *spaceHandler) SpaceTransactionPage(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	recentLogs, err := h.txAuditLogService.List(transactionID, 5, 0)
+	if err != nil {
+		slog.Error("failed to load transaction audit logs", "error", err, "transaction_id", transactionID)
+		recentLogs = nil
+	}
+	logCount, err := h.txAuditLogService.Count(transactionID)
+	if err != nil {
+		slog.Error("failed to count transaction audit logs", "error", err, "transaction_id", transactionID)
+		logCount = len(recentLogs)
+	}
+
 	ui.Render(w, r, pages.SpaceTransactionPage(pages.SpaceTransactionPageProps{
-		SpaceID:      spaceID,
-		SpaceName:    space.Name,
-		AccountID:    accountID,
-		AccountName:  account.Name,
-		Transaction:  txn,
-		CategoryName: categoryName,
+		SpaceID:         spaceID,
+		SpaceName:       space.Name,
+		AccountID:       accountID,
+		AccountName:     account.Name,
+		Transaction:     txn,
+		CategoryName:    categoryName,
+		RecentAuditLogs: recentLogs,
+		AuditLogCount:   logCount,
+	}))
+}
+
+func (h *spaceHandler) SpaceAccountActivityPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	const perPage = 25
+	page := 1
+	if p := strings.TrimSpace(r.URL.Query().Get("page")); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	total, err := h.accountActivitySvc.Count(accountID)
+	if err != nil {
+		slog.Error("failed to count account activity", "error", err, "account_id", accountID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	totalPages := (total + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	rows, err := h.accountActivitySvc.List(accountID, perPage, (page-1)*perPage)
+	if err != nil {
+		slog.Error("failed to list account activity", "error", err, "account_id", accountID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceAccountActivityPage(pages.SpaceAccountActivityPageProps{
+		SpaceID:     spaceID,
+		SpaceName:   space.Name,
+		AccountID:   accountID,
+		AccountName: account.Name,
+		Rows:        rows,
+		CurrentPage: page,
+		TotalPages:  totalPages,
+		TotalCount:  total,
+		PerPage:     perPage,
+	}))
+}
+
+func (h *spaceHandler) SpaceTransactionActivityPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+	transactionID := r.PathValue("transactionID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	txn, err := h.transactionService.GetTransaction(transactionID)
+	if err != nil || txn.AccountID != accountID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	const perPage = 25
+	page := 1
+	if p := strings.TrimSpace(r.URL.Query().Get("page")); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+
+	total, err := h.txAuditLogService.Count(transactionID)
+	if err != nil {
+		slog.Error("failed to count transaction audit logs", "error", err, "transaction_id", transactionID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	totalPages := (total + perPage - 1) / perPage
+	if totalPages < 1 {
+		totalPages = 1
+	}
+	if page > totalPages {
+		page = totalPages
+	}
+
+	logs, err := h.txAuditLogService.List(transactionID, perPage, (page-1)*perPage)
+	if err != nil {
+		slog.Error("failed to list transaction audit logs", "error", err, "transaction_id", transactionID)
+		ui.RenderError(w, r, "Failed to load activity", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceTransactionActivityPage(pages.SpaceTransactionActivityPageProps{
+		SpaceID:         spaceID,
+		SpaceName:       space.Name,
+		AccountID:       accountID,
+		AccountName:     account.Name,
+		TransactionID:   transactionID,
+		TransactionName: txn.Title,
+		Logs:            logs,
+		CurrentPage:     page,
+		TotalPages:      totalPages,
+		TotalCount:      total,
+		PerPage:         perPage,
 	}))
 }
 
@@ -1182,12 +1350,17 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 			ui.Render(w, r, forms.EditDeposit(formProps))
 			return
 		}
+		actorID := ""
+		if u := ctxkeys.User(r.Context()); u != nil {
+			actorID = u.ID
+		}
 		if _, err := h.transactionService.UpdateDeposit(service.UpdateDepositInput{
 			TransactionID: transactionID,
 			Title:         titleInput,
 			Amount:        amount,
 			OccurredAt:    occurredAt,
 			Description:   descriptionInput,
+			ActorID:       actorID,
 		}); err != nil {
 			slog.Error("failed to update deposit", "error", err, "transaction_id", transactionID)
 			formProps.GeneralErr = "Something went wrong. Please try again."
@@ -1230,6 +1403,10 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 		ui.Render(w, r, forms.EditBill(formProps))
 		return
 	}
+	actorID := ""
+	if u := ctxkeys.User(r.Context()); u != nil {
+		actorID = u.ID
+	}
 	if _, err := h.transactionService.UpdateBill(service.UpdateBillInput{
 		TransactionID: transactionID,
 		Title:         titleInput,
@@ -1237,6 +1414,7 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 		OccurredAt:    occurredAt,
 		Description:   descriptionInput,
 		CategoryID:    categoryInput,
+		ActorID:       actorID,
 	}); err != nil {
 		slog.Error("failed to update bill", "error", err, "transaction_id", transactionID)
 		formProps.GeneralErr = "Something went wrong. Please try again."
@@ -1326,6 +1504,10 @@ func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	actorID := ""
+	if u := ctxkeys.User(r.Context()); u != nil {
+		actorID = u.ID
+	}
 	_, err = h.transactionService.PayBill(service.PayBillInput{
 		AccountID:   accountID,
 		Title:       titleInput,
@@ -1333,6 +1515,7 @@ func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) 
 		OccurredAt:  occurredAt,
 		Description: descriptionInput,
 		CategoryID:  categoryInput,
+		ActorID:     actorID,
 	})
 	if err != nil {
 		slog.Error("failed to create bill", "error", err, "account_id", accountID)

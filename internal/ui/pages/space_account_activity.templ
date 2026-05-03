@@ -1,0 +1,238 @@
+package pages
+
+import "encoding/json"
+import "fmt"
+import "strings"
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceAccountActivityPageProps struct {
+	SpaceID     string
+	SpaceName   string
+	AccountID   string
+	AccountName string
+	Rows        []model.AccountActivityRow
+	CurrentPage int
+	TotalPages  int
+	TotalCount  int
+	PerPage     int
+}
+
+templ SpaceAccountActivityPage(props SpaceAccountActivityPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Account Activity",
+		accountChildBreadcrumb(props.SpaceID, props.SpaceName, props.AccountID, props.AccountName, "Activity"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+		spaceAccountSidebarContent(props.SpaceID, props.AccountID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-6">
+			<div class="flex items-center gap-2">
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Href:    routeurl.URL("page.app.spaces.space.accounts.account.overview", "spaceID", props.SpaceID, "accountID", props.AccountID),
+					Class:   "flex items-center gap-1 -ml-2",
+				}) {
+					@icon.ChevronLeft(icon.Props{Class: "size-4"})
+					Back to account
+				}
+			</div>
+			<div>
+				<h1 class="text-3xl font-bold">Activity</h1>
+				<p class="text-muted-foreground mt-2">
+					Account changes and transaction history for { props.AccountName }.
+				</p>
+			</div>
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Content(card.ContentProps{Class: "p-0"}) {
+					if len(props.Rows) == 0 {
+						<p class="px-6 py-10 text-sm text-muted-foreground text-center">
+							No activity yet.
+						</p>
+					} else {
+						<ol class="divide-y">
+							for _, row := range props.Rows {
+								@accountActivityRow(props.SpaceID, props.AccountID, row)
+							}
+						</ol>
+					}
+				}
+			}
+			if props.TotalPages > 1 {
+				@accountActivityPagination(props)
+			}
+		</div>
+	}
+}
+
+templ accountActivityRow(spaceID, accountID string, row model.AccountActivityRow) {
+	if row.SpaceLog != nil {
+		<li class="flex gap-3 px-6 py-4">
+			<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+				@activityIcon(row.SpaceLog.Action)
+			</div>
+			<div class="flex-1 min-w-0">
+				<p class="text-sm">
+					@templ.Raw(activityMessage(row.SpaceLog))
+				</p>
+				<p class="text-xs text-muted-foreground mt-1">
+					{ row.SpaceLog.CreatedAt.Format("Jan 2, 2006 · 3:04 PM") }
+				</p>
+			</div>
+		</li>
+	} else if row.TxLog != nil {
+		<li class="flex gap-3 px-6 py-4">
+			<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+				@accountActivityTxIcon(row.TxLog.Action)
+			</div>
+			<div class="flex-1 min-w-0 space-y-1">
+				<p class="text-sm">
+					@templ.Raw(accountActivityTxMessage(spaceID, accountID, row.TxLog))
+				</p>
+				{{ changes := transactionActivityChanges(row.TxLog) }}
+				if len(changes) > 0 {
+					<ul class="text-xs text-muted-foreground space-y-0.5 mt-1">
+						for _, c := range changes {
+							<li>
+								@templ.Raw(c)
+							</li>
+						}
+					</ul>
+				}
+				<p class="text-xs text-muted-foreground">
+					{ row.TxLog.CreatedAt.Format("Jan 2, 2006 · 3:04 PM") }
+				</p>
+			</div>
+		</li>
+	}
+}
+
+templ accountActivityTxIcon(action model.TransactionAuditAction) {
+	switch action {
+		case model.TransactionAuditActionCreated:
+			@icon.Plus(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.TransactionAuditActionEdited:
+			@icon.Pencil(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.TransactionAuditActionDeleted:
+			@icon.Trash2(icon.Props{Class: "size-4 text-destructive"})
+		default:
+			@icon.History(icon.Props{Class: "size-4 text-muted-foreground"})
+	}
+}
+
+func transactionTypeLabel(t string) string {
+	switch t {
+	case string(model.TransactionTypeDeposit):
+		return "deposit"
+	case string(model.TransactionTypeWithdrawal):
+		return "bill"
+	default:
+		return "transaction"
+	}
+}
+
+// accountActivityTxMessage formats a transaction-level audit entry for the account
+// activity feed. For created/deleted, it includes the transaction type and title.
+// For created/edited entries (where the transaction still exists), the title links
+// to the transaction detail page.
+func accountActivityTxMessage(spaceID, accountID string, log *model.TransactionAuditLogWithActor) string {
+	actor := bold(txActorLabel(log))
+	switch log.Action {
+	case model.TransactionAuditActionCreated:
+		var meta struct {
+			TransactionType string `json:"transaction_type"`
+			Title           string `json:"title"`
+			Amount          string `json:"amount"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		title := meta.Title
+		if title == "" {
+			title = "a transaction"
+		}
+		titleHTML := transactionTitleLink(spaceID, accountID, log.TransactionID, title)
+		amountSuffix := ""
+		if meta.Amount != "" {
+			amountSuffix = fmt.Sprintf(" for $%s", templEscape(meta.Amount))
+		}
+		return fmt.Sprintf("%s added a %s %s%s.",
+			actor, templEscape(transactionTypeLabel(meta.TransactionType)), titleHTML, amountSuffix)
+	case model.TransactionAuditActionEdited:
+		var meta struct {
+			Changes map[string]any `json:"changes"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		titleHTML := transactionTitleLink(spaceID, accountID, log.TransactionID, "a transaction")
+		return fmt.Sprintf("%s edited %s.", actor, titleHTML)
+	case model.TransactionAuditActionDeleted:
+		var meta struct {
+			TransactionType string `json:"transaction_type"`
+			Title           string `json:"title"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		title := meta.Title
+		if title == "" {
+			title = "a transaction"
+		}
+		return fmt.Sprintf("%s deleted the %s %s.",
+			actor, templEscape(transactionTypeLabel(meta.TransactionType)), bold(title))
+	default:
+		return fmt.Sprintf("%s performed %s.", actor, bold(string(log.Action)))
+	}
+}
+
+func transactionTitleLink(spaceID, accountID, transactionID, title string) string {
+	href := routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction",
+		"spaceID", spaceID, "accountID", accountID, "transactionID", transactionID)
+	var b strings.Builder
+	b.WriteString(`<a class="font-semibold underline-offset-2 hover:underline" href="`)
+	b.WriteString(templEscape(href))
+	b.WriteString(`">`)
+	b.WriteString(templEscape(title))
+	b.WriteString(`</a>`)
+	return b.String()
+}
+
+func accountActivityPageURL(spaceID, accountID string, page int) string {
+	return fmt.Sprintf("%s?page=%d",
+		routeurl.URL("page.app.spaces.space.accounts.account.activity",
+			"spaceID", spaceID, "accountID", accountID), page)
+}
+
+templ accountActivityPagination(props SpaceAccountActivityPageProps) {
+	{{ p := pagination.CreatePagination(props.CurrentPage, props.TotalPages, 5) }}
+	@pagination.Pagination() {
+		@pagination.Content() {
+			@pagination.Item() {
+				@pagination.Previous(pagination.PreviousProps{
+					Href:     accountActivityPageURL(props.SpaceID, props.AccountID, p.CurrentPage-1),
+					Disabled: !p.HasPrevious,
+					Label:    "Previous",
+				})
+			}
+			for _, page := range p.Pages {
+				@pagination.Item() {
+					@pagination.Link(pagination.LinkProps{
+						Href:     accountActivityPageURL(props.SpaceID, props.AccountID, page),
+						IsActive: page == p.CurrentPage,
+					}) {
+						{ fmt.Sprintf("%d", page) }
+					}
+				}
+			}
+			@pagination.Item() {
+				@pagination.Next(pagination.NextProps{
+					Href:     accountActivityPageURL(props.SpaceID, props.AccountID, p.CurrentPage+1),
+					Disabled: !p.HasNext,
+					Label:    "Next",
+				})
+			}
+		}
+	}
+}

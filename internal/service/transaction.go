@@ -15,6 +15,7 @@ type TransactionService struct {
 	transactionRepo repository.TransactionRepository
 	categoryRepo    repository.CategoryRepository
 	accountService  *AccountService
+	auditSvc        *TransactionAuditLogService
 }
 
 func NewTransactionService(
@@ -29,6 +30,11 @@ func NewTransactionService(
 	}
 }
 
+// SetAuditLogger wires the audit log service after construction.
+func (s *TransactionService) SetAuditLogger(audit *TransactionAuditLogService) {
+	s.auditSvc = audit
+}
+
 type PayBillInput struct {
 	AccountID   string
 	Title       string
@@ -36,6 +42,7 @@ type PayBillInput struct {
 	OccurredAt  time.Time
 	Description string
 	CategoryID  string
+	ActorID     string
 }
 
 func (s *TransactionService) PayBill(input PayBillInput) (*model.Transaction, error) {
@@ -86,6 +93,18 @@ func (s *TransactionService) PayBill(input PayBillInput) (*model.Transaction, er
 		return nil, fmt.Errorf("failed to create bill transaction: %w", err)
 	}
 
+	s.auditSvc.Record(TransactionRecordOptions{
+		TransactionID: txn.ID,
+		ActorID:       input.ActorID,
+		Action:        model.TransactionAuditActionCreated,
+		Metadata: map[string]any{
+			"account_id":       txn.AccountID,
+			"transaction_type": string(model.TransactionTypeWithdrawal),
+			"title":            txn.Title,
+			"amount":           txn.Value.StringFixedBank(2),
+		},
+	})
+
 	return txn, nil
 }
 
@@ -95,6 +114,7 @@ type DepositInput struct {
 	Amount      decimal.Decimal
 	OccurredAt  time.Time
 	Description string
+	ActorID     string
 }
 
 func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, error) {
@@ -141,6 +161,18 @@ func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, er
 		return nil, fmt.Errorf("failed to create deposit transaction: %w", err)
 	}
 
+	s.auditSvc.Record(TransactionRecordOptions{
+		TransactionID: txn.ID,
+		ActorID:       input.ActorID,
+		Action:        model.TransactionAuditActionCreated,
+		Metadata: map[string]any{
+			"account_id":       txn.AccountID,
+			"transaction_type": string(model.TransactionTypeDeposit),
+			"title":            txn.Title,
+			"amount":           txn.Value.StringFixedBank(2),
+		},
+	})
+
 	return txn, nil
 }
 
@@ -151,6 +183,7 @@ type UpdateBillInput struct {
 	OccurredAt    time.Time
 	Description   string
 	CategoryID    string
+	ActorID       string
 }
 
 func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transaction, error) {
@@ -192,6 +225,15 @@ func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transacti
 		categoryID = &c
 	}
 
+	oldCategoryID, _ := s.transactionRepo.GetCategoryID(input.TransactionID)
+	changes := diffTransactionFields(existing, title, input.Amount, input.OccurredAt, description)
+	if !ptrEq(oldCategoryID, categoryID) {
+		changes["category_id"] = map[string]any{
+			"old": ptrOrEmpty(oldCategoryID),
+			"new": ptrOrEmpty(categoryID),
+		}
+	}
+
 	existing.Value = input.Amount
 	existing.Title = title
 	existing.Description = description
@@ -200,6 +242,14 @@ func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transacti
 
 	if err := s.transactionRepo.UpdateBillAtomic(existing, newBalance, categoryID); err != nil {
 		return nil, fmt.Errorf("failed to update bill transaction: %w", err)
+	}
+	if len(changes) > 0 {
+		s.auditSvc.Record(TransactionRecordOptions{
+			TransactionID: input.TransactionID,
+			ActorID:       input.ActorID,
+			Action:        model.TransactionAuditActionEdited,
+			Metadata:      map[string]any{"changes": changes},
+		})
 	}
 	return existing, nil
 }
@@ -210,6 +260,7 @@ type UpdateDepositInput struct {
 	Amount        decimal.Decimal
 	OccurredAt    time.Time
 	Description   string
+	ActorID       string
 }
 
 func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Transaction, error) {
@@ -247,6 +298,8 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 		description = &d
 	}
 
+	changes := diffTransactionFields(existing, title, input.Amount, input.OccurredAt, description)
+
 	existing.Value = input.Amount
 	existing.Title = title
 	existing.Description = description
@@ -256,7 +309,64 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 	if err := s.transactionRepo.UpdateDepositAtomic(existing, newBalance); err != nil {
 		return nil, fmt.Errorf("failed to update deposit transaction: %w", err)
 	}
+	if len(changes) > 0 {
+		s.auditSvc.Record(TransactionRecordOptions{
+			TransactionID: input.TransactionID,
+			ActorID:       input.ActorID,
+			Action:        model.TransactionAuditActionEdited,
+			Metadata:      map[string]any{"changes": changes},
+		})
+	}
 	return existing, nil
+}
+
+// diffTransactionFields returns a map of field name to {old, new} for fields whose
+// new value differs from the existing transaction.
+func diffTransactionFields(existing *model.Transaction, newTitle string, newAmount decimal.Decimal, newOccurredAt time.Time, newDescription *string) map[string]any {
+	changes := map[string]any{}
+	if existing.Title != newTitle {
+		changes["title"] = map[string]any{"old": existing.Title, "new": newTitle}
+	}
+	if !existing.Value.Equal(newAmount) {
+		changes["amount"] = map[string]any{
+			"old": existing.Value.StringFixedBank(2),
+			"new": newAmount.StringFixedBank(2),
+		}
+	}
+	if !existing.OccurredAt.Equal(newOccurredAt) {
+		changes["occurred_at"] = map[string]any{
+			"old": existing.OccurredAt.Format("2006-01-02"),
+			"new": newOccurredAt.Format("2006-01-02"),
+		}
+	}
+	if !ptrStringEq(existing.Description, newDescription) {
+		changes["description"] = map[string]any{
+			"old": ptrOrEmpty(existing.Description),
+			"new": ptrOrEmpty(newDescription),
+		}
+	}
+	return changes
+}
+
+func ptrStringEq(a, b *string) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
+
+func ptrEq(a, b *string) bool {
+	return ptrStringEq(a, b)
+}
+
+func ptrOrEmpty(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }
 
 func (s *TransactionService) GetTransaction(id string) (*model.Transaction, error) {

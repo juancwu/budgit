@@ -87,6 +87,12 @@ templ activityIcon(action model.SpaceAuditAction) {
 			@icon.UserMinus(icon.Props{Class: "size-4 text-muted-foreground"})
 		case model.SpaceAuditActionInviteCancelled:
 			@icon.X(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionAccountCreated:
+			@icon.Plus(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionAccountRenamed:
+			@icon.Pencil(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionAccountDeleted:
+			@icon.Trash2(icon.Props{Class: "size-4 text-destructive"})
 		default:
 			@icon.History(icon.Props{Class: "size-4 text-muted-foreground"})
 	}
@@ -148,6 +154,34 @@ func activityMessage(log *model.SpaceAuditLogWithActor) string {
 		return fmt.Sprintf("%s removed %s from the space.", actor, target)
 	case model.SpaceAuditActionInviteCancelled:
 		return fmt.Sprintf("%s cancelled the invitation for %s.", actor, target)
+	case model.SpaceAuditActionAccountCreated:
+		var meta struct {
+			AccountName string `json:"account_name"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		name := meta.AccountName
+		if name == "" {
+			name = "an account"
+		}
+		return fmt.Sprintf("%s created the account %s.", actor, bold(name))
+	case model.SpaceAuditActionAccountRenamed:
+		var meta struct {
+			OldName string `json:"old_name"`
+			NewName string `json:"new_name"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		return fmt.Sprintf("%s renamed account %s to %s.",
+			actor, bold(meta.OldName), bold(meta.NewName))
+	case model.SpaceAuditActionAccountDeleted:
+		var meta struct {
+			AccountName string `json:"account_name"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		name := meta.AccountName
+		if name == "" {
+			name = "an account"
+		}
+		return fmt.Sprintf("%s deleted the account %s.", actor, bold(name))
 	default:
 		return fmt.Sprintf("%s performed %s.", actor, bold(string(log.Action)))
 	}

@@ -19,7 +19,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.InviteService, a.AuditLogService)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -108,10 +108,12 @@ func SetupRoutes(a *app.App) http.Handler {
 
 				g.SubGroup("/accounts/{accountID}", func(g *router.Group) {
 					g.Get("/overview", spaceH.SpaceAccountPage).Name("page.app.spaces.space.accounts.account.overview")
+					g.Get("/activity", spaceH.SpaceAccountActivityPage).Name("page.app.spaces.space.accounts.account.activity")
 					g.Get("/transactions", spaceH.SpaceAccountTransactionsPage).Name("page.app.spaces.space.accounts.account.transactions")
 					g.Get("/transactions/{transactionID}", spaceH.SpaceTransactionPage).Name("page.app.spaces.space.accounts.account.transactions.transaction")
 					g.Get("/transactions/{transactionID}/edit", spaceH.SpaceEditTransactionPage).Name("page.app.spaces.space.accounts.account.transactions.transaction.edit")
 					g.Post("/transactions/{transactionID}/edit", spaceH.HandleEditTransaction).Name("action.app.spaces.space.accounts.account.transactions.transaction.edit")
+					g.Get("/transactions/{transactionID}/activity", spaceH.SpaceTransactionActivityPage).Name("page.app.spaces.space.accounts.account.transactions.transaction.activity")
 					g.Get("/settings", spaceH.SpaceAccountSettingsPage).Name("page.app.spaces.space.accounts.account.settings")
 					g.Post("/settings/rename", spaceH.HandleRenameAccount).Name("action.app.spaces.space.accounts.account.settings.rename")
 					g.Post("/settings/delete", spaceH.HandleDeleteAccount).Name("action.app.spaces.space.accounts.account.settings.delete")

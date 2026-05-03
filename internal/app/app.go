@@ -21,6 +21,8 @@ type App struct {
 	TransactionService *service.TransactionService
 	InviteService      *service.InviteService
 	AuditLogService    *service.SpaceAuditLogService
+	TxAuditLogService  *service.TransactionAuditLogService
+	AccountActivitySvc *service.AccountActivityService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -45,14 +47,19 @@ func New(cfg *config.Config) (*App, error) {
 	categoryRepository := repository.NewCategoryRepository(database)
 	invitationRepository := repository.NewInvitationRepository(database)
 	auditLogRepository := repository.NewSpaceAuditLogRepository(database)
+	txAuditLogRepository := repository.NewTransactionAuditLogRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
 	auditLogService := service.NewSpaceAuditLogService(auditLogRepository)
+	txAuditLogService := service.NewTransactionAuditLogService(txAuditLogRepository)
 	spaceService := service.NewSpaceService(spaceRepository)
 	spaceService.SetAuditLogger(auditLogService)
 	accountService := service.NewAccountService(accountRepository)
+	accountService.SetAuditLogger(auditLogService)
 	transactionService := service.NewTransactionService(transactionRepository, categoryRepository, accountService)
+	transactionService.SetAuditLogger(txAuditLogService)
+	accountActivityService := service.NewAccountActivityService(auditLogService, txAuditLogService)
 	emailService := service.NewEmailService(
 		emailClient,
 		cfg.MailerEmailFrom,
@@ -84,6 +91,8 @@ func New(cfg *config.Config) (*App, error) {
 		TransactionService: transactionService,
 		InviteService:      inviteService,
 		AuditLogService:    auditLogService,
+		TxAuditLogService:  txAuditLogService,
+		AccountActivitySvc: accountActivityService,
 	}, nil
 }
 

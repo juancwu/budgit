@@ -9,12 +9,14 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 
 type SpaceTransactionPageProps struct {
-	SpaceID      string
-	SpaceName    string
-	AccountID    string
-	AccountName  string
-	Transaction  *model.Transaction
-	CategoryName string
+	SpaceID         string
+	SpaceName       string
+	AccountID       string
+	AccountName     string
+	Transaction     *model.Transaction
+	CategoryName    string
+	RecentAuditLogs []*model.TransactionAuditLogWithActor
+	AuditLogCount   int
 }
 
 templ SpaceTransactionPage(props SpaceTransactionPageProps) {
@@ -97,6 +99,35 @@ templ SpaceTransactionPage(props SpaceTransactionPageProps) {
 							<p class="text-sm text-muted-foreground">Description</p>
 							<p class="whitespace-pre-wrap">{ *props.Transaction.Description }</p>
 						</div>
+					}
+				}
+			}
+			@card.Card() {
+				@card.Header() {
+					<div class="flex items-center justify-between">
+						<h2 class="text-lg font-semibold">Recent activity</h2>
+						if props.AuditLogCount > 0 {
+							@button.Button(button.Props{
+								Variant: button.VariantLink,
+								Size:    button.SizeSm,
+								Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction.activity", "spaceID", props.SpaceID, "accountID", props.AccountID, "transactionID", props.Transaction.ID),
+							}) {
+								View all activity
+							}
+						}
+					</div>
+				}
+				@card.Content(card.ContentProps{Class: "p-0"}) {
+					if len(props.RecentAuditLogs) == 0 {
+						<p class="px-6 py-8 text-sm text-muted-foreground text-center">
+							No edits yet.
+						</p>
+					} else {
+						<ol class="divide-y">
+							for _, log := range props.RecentAuditLogs {
+								@transactionActivityRow(log)
+							}
+						</ol>
 					}
 				}
 			}

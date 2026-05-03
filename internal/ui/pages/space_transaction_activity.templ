@@ -1,0 +1,235 @@
+package pages
+
+import "encoding/json"
+import "fmt"
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceTransactionActivityPageProps struct {
+	SpaceID         string
+	SpaceName       string
+	AccountID       string
+	AccountName     string
+	TransactionID   string
+	TransactionName string
+	Logs            []*model.TransactionAuditLogWithActor
+	CurrentPage     int
+	TotalPages      int
+	TotalCount      int
+	PerPage         int
+}
+
+templ SpaceTransactionActivityPage(props SpaceTransactionActivityPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Transaction Activity",
+		accountChildBreadcrumb(props.SpaceID, props.SpaceName, props.AccountID, props.AccountName, props.TransactionName+" · Activity"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+		spaceAccountSidebarContent(props.SpaceID, props.AccountID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-6">
+			<div class="flex items-center gap-2">
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+					Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction", "spaceID", props.SpaceID, "accountID", props.AccountID, "transactionID", props.TransactionID),
+					Class:   "flex items-center gap-1 -ml-2",
+				}) {
+					@icon.ChevronLeft(icon.Props{Class: "size-4"})
+					Back to transaction
+				}
+			</div>
+			<div>
+				<h1 class="text-3xl font-bold">Activity</h1>
+				<p class="text-muted-foreground mt-2">
+					An audit log of edits to { props.TransactionName }.
+				</p>
+			</div>
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Content(card.ContentProps{Class: "p-0"}) {
+					if len(props.Logs) == 0 {
+						<p class="px-6 py-10 text-sm text-muted-foreground text-center">
+							No activity yet.
+						</p>
+					} else {
+						<ol class="divide-y">
+							for _, log := range props.Logs {
+								@transactionActivityRow(log)
+							}
+						</ol>
+					}
+				}
+			}
+			if props.TotalPages > 1 {
+				@transactionActivityPagination(props)
+			}
+		</div>
+	}
+}
+
+templ transactionActivityRow(log *model.TransactionAuditLogWithActor) {
+	<li class="flex gap-3 px-6 py-4">
+		<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+			@transactionActivityIcon(log.Action)
+		</div>
+		<div class="flex-1 min-w-0 space-y-1">
+			<p class="text-sm">
+				@templ.Raw(transactionActivityMessage(log))
+			</p>
+			{{ changes := transactionActivityChanges(log) }}
+			if len(changes) > 0 {
+				<ul class="text-xs text-muted-foreground space-y-0.5 mt-1">
+					for _, c := range changes {
+						<li>
+							@templ.Raw(c)
+						</li>
+					}
+				</ul>
+			}
+			<p class="text-xs text-muted-foreground">
+				{ log.CreatedAt.Format("Jan 2, 2006 · 3:04 PM") }
+			</p>
+		</div>
+	</li>
+}
+
+templ transactionActivityIcon(action model.TransactionAuditAction) {
+	switch action {
+		case model.TransactionAuditActionEdited:
+			@icon.Pencil(icon.Props{Class: "size-4 text-muted-foreground"})
+		default:
+			@icon.History(icon.Props{Class: "size-4 text-muted-foreground"})
+	}
+}
+
+func txActorLabel(log *model.TransactionAuditLogWithActor) string {
+	if log.ActorName != nil && *log.ActorName != "" {
+		return *log.ActorName
+	}
+	if log.ActorEmail != nil && *log.ActorEmail != "" {
+		return *log.ActorEmail
+	}
+	return "Someone"
+}
+
+func transactionActivityMessage(log *model.TransactionAuditLogWithActor) string {
+	actor := bold(txActorLabel(log))
+	switch log.Action {
+	case model.TransactionAuditActionEdited:
+		return fmt.Sprintf("%s edited the transaction.", actor)
+	default:
+		return fmt.Sprintf("%s performed %s.", actor, bold(string(log.Action)))
+	}
+}
+
+// transactionActivityChanges parses the metadata for a transaction edit and returns
+// a list of pre-escaped HTML fragments describing each changed field.
+func transactionActivityChanges(log *model.TransactionAuditLogWithActor) []string {
+	if log.Action != model.TransactionAuditActionEdited || len(log.Metadata) == 0 {
+		return nil
+	}
+	var meta struct {
+		Changes map[string]struct {
+			Old any `json:"old"`
+			New any `json:"new"`
+		} `json:"changes"`
+	}
+	if err := json.Unmarshal(log.Metadata, &meta); err != nil {
+		return nil
+	}
+	if len(meta.Changes) == 0 {
+		return nil
+	}
+	order := []string{"title", "amount", "occurred_at", "description", "category_id"}
+	labels := map[string]string{
+		"title":       "Title",
+		"amount":      "Amount",
+		"occurred_at": "Date",
+		"description": "Description",
+		"category_id": "Category",
+	}
+	var out []string
+	emit := func(field string) {
+		change, ok := meta.Changes[field]
+		if !ok {
+			return
+		}
+		if field == "category_id" {
+			out = append(out, fmt.Sprintf("%s changed.", templEscape(labels[field])))
+			return
+		}
+		oldStr := fmt.Sprintf("%v", change.Old)
+		newStr := fmt.Sprintf("%v", change.New)
+		if oldStr == "" {
+			oldStr = "(empty)"
+		}
+		if newStr == "" {
+			newStr = "(empty)"
+		}
+		out = append(out, fmt.Sprintf("%s: %s → %s",
+			templEscape(labels[field]), bold(oldStr), bold(newStr)))
+	}
+	seen := map[string]bool{}
+	for _, f := range order {
+		emit(f)
+		seen[f] = true
+	}
+	for f := range meta.Changes {
+		if !seen[f] {
+			label := f
+			if l, ok := labels[f]; ok {
+				label = l
+			}
+			change := meta.Changes[f]
+			out = append(out, fmt.Sprintf("%s: %s → %s",
+				templEscape(label),
+				bold(fmt.Sprintf("%v", change.Old)),
+				bold(fmt.Sprintf("%v", change.New))))
+		}
+	}
+	return out
+}
+
+func transactionActivityPageURL(spaceID, accountID, transactionID string, page int) string {
+	return fmt.Sprintf("%s?page=%d",
+		routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction.activity",
+			"spaceID", spaceID, "accountID", accountID, "transactionID", transactionID), page)
+}
+
+templ transactionActivityPagination(props SpaceTransactionActivityPageProps) {
+	{{ p := pagination.CreatePagination(props.CurrentPage, props.TotalPages, 5) }}
+	@pagination.Pagination() {
+		@pagination.Content() {
+			@pagination.Item() {
+				@pagination.Previous(pagination.PreviousProps{
+					Href:     transactionActivityPageURL(props.SpaceID, props.AccountID, props.TransactionID, p.CurrentPage-1),
+					Disabled: !p.HasPrevious,
+					Label:    "Previous",
+				})
+			}
+			for _, page := range p.Pages {
+				@pagination.Item() {
+					@pagination.Link(pagination.LinkProps{
+						Href:     transactionActivityPageURL(props.SpaceID, props.AccountID, props.TransactionID, page),
+						IsActive: page == p.CurrentPage,
+					}) {
+						{ fmt.Sprintf("%d", page) }
+					}
+				}
+			}
+			@pagination.Item() {
+				@pagination.Next(pagination.NextProps{
+					Href:     transactionActivityPageURL(props.SpaceID, props.AccountID, props.TransactionID, p.CurrentPage+1),
+					Disabled: !p.HasNext,
+					Label:    "Next",
+				})
+			}
+		}
+	}
+}
