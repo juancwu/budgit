@@ -27,7 +27,7 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 			balanceTextClasses = append(balanceTextClasses, "text-red-600 dark:text-red-400")
 		}
 	}}
-	@layouts.App("Space Account", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+	@layouts.App("Space Account", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID), spaceAccountSidebarContent(props.SpaceID, props.AccountID, props.AccountName)) {
 		<div class="container px-6 py-8 mx-auto space-y-8">
 			<div class="grid gap-4 grid-cols-1 md:grid-cols-12">
 				@card.Card(card.Props{

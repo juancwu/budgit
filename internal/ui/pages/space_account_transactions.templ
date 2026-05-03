@@ -22,7 +22,7 @@ type SpaceAccountTransactionsPageProps struct {
 }
 
 templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
-	@layouts.App("Transactions", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID)) {
+	@layouts.App("Transactions", spaceOverviewSidebarContent(), spaceSpecificSidebarContent(props.SpaceID), spaceAccountSidebarContent(props.SpaceID, props.AccountID, props.AccountName)) {
 		<div class="container px-6 py-8 mx-auto space-y-8">
 			<div class="flex items-start justify-between flex-wrap gap-4">
 				<div>

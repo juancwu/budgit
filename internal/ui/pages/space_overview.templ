@@ -56,3 +56,53 @@ templ spaceSpecificSidebarContent(spaceID string) {
 		}
 	}
 }
+
+templ spaceAccountSidebarContent(spaceID, accountID, accountName string) {
+	@sidebar.Group() {
+		@sidebar.GroupLabel() {
+			{ accountName }
+		}
+		@sidebar.Menu() {
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.accounts.account.overview", "spaceID", spaceID, "accountID", accountID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.overview", "spaceID", spaceID, "accountID", accountID),
+					Tooltip:  "Account Overview",
+				}) {
+					@icon.Wallet()
+					<span>Overview</span>
+				}
+			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.accounts.account.transactions", "spaceID", spaceID, "accountID", accountID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.transactions", "spaceID", spaceID, "accountID", accountID),
+					Tooltip:  "Transactions",
+				}) {
+					@icon.ReceiptText()
+					<span>Transactions</span>
+				}
+			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.accounts.account.bills.create", "spaceID", spaceID, "accountID", accountID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.bills.create", "spaceID", spaceID, "accountID", accountID),
+					Tooltip:  "Pay Bills",
+				}) {
+					@icon.HandCoins()
+					<span>Pay Bills</span>
+				}
+			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.accounts.account.deposits.create", "spaceID", spaceID, "accountID", accountID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.deposits.create", "spaceID", spaceID, "accountID", accountID),
+					Tooltip:  "Deposit Funds",
+				}) {
+					@icon.BanknoteArrowDown()
+					<span>Deposit Funds</span>
+				}
+			}
+		}
+	}
+}
