@@ -5,6 +5,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 
 type SpaceAccountSettingsPageProps struct {
@@ -39,19 +40,44 @@ templ SpaceAccountSettingsPage(props SpaceAccountSettingsPageProps) {
 					}
 				}
 				@card.Footer(card.FooterProps{Class: "flex justify-end pt-8"}) {
-					<form
-						hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.settings.delete", "spaceID", props.SpaceID, "accountID", props.AccountID) }
-						hx-confirm={ "Permanently delete \"" + props.AccountName + "\" and all of its transactions? This cannot be undone." }
-					>
-						@button.Button(button.Props{
-							Type:    button.TypeSubmit,
-							Variant: button.VariantDestructive,
-							Class:   "flex gap-2 items-center",
-						}) {
-							@icon.Trash2()
-							Delete Account
+					@dialog.Dialog() {
+						@dialog.Trigger() {
+							@button.Button(button.Props{
+								Variant: button.VariantDestructive,
+								Class:   "flex gap-2 items-center",
+							}) {
+								@icon.Trash2()
+								Delete Account
+							}
 						}
-					</form>
+						@dialog.Content() {
+							@dialog.Header() {
+								@dialog.Title() {
+									Delete { props.AccountName }?
+								}
+								@dialog.Description() {
+									This permanently removes the account and all of its transactions. This cannot be undone.
+								}
+							}
+							@dialog.Footer(dialog.FooterProps{Class: "mt-2"}) {
+								@dialog.Close() {
+									@button.Button(button.Props{Variant: button.VariantOutline}) {
+										Cancel
+									}
+								}
+								<form hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.settings.delete", "spaceID", props.SpaceID, "accountID", props.AccountID) }>
+									@button.Button(button.Props{
+										Type:    button.TypeSubmit,
+										Variant: button.VariantDestructive,
+										Class:   "flex gap-2 items-center",
+									}) {
+										@icon.Trash2()
+										Delete Account
+									}
+								</form>
+							}
+						}
+					}
 				}
 			}
 		</div>
