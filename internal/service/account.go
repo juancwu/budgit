@@ -49,6 +49,29 @@ func (s *AccountService) GetAccount(id string) (*model.Account, error) {
 	return account, nil
 }
 
+func (s *AccountService) RenameAccount(id, name string) error {
+	if id == "" {
+		return fmt.Errorf("account id is required")
+	}
+	if name == "" {
+		return fmt.Errorf("account name cannot be empty")
+	}
+	if err := s.accountRepo.Rename(id, name); err != nil {
+		return fmt.Errorf("failed to rename account: %w", err)
+	}
+	return nil
+}
+
+func (s *AccountService) DeleteAccount(id string) error {
+	if id == "" {
+		return fmt.Errorf("account id is required")
+	}
+	if err := s.accountRepo.Delete(id); err != nil {
+		return fmt.Errorf("failed to delete account: %w", err)
+	}
+	return nil
+}
+
 func (s *AccountService) GetAccountsForSpace(spaceID string) ([]*model.Account, error) {
 	accounts, err := s.accountRepo.BySpaceID(spaceID)
 	if err != nil {

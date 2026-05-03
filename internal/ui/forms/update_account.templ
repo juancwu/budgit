@@ -1,0 +1,76 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+
+type UpdateAccountProps struct {
+	SpaceID   string
+	AccountID string
+
+	Name string
+
+	NameErr    string
+	GeneralErr string
+	SuccessMsg string
+}
+
+templ UpdateAccount(props UpdateAccountProps) {
+	<form
+		id="update-account-form"
+		hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.settings.rename", "spaceID", props.SpaceID, "accountID", props.AccountID) }
+		hx-swap="outerHTML"
+	>
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Header() {
+				@card.Title() {
+					Account Details
+				}
+				@card.Description() {
+					Update the account name.
+				}
+			}
+			@card.Content(card.ContentProps{Class: "space-y-4"}) {
+				if props.GeneralErr != "" {
+					@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+						{ props.GeneralErr }
+					}
+				}
+				if props.SuccessMsg != "" {
+					@form.Message(form.MessageProps{Variant: form.MessageVariantInfo}) {
+						{ props.SuccessMsg }
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "name"}) {
+						Account Name
+					}
+					@input.Input(input.Props{
+						ID:       "name",
+						Name:     "name",
+						Type:     input.TypeText,
+						Class:    "rounded-sm",
+						Value:    props.Name,
+						HasError: props.NameErr != "",
+						Required: true,
+						Attributes: templ.Attributes{
+							"autocomplete": "off",
+						},
+					})
+					if props.NameErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.NameErr }
+						}
+					}
+				}
+			}
+			@card.Footer(card.FooterProps{Class: "flex justify-end gap-2"}) {
+				@button.Button(button.Props{Type: button.TypeSubmit}) {
+					Save changes
+				}
+			}
+		}
+	</form>
+}

@@ -114,6 +114,16 @@ templ spaceAccountSidebarContent(spaceID, accountID, accountName string) {
 					<span>Deposit Funds</span>
 				}
 			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.accounts.account.settings", "spaceID", spaceID, "accountID", accountID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.settings", "spaceID", spaceID, "accountID", accountID),
+					Tooltip:  "Account Settings",
+				}) {
+					@icon.Settings()
+					<span>Settings</span>
+				}
+			}
 		}
 	}
 }

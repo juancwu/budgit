@@ -14,6 +14,7 @@ type AccountRepository interface {
 	Create(account *model.Account) error
 	ByID(id string) (*model.Account, error)
 	BySpaceID(spaceID string) ([]*model.Account, error)
+	Rename(id, name string) error
 	Delete(id string) error
 }
 
@@ -50,6 +51,12 @@ func (r *accountRepository) BySpaceID(spaceID string) ([]*model.Account, error) 
 		return nil, err
 	}
 	return accounts, nil
+}
+
+func (r *accountRepository) Rename(id, name string) error {
+	query := `UPDATE accounts SET name = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2;`
+	_, err := r.db.Exec(query, name, id)
+	return err
 }
 
 func (r *accountRepository) Delete(id string) error {

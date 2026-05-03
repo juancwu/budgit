@@ -1,4 +1,59 @@
 package pages
 
-templ SpaceAccountSettings() {
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+
+type SpaceAccountSettingsPageProps struct {
+	SpaceID     string
+	AccountID   string
+	AccountName string
+	UpdateForm  forms.UpdateAccountProps
+}
+
+templ SpaceAccountSettingsPage(props SpaceAccountSettingsPageProps) {
+	@layouts.App(
+		"Account Settings",
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+		spaceAccountSidebarContent(props.SpaceID, props.AccountID, props.AccountName),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Account Settings</h1>
+				<p class="text-muted-foreground mt-2">
+					Manage settings for { props.AccountName }.
+				</p>
+			</div>
+			@forms.UpdateAccount(props.UpdateForm)
+			@card.Card(card.Props{Class: "rounded-sm border-destructive"}) {
+				@card.Header() {
+					@card.Title(card.TitleProps{Class: "text-destructive"}) {
+						Danger Zone
+					}
+					@card.Description() {
+						Deleting an account permanently removes it and all associated transactions. This cannot be undone.
+					}
+				}
+				@card.Footer(card.FooterProps{Class: "flex justify-end pt-8"}) {
+					<form
+						hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.settings.delete", "spaceID", props.SpaceID, "accountID", props.AccountID) }
+						hx-confirm={ "Permanently delete \"" + props.AccountName + "\" and all of its transactions? This cannot be undone." }
+					>
+						@button.Button(button.Props{
+							Type:    button.TypeSubmit,
+							Variant: button.VariantDestructive,
+							Class:   "flex gap-2 items-center",
+						}) {
+							@icon.Trash2()
+							Delete Account
+						}
+					</form>
+				}
+			}
+		</div>
+	}
 }

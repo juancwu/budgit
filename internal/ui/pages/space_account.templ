@@ -69,6 +69,7 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 						@button.Button(button.Props{
 							Class:   "w-full flex gap-2 md:gap-4 items-center",
 							Variant: button.VariantLink,
+							Href:    routeurl.URL("page.app.spaces.space.accounts.account.settings", "spaceID", props.SpaceID, "accountID", props.AccountID),
 						}) {
 							Account Settings
 							@icon.Settings()

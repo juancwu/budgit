@@ -333,6 +333,108 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 	}))
 }
 
+func (h *spaceHandler) SpaceAccountSettingsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load account", "error", err, "account_id", accountID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+	if account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceAccountSettingsPage(pages.SpaceAccountSettingsPageProps{
+		SpaceID:     spaceID,
+		AccountID:   accountID,
+		AccountName: account.Name,
+		UpdateForm: forms.UpdateAccountProps{
+			SpaceID:   spaceID,
+			AccountID: accountID,
+			Name:      account.Name,
+		},
+	}))
+}
+
+func (h *spaceHandler) HandleRenameAccount(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
+		return
+	}
+
+	nameInput := strings.TrimSpace(r.FormValue("name"))
+	formProps := forms.UpdateAccountProps{
+		SpaceID:   spaceID,
+		AccountID: accountID,
+		Name:      nameInput,
+	}
+
+	if nameInput == "" {
+		formProps.NameErr = "Account name is required."
+		ui.Render(w, r, forms.UpdateAccount(formProps))
+		return
+	}
+
+	if !strings.EqualFold(nameInput, account.Name) {
+		existing, err := h.accountService.GetAccountsForSpace(spaceID)
+		if err != nil {
+			slog.Error("failed to load accounts", "error", err, "space_id", spaceID)
+			formProps.GeneralErr = "Something went wrong. Please try again."
+			ui.Render(w, r, forms.UpdateAccount(formProps))
+			return
+		}
+		for _, a := range existing {
+			if a.ID == accountID {
+				continue
+			}
+			if strings.EqualFold(strings.TrimSpace(a.Name), nameInput) {
+				formProps.NameErr = "An account with this name already exists in this space."
+				ui.Render(w, r, forms.UpdateAccount(formProps))
+				return
+			}
+		}
+	}
+
+	if err := h.accountService.RenameAccount(accountID, nameInput); err != nil {
+		slog.Error("failed to rename account", "error", err, "account_id", accountID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.UpdateAccount(formProps))
+		return
+	}
+
+	formProps.SuccessMsg = "Account name updated."
+	ui.Render(w, r, forms.UpdateAccount(formProps))
+}
+
+func (h *spaceHandler) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
+		return
+	}
+
+	if err := h.accountService.DeleteAccount(accountID); err != nil {
+		slog.Error("failed to delete account", "error", err, "account_id", accountID)
+		ui.RenderError(w, r, "Failed to delete account", http.StatusInternalServerError)
+		return
+	}
+
+	redirectTo := routeurl.URL("page.app.spaces.space.overview", "spaceID", spaceID)
+	w.Header().Set("HX-Redirect", redirectTo)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *spaceHandler) SpaceCreateBillPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	accountID := r.PathValue("accountID")
