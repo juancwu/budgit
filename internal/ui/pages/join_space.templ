@@ -1,0 +1,75 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type JoinSpaceConfirmProps struct {
+	Token         string
+	SpaceName     string
+	InviterName   string
+	InviteeEmail  string
+	IsAuthed      bool
+	AlreadyMember bool
+}
+
+templ JoinSpaceConfirm(props JoinSpaceConfirmProps) {
+	@layouts.Base(layouts.SEOProps{
+		Title:       "Join " + props.SpaceName,
+		Description: "Accept invitation to join a space.",
+		Path:        ctxkeys.URLPath(ctx),
+	}) {
+		<div class="min-h-screen flex items-center justify-center p-4 relative">
+			<div class="absolute top-4 right-4 z-10">
+				@blocks.ThemeSwitcher()
+			</div>
+			<div class="w-full max-w-md">
+				@card.Card(card.Props{Class: "rounded-sm"}) {
+					@card.Header() {
+						@card.Title() {
+							You're invited
+						}
+						@card.Description() {
+							{ props.InviterName } has invited you to join <span class="font-medium text-foreground">{ props.SpaceName }</span>.
+						}
+					}
+					@card.Content(card.ContentProps{Class: "space-y-3"}) {
+						<p class="text-sm text-muted-foreground">
+							Invitation sent to <span class="text-foreground">{ props.InviteeEmail }</span>.
+						</p>
+						if props.AlreadyMember {
+							<p class="text-sm">You're already a member of this space.</p>
+						} else if !props.IsAuthed {
+							<p class="text-sm text-muted-foreground">
+								You'll need to sign in or create an account to continue.
+							</p>
+						}
+					}
+					@card.Footer(card.FooterProps{Class: "flex justify-end gap-2"}) {
+						@button.Button(button.Props{
+							Variant: button.VariantGhost,
+							Href:    "/",
+						}) {
+							Cancel
+						}
+						if !props.AlreadyMember {
+							<form action={ templ.SafeURL("/join/" + props.Token + "/accept") } method="POST" class="contents">
+								@csrf.Token()
+								@button.Button(button.Props{Type: button.TypeSubmit}) {
+									if props.IsAuthed {
+										Join Space
+									} else {
+										Continue to sign in
+									}
+								}
+							</form>
+						}
+					}
+				}
+			</div>
+		</div>
+	}
+}

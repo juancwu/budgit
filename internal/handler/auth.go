@@ -199,8 +199,55 @@ func (h *authHandler) CompleteOnboarding(w http.ResponseWriter, r *http.Request)
 
 func (h *authHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
 	token := r.PathValue("token")
-	user := ctxkeys.User(r.Context())
 
+	invite, err := h.inviteService.GetByToken(token)
+	if err != nil {
+		slog.Warn("invite lookup failed", "error", err, "token", token)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	if invite.Invitation.Status != model.InvitationStatusPending || time.Now().After(invite.Invitation.ExpiresAt) {
+		ui.RenderError(w, r, "This invitation is no longer valid.", http.StatusGone)
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	alreadyMember := false
+	if user != nil {
+		isMember, err := h.spaceService.IsMember(user.ID, invite.Invitation.SpaceID)
+		if err != nil {
+			slog.Error("failed to check membership", "error", err, "user_id", user.ID)
+		}
+		alreadyMember = isMember
+	}
+
+	ui.Render(w, r, pages.JoinSpaceConfirm(pages.JoinSpaceConfirmProps{
+		Token:         token,
+		SpaceName:     invite.SpaceName,
+		InviterName:   invite.InviterName,
+		InviteeEmail:  invite.Invitation.Email,
+		IsAuthed:      user != nil,
+		AlreadyMember: alreadyMember,
+	}))
+}
+
+func (h *authHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
+	token := r.PathValue("token")
+
+	invite, err := h.inviteService.GetByToken(token)
+	if err != nil {
+		slog.Warn("invite lookup failed", "error", err, "token", token)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	if invite.Invitation.Status != model.InvitationStatusPending || time.Now().After(invite.Invitation.ExpiresAt) {
+		ui.RenderError(w, r, "This invitation is no longer valid.", http.StatusGone)
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
 	if user != nil {
 		spaceID, err := h.inviteService.AcceptInvite(token, user.ID)
 		if err != nil {
@@ -208,12 +255,11 @@ func (h *authHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
 			ui.RenderError(w, r, "Failed to join space: "+err.Error(), http.StatusUnprocessableEntity)
 			return
 		}
-
-		http.Redirect(w, r, "/app/spaces/"+spaceID, http.StatusSeeOther)
+		http.Redirect(w, r, "/app/spaces/"+spaceID+"/overview", http.StatusSeeOther)
 		return
 	}
 
-	// Not logged in: set cookie and redirect to auth
+	// Not logged in: set cookie and redirect to auth so they can log in or sign up
 	http.SetCookie(w, &http.Cookie{
 		Name:     "pending_invite",
 		Value:    token,
@@ -222,5 +268,5 @@ func (h *authHandler) JoinSpace(w http.ResponseWriter, r *http.Request) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
-	http.Redirect(w, r, "/auth?invite=true", http.StatusTemporaryRedirect)
+	http.Redirect(w, r, "/auth?invite=true", http.StatusSeeOther)
 }

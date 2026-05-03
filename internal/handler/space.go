@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/forms"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/pages"
+	"git.juancwu.dev/juancwu/budgit/internal/validation"
 	"github.com/shopspring/decimal"
 )
 
@@ -22,17 +24,20 @@ type spaceHandler struct {
 	spaceService       *service.SpaceService
 	accountService     *service.AccountService
 	transactionService *service.TransactionService
+	inviteService      *service.InviteService
 }
 
 func NewSpaceHandler(
 	spaceService *service.SpaceService,
 	accountService *service.AccountService,
 	transactionService *service.TransactionService,
+	inviteService *service.InviteService,
 ) *spaceHandler {
 	return &spaceHandler{
 		spaceService:       spaceService,
 		accountService:     accountService,
 		transactionService: transactionService,
+		inviteService:      inviteService,
 	}
 }
 
@@ -448,6 +453,158 @@ func (h *spaceHandler) HandleDeleteSpace(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("HX-Redirect", routeurl.URL("page.app.spaces"))
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *spaceHandler) SpaceMembersPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	members, err := h.spaceService.GetMembers(spaceID)
+	if err != nil {
+		slog.Error("failed to load members", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load members", http.StatusInternalServerError)
+		return
+	}
+
+	pending, err := h.inviteService.GetPendingInvites(spaceID)
+	if err != nil {
+		slog.Error("failed to load pending invites", "error", err, "space_id", spaceID)
+		pending = nil
+	}
+
+	user := ctxkeys.User(r.Context())
+	currentUserID := ""
+	if user != nil {
+		currentUserID = user.ID
+	}
+	isOwner := user != nil && user.ID == space.OwnerID
+
+	ui.Render(w, r, pages.SpaceMembersPage(pages.SpaceMembersPageProps{
+		SpaceID:        space.ID,
+		SpaceName:      space.Name,
+		OwnerID:        space.OwnerID,
+		CurrentUserID:  currentUserID,
+		IsOwner:        isOwner,
+		Members:        members,
+		PendingInvites: pending,
+		InviteForm:     forms.InviteMemberProps{SpaceID: space.ID},
+	}))
+}
+
+func (h *spaceHandler) HandleInviteMember(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	if user == nil || user.ID != space.OwnerID {
+		ui.RenderError(w, r, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	emailInput := strings.TrimSpace(r.FormValue("email"))
+	formProps := forms.InviteMemberProps{
+		SpaceID: spaceID,
+		Email:   emailInput,
+	}
+
+	if emailInput == "" {
+		formProps.EmailErr = "Email is required."
+		ui.Render(w, r, forms.InviteMember(formProps))
+		return
+	}
+	if err := validation.ValidateEmail(emailInput); err != nil {
+		formProps.EmailErr = "Enter a valid email address."
+		ui.Render(w, r, forms.InviteMember(formProps))
+		return
+	}
+
+	if _, err := h.inviteService.CreateInvite(spaceID, user.ID, emailInput); err != nil {
+		switch {
+		case errors.Is(err, service.ErrInviteSelf):
+			formProps.EmailErr = "You can't invite yourself."
+		case errors.Is(err, service.ErrInviteAlreadyMember):
+			formProps.EmailErr = "This person is already a member."
+		case errors.Is(err, service.ErrInviteAlreadyPending):
+			formProps.EmailErr = "An invitation is already pending for this email."
+		default:
+			slog.Error("failed to create invite", "error", err, "space_id", spaceID)
+			formProps.GeneralErr = "Something went wrong. Please try again."
+		}
+		ui.Render(w, r, forms.InviteMember(formProps))
+		return
+	}
+
+	formProps.Email = ""
+	formProps.SuccessMsg = "Invitation sent to " + emailInput + "."
+	w.Header().Set("HX-Trigger", "members:refresh")
+	ui.Render(w, r, forms.InviteMember(formProps))
+}
+
+func (h *spaceHandler) HandleRemoveMember(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	userID := r.PathValue("userID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	if user == nil || user.ID != space.OwnerID {
+		ui.RenderError(w, r, "Forbidden", http.StatusForbidden)
+		return
+	}
+	if userID == space.OwnerID {
+		ui.RenderError(w, r, "Cannot remove the owner", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.spaceService.RemoveMember(spaceID, userID); err != nil {
+		slog.Error("failed to remove member", "error", err, "space_id", spaceID, "user_id", userID)
+		ui.RenderError(w, r, "Failed to remove member", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *spaceHandler) HandleCancelInvite(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	token := r.PathValue("token")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	if user == nil || user.ID != space.OwnerID {
+		ui.RenderError(w, r, "Forbidden", http.StatusForbidden)
+		return
+	}
+
+	if err := h.inviteService.CancelInvite(token); err != nil {
+		slog.Error("failed to cancel invite", "error", err, "token", token)
+		ui.RenderError(w, r, "Failed to cancel invitation", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
 	w.WriteHeader(http.StatusOK)
 }
 

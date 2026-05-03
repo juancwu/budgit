@@ -1,0 +1,190 @@
+package pages
+
+import "strconv"
+import "strings"
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+
+type SpaceMembersPageProps struct {
+	SpaceID        string
+	SpaceName      string
+	OwnerID        string
+	CurrentUserID  string
+	IsOwner        bool
+	Members        []*model.SpaceMemberWithProfile
+	PendingInvites []*model.SpaceInvitation
+	InviteForm     forms.InviteMemberProps
+}
+
+templ SpaceMembersPage(props SpaceMembersPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Members",
+		spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "Members"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Members</h1>
+				<p class="text-muted-foreground mt-2">
+					Manage who has access to { props.SpaceName }.
+				</p>
+			</div>
+			if props.IsOwner {
+				@card.Card(card.Props{Class: "rounded-sm"}) {
+					@card.Header() {
+						@card.Title() {
+							Invite a member
+						}
+						@card.Description() {
+							Send an invitation by email.
+						}
+					}
+					@card.Content() {
+						@forms.InviteMember(props.InviteForm)
+					}
+				}
+			}
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Header() {
+					@card.Title() {
+						{ memberCountLabel(len(props.Members)) }
+					}
+				}
+				@card.Content() {
+					<ul class="divide-y">
+						for _, m := range props.Members {
+							@memberRow(props, m)
+						}
+					</ul>
+				}
+			}
+			if len(props.PendingInvites) > 0 {
+				@card.Card(card.Props{Class: "rounded-sm"}) {
+					@card.Header() {
+						@card.Title() {
+							Pending invitations
+						}
+						@card.Description() {
+							These people have been invited but haven't joined yet.
+						}
+					}
+					@card.Content() {
+						<ul class="divide-y">
+							for _, inv := range props.PendingInvites {
+								@pendingInviteRow(props, inv)
+							}
+						</ul>
+					}
+				}
+			}
+		</div>
+	}
+}
+
+func memberCountLabel(n int) string {
+	if n == 1 {
+		return "1 member"
+	}
+	return strconv.Itoa(n) + " members"
+}
+
+templ memberRow(props SpaceMembersPageProps, m *model.SpaceMemberWithProfile) {
+	{{
+		display := m.Email
+		if m.Name != nil && *m.Name != "" {
+			display = *m.Name
+		}
+		initial := "?"
+		if display != "" {
+			initial = strings.ToUpper(string(display[0]))
+		}
+		isOwner := m.UserID == props.OwnerID
+		isSelf := m.UserID == props.CurrentUserID
+		canRemove := props.IsOwner && !isOwner && !isSelf
+	}}
+	<li class="flex items-center justify-between gap-4 py-3">
+		<div class="flex items-center gap-3 min-w-0">
+			<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center font-medium">
+				{ initial }
+			</div>
+			<div class="min-w-0">
+				<p class="font-medium truncate">{ display }</p>
+				<p class="text-xs text-muted-foreground truncate">{ m.Email }</p>
+			</div>
+		</div>
+		<div class="flex items-center gap-3 shrink-0">
+			<span class="text-xs text-muted-foreground capitalize">{ string(m.Role) }</span>
+			if canRemove {
+				@dialog.Dialog() {
+					@dialog.Trigger() {
+						@button.Button(button.Props{
+							Variant: button.VariantGhost,
+							Size:    button.SizeIcon,
+							Attributes: templ.Attributes{"aria-label": "Remove member"},
+						}) {
+							@icon.Trash2(icon.Props{Class: "size-4 text-destructive"})
+						}
+					}
+					@dialog.Content() {
+						@dialog.Header() {
+							@dialog.Title() {
+								Remove { display }?
+							}
+							@dialog.Description() {
+								They'll lose access to this space immediately. You can re-invite them later.
+							}
+						}
+						@dialog.Footer(dialog.FooterProps{Class: "mt-2"}) {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline}) {
+									Cancel
+								}
+							}
+							<form hx-post={ routeurl.URL("action.app.spaces.space.members.remove", "spaceID", props.SpaceID, "userID", m.UserID) }>
+								@button.Button(button.Props{
+									Type:    button.TypeSubmit,
+									Variant: button.VariantDestructive,
+								}) {
+									Remove
+								}
+							</form>
+						}
+					}
+				}
+			}
+		</div>
+	</li>
+}
+
+templ pendingInviteRow(props SpaceMembersPageProps, inv *model.SpaceInvitation) {
+	<li class="flex items-center justify-between gap-4 py-3">
+		<div class="flex items-center gap-3 min-w-0">
+			<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+				@icon.Mail(icon.Props{Class: "size-4 text-muted-foreground"})
+			</div>
+			<div class="min-w-0">
+				<p class="font-medium truncate">{ inv.Email }</p>
+				<p class="text-xs text-muted-foreground">Invited { inv.CreatedAt.Format("Jan 2, 2006") } · expires { inv.ExpiresAt.Format("Jan 2, 2006") }</p>
+			</div>
+		</div>
+		if props.IsOwner {
+			<form hx-post={ routeurl.URL("action.app.spaces.space.invitations.cancel", "spaceID", props.SpaceID, "token", inv.Token) }>
+				@button.Button(button.Props{
+					Type:    button.TypeSubmit,
+					Variant: button.VariantGhost,
+					Size:    button.SizeSm,
+				}) {
+					Cancel invitation
+				}
+			</form>
+		}
+	</li>
+}

@@ -19,7 +19,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.InviteService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -54,6 +54,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	r.Get("/privacy", homeH.PrivacyPage).Name("page.public.privacy")
 	r.Get("/terms", homeH.TermsPage).Name("page.public.terms")
 	r.Get("/join/{token}", authH.JoinSpace).Name("page.public.join-space")
+	r.Post("/join/{token}/accept", authH.AcceptInvite).Name("action.public.join-space.accept")
 
 	// Permanent redirects
 	r.Get("/app/dashboard", redirectH.Spaces)
@@ -95,6 +96,10 @@ func SetupRoutes(a *app.App) http.Handler {
 				g.Get("/settings", spaceH.SpaceSettingsPage).Name("page.app.spaces.space.settings")
 				g.Post("/settings/rename", spaceH.HandleRenameSpace).Name("action.app.spaces.space.settings.rename")
 				g.Post("/settings/delete", spaceH.HandleDeleteSpace).Name("action.app.spaces.space.settings.delete")
+				g.Get("/members", spaceH.SpaceMembersPage).Name("page.app.spaces.space.members")
+				g.Post("/members/invite", spaceH.HandleInviteMember).Name("action.app.spaces.space.members.invite")
+				g.Post("/members/{userID}/remove", spaceH.HandleRemoveMember).Name("action.app.spaces.space.members.remove")
+				g.Post("/invitations/{token}/cancel", spaceH.HandleCancelInvite).Name("action.app.spaces.space.invitations.cancel")
 				g.Get("/accounts/create", spaceH.SpaceCreateAccountPage).Name("page.app.spaces.space.accounts.create")
 				g.Post("/accounts/create", spaceH.HandleCreateAccount).Name("action.app.spaces.space.accounts.create")
 

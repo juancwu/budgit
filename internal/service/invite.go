@@ -2,11 +2,18 @@ package service
 
 import (
 	"errors"
+	"strings"
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"github.com/google/uuid"
+)
+
+var (
+	ErrInviteAlreadyMember  = errors.New("user is already a member of this space")
+	ErrInviteAlreadyPending = errors.New("an invitation is already pending for this email")
+	ErrInviteSelf           = errors.New("you cannot invite yourself")
 )
 
 type InviteService struct {
@@ -26,10 +33,38 @@ func NewInviteService(ir repository.InvitationRepository, sr repository.SpaceRep
 }
 
 func (s *InviteService) CreateInvite(spaceID, inviterID, email string) (*model.SpaceInvitation, error) {
+	email = strings.ToLower(strings.TrimSpace(email))
+
 	// Check if space exists
 	space, err := s.spaceRepo.ByID(spaceID)
 	if err != nil {
 		return nil, err
+	}
+
+	// Block inviting an already-existing member
+	if existingUser, err := s.userRepo.ByEmail(email); err == nil && existingUser != nil {
+		if existingUser.ID == inviterID {
+			return nil, ErrInviteSelf
+		}
+		isMember, err := s.spaceRepo.IsMember(spaceID, existingUser.ID)
+		if err != nil {
+			return nil, err
+		}
+		if isMember {
+			return nil, ErrInviteAlreadyMember
+		}
+	}
+
+	// Block duplicate pending invites for the same email
+	existing, err := s.inviteRepo.GetBySpaceID(spaceID)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	for _, inv := range existing {
+		if inv.Status == model.InvitationStatusPending && strings.EqualFold(inv.Email, email) && inv.ExpiresAt.After(now) {
+			return nil, ErrInviteAlreadyPending
+		}
 	}
 
 	token := uuid.NewString() // Or a more secure token generator
@@ -99,6 +134,39 @@ func (s *InviteService) CancelInvite(token string) error {
 	}
 
 	return s.inviteRepo.Delete(token)
+}
+
+type InviteContext struct {
+	Invitation  *model.SpaceInvitation
+	SpaceName   string
+	InviterName string
+}
+
+func (s *InviteService) GetByToken(token string) (*InviteContext, error) {
+	invite, err := s.inviteRepo.GetByToken(token)
+	if err != nil {
+		return nil, err
+	}
+
+	space, err := s.spaceRepo.ByID(invite.SpaceID)
+	if err != nil {
+		return nil, err
+	}
+
+	inviterName := "Someone"
+	if inviter, err := s.userRepo.ByID(invite.InviterID); err == nil && inviter != nil {
+		if inviter.Name != nil && *inviter.Name != "" {
+			inviterName = *inviter.Name
+		} else {
+			inviterName = inviter.Email
+		}
+	}
+
+	return &InviteContext{
+		Invitation:  invite,
+		SpaceName:   space.Name,
+		InviterName: inviterName,
+	}, nil
 }
 
 func (s *InviteService) GetPendingInvites(spaceID string) ([]*model.SpaceInvitation, error) {

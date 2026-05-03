@@ -1,0 +1,68 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+
+type InviteMemberProps struct {
+	SpaceID string
+
+	Email string
+
+	EmailErr   string
+	GeneralErr string
+	SuccessMsg string
+}
+
+templ InviteMember(props InviteMemberProps) {
+	<form
+		id="invite-member-form"
+		hx-post={ routeurl.URL("action.app.spaces.space.members.invite", "spaceID", props.SpaceID) }
+		hx-swap="outerHTML"
+	>
+		<div class="space-y-4">
+			if props.GeneralErr != "" {
+				@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+					{ props.GeneralErr }
+				}
+			}
+			if props.SuccessMsg != "" {
+				@form.Message(form.MessageProps{Variant: form.MessageVariantInfo}) {
+					{ props.SuccessMsg }
+				}
+			}
+			<div class="flex flex-col sm:flex-row gap-2">
+				@form.Item(form.ItemProps{Class: "flex-1"}) {
+					@form.Label(form.LabelProps{For: "email", Class: "sr-only"}) {
+						Email
+					}
+					@input.Input(input.Props{
+						ID:          "email",
+						Name:        "email",
+						Type:        input.TypeEmail,
+						Placeholder: "person@example.com",
+						Class:       "rounded-sm",
+						Value:       props.Email,
+						HasError:    props.EmailErr != "",
+						Required:    true,
+						Attributes: templ.Attributes{
+							"autocomplete": "off",
+						},
+					})
+					if props.EmailErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.EmailErr }
+						}
+					}
+				}
+				@button.Button(button.Props{Type: button.TypeSubmit, Class: "shrink-0"}) {
+					Send invitation
+				}
+			</div>
+			<p class="text-xs text-muted-foreground">
+				The recipient will get an email with a link to join. They can review the invitation before deciding to join, and create an account if they don't have one yet.
+			</p>
+		</div>
+	</form>
+}
