@@ -22,6 +22,10 @@ jobs:
         steps:
             - name: Checkout code
               uses: actions/checkout@v4
+            - name: Generate assets
+              # output.css is .gitignore'd; the embed.FS test asserts it serves,
+              # so the CSS must exist on disk before `go test` compiles the embed.
+              run: tailwindcss -i ./assets/css/input.css -o ./assets/css/output.css
             - name: Run tests
               env:
                   BUDGIT_TEST_POSTGRES_URL: 'postgres://budgit_test:testpass@postgres:5432/budgit_test?sslmode=disable'
