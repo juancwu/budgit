@@ -7,7 +7,7 @@ CREATE TABLE space_audit_logs (
     action TEXT NOT NULL,
     target_user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     target_email TEXT,
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    metadata JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

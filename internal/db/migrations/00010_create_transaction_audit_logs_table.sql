@@ -5,7 +5,7 @@ CREATE TABLE transaction_audit_logs (
     transaction_id TEXT NOT NULL,
     actor_id TEXT REFERENCES users(id) ON DELETE SET NULL,
     action TEXT NOT NULL,
-    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    metadata JSONB NOT NULL DEFAULT '{}',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

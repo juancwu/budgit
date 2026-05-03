@@ -85,7 +85,7 @@ func TestSetupRoutes_HomeRedirects(t *testing.T) {
 		assert.Equal(t, http.StatusSeeOther, w.Code)
 		assert.Equal(t, "/auth", w.Header().Get("Location"))
 
-		// Authenticated → redirect to /app/spaces
+		// Authenticated → redirect to /app/home
 		name := "Test User"
 		user := testutil.CreateTestUserWithName(t, dbi.DB, "home@example.com", &name)
 		req = httptest.NewRequest(http.MethodGet, "/", nil)
@@ -93,7 +93,7 @@ func TestSetupRoutes_HomeRedirects(t *testing.T) {
 		w = httptest.NewRecorder()
 		handler.ServeHTTP(w, req)
 		assert.Equal(t, http.StatusSeeOther, w.Code)
-		assert.Equal(t, "/app/spaces", w.Header().Get("Location"))
+		assert.Equal(t, "/app/home", w.Header().Get("Location"))
 	})
 }
 
@@ -202,7 +202,7 @@ func TestSetupRoutes_PermanentRedirect(t *testing.T) {
 		handler.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusMovedPermanently, w.Code)
-		assert.Equal(t, "/app/spaces", w.Header().Get("Location"))
+		assert.Equal(t, "/app/home", w.Header().Get("Location"))
 	})
 }
 
