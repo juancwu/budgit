@@ -117,6 +117,7 @@ func SetupRoutes(a *app.App) http.Handler {
 					g.Get("/transactions/{transactionID}/activity", spaceH.SpaceTransactionActivityPage).Name("page.app.spaces.space.accounts.account.transactions.transaction.activity")
 					g.Get("/settings", spaceH.SpaceAccountSettingsPage).Name("page.app.spaces.space.accounts.account.settings")
 					g.Post("/settings/rename", spaceH.HandleRenameAccount).Name("action.app.spaces.space.accounts.account.settings.rename")
+					g.Post("/settings/currency", spaceH.HandleChangeAccountCurrency).Name("action.app.spaces.space.accounts.account.settings.currency")
 					g.Post("/settings/delete", spaceH.HandleDeleteAccount).Name("action.app.spaces.space.accounts.account.settings.delete")
 					g.Get("/bills/create", spaceH.SpaceCreateBillPage).Name("page.app.spaces.space.accounts.account.bills.create")
 					g.Post("/bills/create", spaceH.HandleCreateBill).Name("action.app.spaces.space.accounts.account.bills.create")

@@ -22,7 +22,7 @@ func TestAccountService_CreateAccount_RecordsAudit(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "acct-create-audit@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "S")
 
-		account, err := svc.CreateAccount(space.ID, "Checking", user.ID)
+		account, err := svc.CreateAccount(space.ID, "Checking", "CAD", user.ID)
 		require.NoError(t, err)
 
 		logs, err := auditRepo.ListAccountEvents(account.ID, 10, 0)
@@ -104,7 +104,7 @@ func TestAccountService_NoAuditLoggerSet_DoesNotPanic(t *testing.T) {
 		user := testutil.CreateTestUser(t, dbi.DB, "no-audit@example.com", nil)
 		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "S")
 
-		account, err := svc.CreateAccount(space.ID, "x", user.ID)
+		account, err := svc.CreateAccount(space.ID, "x", "", user.ID)
 		require.NoError(t, err)
 		require.NoError(t, svc.RenameAccount(account.ID, "y", user.ID))
 		require.NoError(t, svc.DeleteAccount(account.ID, user.ID))

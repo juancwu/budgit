@@ -6,20 +6,22 @@ import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
 import "git.juancwu.dev/juancwu/budgit/internal/service"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 
 type SpaceAccountPageProps struct {
-	SpaceID            string
-	SpaceName          string
-	AccountID          string
-	AccountName        string
-	AccountBalance     decimal.Decimal
-	RecentTransactions       []*model.Transaction
+	SpaceID                   string
+	SpaceName                 string
+	AccountID                 string
+	AccountName               string
+	AccountBalance            decimal.Decimal
+	AccountCurrency           string
+	RecentTransactions        []*model.Transaction
 	NonEditableTransactionIDs map[string]bool
-	AllocationSummary  *service.AllocationSummary
+	AllocationSummary         *service.AllocationSummary
 }
 
 templ SpaceAccountPage(props SpaceAccountPageProps) {
@@ -39,12 +41,20 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 				}) {
 					@card.Header() {
 						@card.Title() {
-							{ props.AccountName }
+							<div class="flex items-center gap-3">
+								<span>{ props.AccountName }</span>
+								@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "text-xs font-medium"}) {
+									{ props.AccountCurrency }
+								}
+							</div>
 						}
 					}
 					@card.Content() {
-						<h1 class={ utils.TwMerge(balanceTextClasses...) }>${ utils.FormatDecimalWithThousands(props.AccountBalance.StringFixedBank(2)) }</h1>
-						<p class="text-sm text-muted-foreground">Account Balance</p>
+						<h1 class={ utils.TwMerge(balanceTextClasses...) }>
+							${ utils.FormatDecimalWithThousands(props.AccountBalance.StringFixedBank(2)) }
+							<span class="text-xl font-semibold text-muted-foreground ml-2">{ props.AccountCurrency }</span>
+						</h1>
+						<p class="text-sm text-muted-foreground">Account Balance ({ props.AccountCurrency })</p>
 					}
 				}
 				@card.Card(card.Props{Class: "rounded-sm col-span-full md:col-span-4"}) {

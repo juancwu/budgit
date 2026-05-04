@@ -34,5 +34,5 @@ CREATE TABLE space_invitations (
 -- +goose StatementBegin
 DROP TABLE space_invitations;
 DROP TABLE space_members;
-DROP TABLE spaces;
+DROP TABLE spaces CASCADE;
 -- +goose StatementEnd

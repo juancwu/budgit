@@ -9,11 +9,13 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 
 type SpaceAccountSettingsPageProps struct {
-	SpaceID     string
-	SpaceName   string
-	AccountID   string
-	AccountName string
-	UpdateForm  forms.UpdateAccountProps
+	SpaceID         string
+	SpaceName       string
+	AccountID       string
+	AccountName     string
+	AccountCurrency string
+	UpdateForm      forms.UpdateAccountProps
+	CurrencyForm    forms.ChangeAccountCurrencyProps
 }
 
 templ SpaceAccountSettingsPage(props SpaceAccountSettingsPageProps) {
@@ -32,6 +34,7 @@ templ SpaceAccountSettingsPage(props SpaceAccountSettingsPageProps) {
 				</p>
 			</div>
 			@forms.UpdateAccount(props.UpdateForm)
+			@forms.ChangeAccountCurrency(props.CurrencyForm)
 			@card.Card(card.Props{Class: "rounded-sm border-destructive"}) {
 				@card.Header() {
 					@card.Title(card.TitleProps{Class: "text-destructive"}) {

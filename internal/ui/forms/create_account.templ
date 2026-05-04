@@ -1,5 +1,6 @@
 package forms
 
+import "git.juancwu.dev/juancwu/budgit/internal/misc/currency"
 import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
@@ -9,10 +10,12 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 type CreateAccountProps struct {
 	SpaceID string
 
-	Name string
+	Name     string
+	Currency string
 
-	NameErr    string
-	GeneralErr string
+	NameErr     string
+	CurrencyErr string
+	GeneralErr  string
 }
 
 templ CreateAccount(props CreateAccountProps) {
@@ -48,7 +51,35 @@ templ CreateAccount(props CreateAccountProps) {
 						}
 					}
 					@form.Description() {
-						You can rename the account later. Starts with a $0.00 balance.
+						You can rename the account later. Starts with a 0.00 balance.
+					}
+				}
+				{{
+					selected := props.Currency
+					if selected == "" {
+						selected = currency.Default
+					}
+				}}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "currency"}) {
+						Currency
+					}
+					<select
+						id="currency"
+						name="currency"
+						class={ "flex h-9 w-full items-center rounded-sm border bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+							templ.KV("border-destructive", props.CurrencyErr != ""),
+							templ.KV("border-input", props.CurrencyErr == "") }
+						required
+					>
+						for _, code := range currency.Supported() {
+							<option value={ code } selected?={ selected == code }>{ code }</option>
+						}
+					</select>
+					if props.CurrencyErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.CurrencyErr }
+						}
 					}
 				}
 			}

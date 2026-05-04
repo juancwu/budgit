@@ -1,0 +1,117 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/misc/currency"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+
+type ChangeAccountCurrencyProps struct {
+	SpaceID         string
+	AccountID       string
+	CurrentCurrency string
+
+	NewCurrency    string
+	ConversionRate string
+
+	NewCurrencyErr string
+	RateErr        string
+	GeneralErr     string
+	SuccessMsg     string
+}
+
+templ ChangeAccountCurrency(props ChangeAccountCurrencyProps) {
+	<form
+		id="change-currency-form"
+		hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.settings.currency", "spaceID", props.SpaceID, "accountID", props.AccountID) }
+		hx-swap="outerHTML"
+	>
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Header() {
+				@card.Title() {
+					Currency
+				}
+				@card.Description() {
+					Currently { props.CurrentCurrency }. Changing the currency converts the balance and every allocation at the rate you provide.
+				}
+			}
+			@card.Content(card.ContentProps{Class: "space-y-4"}) {
+				if props.GeneralErr != "" {
+					@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+						{ props.GeneralErr }
+					}
+				}
+				if props.SuccessMsg != "" {
+					@form.Message(form.MessageProps{Variant: form.MessageVariantInfo}) {
+						{ props.SuccessMsg }
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "new_currency"}) {
+						New currency
+					}
+					{{ selected := props.NewCurrency }}
+					<select
+						id="new_currency"
+						name="new_currency"
+						class={ "flex h-9 w-full items-center rounded-sm border bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+							templ.KV("border-destructive", props.NewCurrencyErr != ""),
+							templ.KV("border-input", props.NewCurrencyErr == "") }
+						required
+					>
+						<option value="" selected?={ selected == "" }>Select a currency…</option>
+						for _, code := range currency.Supported() {
+							if code != props.CurrentCurrency {
+								<option value={ code } selected?={ selected == code }>{ code }</option>
+							}
+						}
+					</select>
+					if props.NewCurrencyErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.NewCurrencyErr }
+						}
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "rate"}) {
+						Conversion rate
+					}
+					<div class="flex items-center gap-2">
+						<span class="text-sm text-muted-foreground">1 { props.CurrentCurrency } =</span>
+						@input.Input(input.Props{
+							ID:          "rate",
+							Name:        "rate",
+							Type:        input.TypeNumber,
+							Placeholder: "1.000000",
+							Class:       "rounded-sm",
+							Value:       props.ConversionRate,
+							HasError:    props.RateErr != "",
+							Required:    true,
+							Attributes: templ.Attributes{
+								"step":         "0.000001",
+								"min":          "0",
+								"inputmode":    "decimal",
+								"autocomplete": "off",
+							},
+						})
+						<span class="text-sm text-muted-foreground">new currency</span>
+					</div>
+					if props.RateErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.RateErr }
+						}
+					}
+					@form.Description() {
+						Balance and allocation amounts are multiplied by this rate and rounded to 2 decimals.
+					}
+				}
+			}
+			@card.Footer(card.FooterProps{Class: "flex justify-end gap-2"}) {
+				@button.Button(button.Props{Type: button.TypeSubmit}) {
+					Change currency
+				}
+			}
+		}
+	</form>
+}

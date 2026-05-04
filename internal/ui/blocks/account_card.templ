@@ -6,10 +6,11 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
 
 type AccountCardInfo struct {
-	SpaceID string
-	ID      string
-	Name    string
-	Balance decimal.Decimal
+	SpaceID  string
+	ID       string
+	Name     string
+	Balance  decimal.Decimal
+	Currency string
 }
 
 templ AccountCard(info AccountCardInfo) {
@@ -22,7 +23,7 @@ templ AccountCard(info AccountCardInfo) {
 				<div>
 					<p class="font-semibold">{ info.Name }</p>
 					<p class="text-xs text-muted-foreground">
-						${ info.Balance.StringFixedBank(2) }
+						${ info.Balance.StringFixedBank(2) } { info.Currency }
 					</p>
 				</div>
 			</div>

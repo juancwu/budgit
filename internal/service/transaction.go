@@ -189,9 +189,13 @@ type TransferInput struct {
 	DestAccountID   string
 	Title           string
 	Amount          decimal.Decimal
-	OccurredAt      time.Time
-	Description     string
-	ActorID         string
+	// ConversionRate is the rate that converts one unit of the source currency
+	// into the destination currency. Required when source and destination
+	// accounts have different currencies; ignored otherwise. Must be positive.
+	ConversionRate decimal.Decimal
+	OccurredAt     time.Time
+	Description    string
+	ActorID        string
 }
 
 // TransferResult is what the service returns after a successful transfer — both
@@ -235,6 +239,18 @@ func (s *TransactionService) Transfer(input TransferInput) (*TransferResult, err
 		return nil, fmt.Errorf("failed to load destination account: %w", err)
 	}
 
+	// Cross-currency transfers require a conversion rate; same-currency
+	// transfers ignore it (or, for symmetry, accept rate=1).
+	destAmount := input.Amount
+	rate := decimal.NewFromInt(1)
+	if source.Currency != dest.Currency {
+		if !input.ConversionRate.IsPositive() {
+			return nil, fmt.Errorf("conversion rate is required when transferring between accounts of different currencies")
+		}
+		rate = input.ConversionRate
+		destAmount = input.Amount.Mul(rate).Round(2)
+	}
+
 	now := time.Now()
 	var description *string
 	if d := strings.TrimSpace(input.Description); d != "" {
@@ -254,7 +270,7 @@ func (s *TransactionService) Transfer(input TransferInput) (*TransferResult, err
 	}
 	deposit := &model.Transaction{
 		ID:          uuid.NewString(),
-		Value:       input.Amount,
+		Value:       destAmount,
 		Type:        model.TransactionTypeDeposit,
 		AccountID:   dest.ID,
 		Title:       title,
@@ -265,7 +281,7 @@ func (s *TransactionService) Transfer(input TransferInput) (*TransferResult, err
 	}
 
 	sourceNewBalance := source.Balance.Sub(input.Amount)
-	destNewBalance := dest.Balance.Add(input.Amount)
+	destNewBalance := dest.Balance.Add(destAmount)
 
 	if err := s.transactionRepo.TransferAtomic(withdrawal, deposit, sourceNewBalance, destNewBalance); err != nil {
 		return nil, fmt.Errorf("failed to record transfer: %w", err)
@@ -287,6 +303,10 @@ func (s *TransactionService) Transfer(input TransferInput) (*TransferResult, err
 			"transfer_pair_id":    deposit.ID,
 			"transfer_other_acct": deposit.AccountID,
 			"transfer_other_name": dest.Name,
+			"source_currency":     source.Currency,
+			"dest_currency":       dest.Currency,
+			"conversion_rate":     rate.String(),
+			"dest_amount":         destAmount.StringFixedBank(2),
 		},
 	})
 	s.auditSvc.Record(TransactionRecordOptions{
@@ -302,6 +322,10 @@ func (s *TransactionService) Transfer(input TransferInput) (*TransferResult, err
 			"transfer_pair_id":    withdrawal.ID,
 			"transfer_other_acct": withdrawal.AccountID,
 			"transfer_other_name": source.Name,
+			"source_currency":     source.Currency,
+			"dest_currency":       dest.Currency,
+			"conversion_rate":     rate.String(),
+			"source_amount":       input.Amount.StringFixedBank(2),
 		},
 	})
 
