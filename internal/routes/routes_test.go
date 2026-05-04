@@ -16,7 +16,6 @@ import (
 
 func newTestApp(dbi testutil.DBInfo) *app.App {
 	cfg := testutil.TestConfig()
-	cfg.DBDriver = dbi.Driver
 
 	userRepo := repository.NewUserRepository(dbi.DB)
 	tokenRepo := repository.NewTokenRepository(dbi.DB)

@@ -7,6 +7,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/shopspring/decimal"
 )
 
 // CreateTestUser inserts a user directly into the database.
@@ -77,6 +78,52 @@ func CreateTestSpace(t *testing.T, db *sqlx.DB, ownerID, name string) *model.Spa
 		t.Fatalf("CreateTestSpace (member): %v", err)
 	}
 	return space
+}
+
+// CreateTestAccount inserts an account directly into the database.
+func CreateTestAccount(t *testing.T, db *sqlx.DB, spaceID, name string) *model.Account {
+	t.Helper()
+	now := time.Now()
+	account := &model.Account{
+		ID:        uuid.NewString(),
+		Name:      name,
+		SpaceID:   spaceID,
+		Balance:   decimal.Zero,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	_, err := db.Exec(
+		`INSERT INTO accounts (id, name, space_id, balance, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+		account.ID, account.Name, account.SpaceID, account.Balance, account.CreatedAt, account.UpdatedAt,
+	)
+	if err != nil {
+		t.Fatalf("CreateTestAccount: %v", err)
+	}
+	return account
+}
+
+// CreateTestTransaction inserts a transaction directly into the database.
+func CreateTestTransaction(t *testing.T, db *sqlx.DB, accountID, title string, txnType model.TransactionType, amount decimal.Decimal) *model.Transaction {
+	t.Helper()
+	now := time.Now()
+	txn := &model.Transaction{
+		ID:         uuid.NewString(),
+		Value:      amount,
+		Type:       txnType,
+		AccountID:  accountID,
+		Title:      title,
+		OccurredAt: now,
+		CreatedAt:  now,
+		UpdatedAt:  now,
+	}
+	_, err := db.Exec(
+		`INSERT INTO transactions (id, value, type, account_id, title, description, occurred_at, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		txn.ID, txn.Value, txn.Type, txn.AccountID, txn.Title, txn.Description, txn.OccurredAt, txn.CreatedAt, txn.UpdatedAt,
+	)
+	if err != nil {
+		t.Fatalf("CreateTestTransaction: %v", err)
+	}
+	return txn
 }
 
 // CreateTestToken inserts a token directly into the database.

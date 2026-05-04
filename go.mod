@@ -15,8 +15,8 @@ require (
 	github.com/pressly/goose/v3 v3.26.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/stretchr/testify v1.11.1
+	github.com/templui/templui v1.9.5
 	github.com/wneessen/go-mail v0.7.2
-	modernc.org/sqlite v1.40.1
 )
 
 require (
@@ -62,7 +62,6 @@ require (
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/sethvargo/go-retry v0.3.0 // indirect
-	github.com/templui/templui v1.9.5 // indirect
 	github.com/tursodatabase/libsql-client-go v0.0.0-20240902231107-85af5b9d094d // indirect
 	github.com/vertica/vertica-sql-go v1.3.3 // indirect
 	github.com/ydb-platform/ydb-go-genproto v0.0.0-20241112172322-ea1f63298f77 // indirect
@@ -87,6 +86,7 @@ require (
 	modernc.org/libc v1.66.10 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.11.0 // indirect
+	modernc.org/sqlite v1.40.1 // indirect
 )
 
 tool (

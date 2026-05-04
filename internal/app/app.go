@@ -26,12 +26,12 @@ type App struct {
 }
 
 func New(cfg *config.Config) (*App, error) {
-	database, err := db.Init(cfg.DBDriver, cfg.DBConnection)
+	database, err := db.Init(cfg.DBConnection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize database: %w", err)
 	}
 
-	err = db.RunMigrations(database.DB, cfg.DBDriver)
+	err = db.RunMigrations(database.DB)
 	if err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}

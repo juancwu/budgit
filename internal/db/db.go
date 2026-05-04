@@ -3,25 +3,16 @@ package db
 import (
 	"fmt"
 	"log/slog"
-	"os"
-	"path/filepath"
 	"time"
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/jmoiron/sqlx"
-	_ "modernc.org/sqlite"
 )
 
-func Init(driver, connection string) (*sqlx.DB, error) {
-	if driver == "sqlite" {
-		dir := filepath.Dir(connection)
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create data directory: %w", err)
-		}
-	}
-
-	db, err := sqlx.Connect(driver, connection)
+// Init opens a PostgreSQL connection pool. The connection string must be a
+// libpq-style URL or DSN supported by the pgx stdlib driver.
+func Init(connection string) (*sqlx.DB, error) {
+	db, err := sqlx.Connect("pgx", connection)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
@@ -30,10 +21,9 @@ func Init(driver, connection string) (*sqlx.DB, error) {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(5 * time.Minute)
 
-	slog.Info("database connected", "driver", driver)
+	slog.Info("database connected", "driver", "pgx")
 
-	err = db.Ping()
-	if err != nil {
+	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
 

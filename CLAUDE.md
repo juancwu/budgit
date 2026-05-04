@@ -64,11 +64,11 @@ Components live in `internal/ui/components/` — button, input, checkbox, dialog
 
 ## Configuration
 
-App reads from `.env` file via `godotenv`. Key vars: `APP_ENV`, `APP_URL`, `DB_DRIVER` (pgx/sqlite), `DB_CONNECTION`, `JWT_SECRET`, `PORT`. See `internal/config/config.go` for all fields.
+App reads from `.env` file via `godotenv`. Key vars: `APP_ENV`, `APP_URL`, `DB_CONNECTION` (libpq URL/DSN), `JWT_SECRET`, `PORT`. See `internal/config/config.go` for all fields.
 
 ## Database
 
-PostgreSQL (pgx driver) or SQLite. Migrations auto-run on startup from `internal/db/migrations/` (Goose SQL format, embedded via `go:embed`). 8 migration files covering users, tokens, profiles, spaces, shopping lists, tags, expenses, invitations.
+PostgreSQL 17 only (pgx driver). Migrations auto-run on startup from `internal/db/migrations/` (Goose SQL format, embedded via `go:embed`). Tests run against an ephemeral Postgres container via `task test`; set `BUDGIT_TEST_POSTGRES_URL` to point at a long-lived instance instead.
 
 # templui Components
 

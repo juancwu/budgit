@@ -17,7 +17,6 @@ type Config struct {
 	Host       string
 	Port       string
 
-	DBDriver     string
 	DBConnection string
 
 	JWTSecret            string
@@ -53,8 +52,7 @@ func Load(version string) *Config {
 		Host:       envString("HOST", "127.0.0.1"),
 		Port:       envString("PORT", "9000"),
 
-		DBDriver:     envString("DB_DRIVER", "sqlite"),
-		DBConnection: envString("DB_CONNECTION", "./data/local.db?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)"),
+		DBConnection: envRequired("DB_CONNECTION"),
 
 		JWTSecret:            envRequired("JWT_SECRET"),
 		JWTExpiry:            envDuration("JWT_EXPIRY", 168*time.Hour), // 7 days default
