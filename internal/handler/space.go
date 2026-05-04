@@ -1607,6 +1607,50 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *spaceHandler) HandleDeleteTransaction(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+	transactionID := r.PathValue("transactionID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
+		return
+	}
+
+	txn, err := h.transactionService.GetTransaction(transactionID)
+	if err != nil || txn.AccountID != accountID {
+		ui.RenderError(w, r, "Transaction not found", http.StatusNotFound)
+		return
+	}
+
+	actorID := ""
+	if u := ctxkeys.User(r.Context()); u != nil {
+		actorID = u.ID
+	}
+
+	if _, err := h.transactionService.DeleteTransaction(service.DeleteTransactionInput{
+		TransactionID: transactionID,
+		ActorID:       actorID,
+	}); err != nil {
+		if errors.Is(err, service.ErrTransactionPartOfTransfer) {
+			ui.RenderError(w, r, "Transfer transactions cannot be deleted.", http.StatusBadRequest)
+			return
+		}
+		slog.Error("failed to delete transaction", "error", err, "transaction_id", transactionID)
+		ui.RenderError(w, r, "Failed to delete transaction", http.StatusInternalServerError)
+		return
+	}
+
+	redirectTo := routeurl.URL(
+		"page.app.spaces.space.accounts.account.overview",
+		"spaceID", spaceID,
+		"accountID", accountID,
+	)
+	w.Header().Set("HX-Redirect", redirectTo)
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *spaceHandler) SpaceCreateTransferPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	accountID := r.PathValue("accountID")

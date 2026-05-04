@@ -481,6 +481,187 @@ func TestTransactionService_Update_RejectsTransferTransactions(t *testing.T) {
 	})
 }
 
+func TestTransactionService_DeleteTransaction_Bill_CreditsBalance(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+
+		// Seed 100 then pay a 30 bill, leaving balance at 70.
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(100),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+		bill, err := f.svc.PayBill(PayBillInput{
+			AccountID: f.account.ID, Title: "Cable", Amount: decimal.NewFromInt(30),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
+		updated, err := f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		require.True(t, decimal.NewFromInt(70).Equal(updated.Balance))
+
+		deleted, err := f.svc.DeleteTransaction(DeleteTransactionInput{
+			TransactionID: bill.ID,
+			ActorID:       f.user.ID,
+		})
+		require.NoError(t, err)
+		assert.Equal(t, bill.ID, deleted.ID)
+
+		// 70 + 30 = 100 (credit back).
+		updated, err = f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(100).Equal(updated.Balance))
+
+		// Transaction is gone.
+		_, err = f.svc.GetTransaction(bill.ID)
+		assert.Error(t, err)
+
+		// Audit log records the deletion (created + deleted, newest first).
+		logs, err := f.txAudit.ListByTransaction(bill.ID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, logs, 2)
+		assert.Equal(t, model.TransactionAuditActionDeleted, logs[0].Action)
+
+		var meta map[string]any
+		require.NoError(t, json.Unmarshal(logs[0].Metadata, &meta))
+		assert.Equal(t, "withdrawal", meta["transaction_type"])
+		assert.Equal(t, f.account.ID, meta["account_id"])
+		assert.Equal(t, "Cable", meta["title"])
+		assert.Equal(t, "30.00", meta["amount"])
+	})
+}
+
+func TestTransactionService_DeleteTransaction_Deposit_DebitsBalance(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+
+		dep, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "Paycheck", Amount: decimal.NewFromInt(150),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
+		updated, err := f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		require.True(t, decimal.NewFromInt(150).Equal(updated.Balance))
+
+		_, err = f.svc.DeleteTransaction(DeleteTransactionInput{
+			TransactionID: dep.ID,
+			ActorID:       f.user.ID,
+		})
+		require.NoError(t, err)
+
+		// 150 - 150 = 0.
+		updated, err = f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.Zero.Equal(updated.Balance))
+
+		logs, err := f.txAudit.ListByTransaction(dep.ID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, logs, 2)
+		assert.Equal(t, model.TransactionAuditActionDeleted, logs[0].Action)
+		var meta map[string]any
+		require.NoError(t, json.Unmarshal(logs[0].Metadata, &meta))
+		assert.Equal(t, "deposit", meta["transaction_type"])
+	})
+}
+
+func TestTransactionService_DeleteTransaction_RejectsTransferHalves(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
+
+		result, err := f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID,
+			DestAccountID:   dest.ID,
+			Title:           "Initial",
+			Amount:          decimal.NewFromInt(20),
+			OccurredAt:      time.Now(),
+			ActorID:         f.user.ID,
+		})
+		require.NoError(t, err)
+
+		_, err = f.svc.DeleteTransaction(DeleteTransactionInput{
+			TransactionID: result.Withdrawal.ID,
+			ActorID:       f.user.ID,
+		})
+		require.ErrorIs(t, err, ErrTransactionPartOfTransfer)
+
+		_, err = f.svc.DeleteTransaction(DeleteTransactionInput{
+			TransactionID: result.Deposit.ID,
+			ActorID:       f.user.ID,
+		})
+		require.ErrorIs(t, err, ErrTransactionPartOfTransfer)
+
+		// Both halves still exist with untouched balances and no extra audit rows.
+		_, err = f.svc.GetTransaction(result.Withdrawal.ID)
+		require.NoError(t, err)
+		_, err = f.svc.GetTransaction(result.Deposit.ID)
+		require.NoError(t, err)
+
+		src, err := f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(-20).Equal(src.Balance))
+		dst, err := f.accounts.ByID(dest.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(20).Equal(dst.Balance))
+
+		count, err := f.txAudit.CountByTransaction(result.Withdrawal.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count)
+	})
+}
+
+func TestTransactionService_DeleteTransaction_RemovesCategoryLink(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+
+		categories, err := f.svc.ListCategories()
+		require.NoError(t, err)
+		require.NotEmpty(t, categories, "expected at least one seeded category")
+		categoryID := categories[0].ID
+
+		_, err = f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(100),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+		bill, err := f.svc.PayBill(PayBillInput{
+			AccountID:  f.account.ID,
+			Title:      "Groceries",
+			Amount:     decimal.NewFromInt(40),
+			OccurredAt: time.Now(),
+			CategoryID: categoryID,
+			ActorID:    f.user.ID,
+		})
+		require.NoError(t, err)
+
+		got, err := f.svc.GetTransactionCategoryID(bill.ID)
+		require.NoError(t, err)
+		require.Equal(t, categoryID, got)
+
+		_, err = f.svc.DeleteTransaction(DeleteTransactionInput{
+			TransactionID: bill.ID,
+			ActorID:       f.user.ID,
+		})
+		require.NoError(t, err)
+
+		// transaction_categories cascades on the FK; the link is gone.
+		got, err = f.svc.GetTransactionCategoryID(bill.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "", got)
+	})
+}
+
+func TestTransactionService_DeleteTransaction_RequiresID(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		_, err := f.svc.DeleteTransaction(DeleteTransactionInput{ActorID: f.user.ID})
+		assert.Error(t, err)
+	})
+}
+
 func TestTransactionService_Validations(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)

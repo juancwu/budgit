@@ -14,6 +14,7 @@ type TransactionRepository interface {
 	CreateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal) error
 	UpdateBillAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error
 	UpdateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal) error
+	DeleteAtomic(transactionID, accountID string, newBalance decimal.Decimal) error
 	TransferAtomic(withdrawal, deposit *model.Transaction, sourceNewBalance, destNewBalance decimal.Decimal) error
 	GetByID(id string) (*model.Transaction, error)
 	GetCategoryID(transactionID string) (*string, error)
@@ -135,6 +136,23 @@ func (r *transactionRepository) UpdateDepositAtomic(t *model.Transaction, newBal
 
 		updateBalance := `UPDATE accounts SET balance = $1, updated_at = $2 WHERE id = $3;`
 		if _, err := tx.Exec(updateBalance, newBalance, time.Now(), t.AccountID); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+// DeleteAtomic removes a standalone (non-transfer) transaction and reverses
+// its effect on the account balance in a single SQL transaction. The caller is
+// responsible for computing the new balance — bills credit it back, deposits
+// debit it. transaction_categories is removed via ON DELETE CASCADE.
+func (r *transactionRepository) DeleteAtomic(transactionID, accountID string, newBalance decimal.Decimal) error {
+	return WithTx(r.db, func(tx *sqlx.Tx) error {
+		if _, err := tx.Exec(`DELETE FROM transactions WHERE id = $1;`, transactionID); err != nil {
+			return err
+		}
+		updateBalance := `UPDATE accounts SET balance = $1, updated_at = $2 WHERE id = $3;`
+		if _, err := tx.Exec(updateBalance, newBalance, time.Now(), accountID); err != nil {
 			return err
 		}
 		return nil

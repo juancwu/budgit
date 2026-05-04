@@ -517,6 +517,64 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 	return existing, nil
 }
 
+type DeleteTransactionInput struct {
+	TransactionID string
+	ActorID       string
+}
+
+// DeleteTransaction removes a standalone bill or deposit. Transfers are
+// rejected with ErrTransactionPartOfTransfer — they must be undone via the
+// transfer flow so both halves stay consistent. Deleting a bill credits the
+// account; deleting a deposit debits it.
+func (s *TransactionService) DeleteTransaction(input DeleteTransactionInput) (*model.Transaction, error) {
+	if input.TransactionID == "" {
+		return nil, fmt.Errorf("transaction id is required")
+	}
+
+	existing, err := s.transactionRepo.GetByID(input.TransactionID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load transaction: %w", err)
+	}
+	if related, err := s.transactionRepo.GetRelatedID(existing.ID); err != nil {
+		return nil, fmt.Errorf("failed to check transfer linkage: %w", err)
+	} else if related != nil {
+		return nil, ErrTransactionPartOfTransfer
+	}
+
+	account, err := s.accountService.GetAccount(existing.AccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load account: %w", err)
+	}
+
+	var newBalance decimal.Decimal
+	switch existing.Type {
+	case model.TransactionTypeWithdrawal:
+		newBalance = account.Balance.Add(existing.Value)
+	case model.TransactionTypeDeposit:
+		newBalance = account.Balance.Sub(existing.Value)
+	default:
+		return nil, fmt.Errorf("unsupported transaction type: %s", existing.Type)
+	}
+
+	if err := s.transactionRepo.DeleteAtomic(existing.ID, existing.AccountID, newBalance); err != nil {
+		return nil, fmt.Errorf("failed to delete transaction: %w", err)
+	}
+
+	s.auditSvc.Record(TransactionRecordOptions{
+		TransactionID: existing.ID,
+		ActorID:       input.ActorID,
+		Action:        model.TransactionAuditActionDeleted,
+		Metadata: map[string]any{
+			"account_id":       existing.AccountID,
+			"transaction_type": string(existing.Type),
+			"title":            existing.Title,
+			"amount":           existing.Value.StringFixedBank(2),
+		},
+	})
+
+	return existing, nil
+}
+
 // diffTransactionFields returns a map of field name to {old, new} for fields whose
 // new value differs from the existing transaction.
 func diffTransactionFields(existing *model.Transaction, newTitle string, newAmount decimal.Decimal, newOccurredAt time.Time, newDescription *string) map[string]any {
