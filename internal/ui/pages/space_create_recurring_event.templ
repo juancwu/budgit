@@ -1,0 +1,29 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceCreateRecurringEventPageProps struct {
+	SpaceID   string
+	SpaceName string
+	Form      forms.RecurringEventFormProps
+}
+
+templ SpaceCreateRecurringEventPage(props SpaceCreateRecurringEventPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"New Recurring",
+		spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "New Recurring"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-6">
+			<div>
+				<h1 class="text-3xl font-bold">New Recurring Event</h1>
+				<p class="text-muted-foreground mt-2">
+					Schedule a bill, fund, or transfer to repeat automatically.
+				</p>
+			</div>
+			@forms.RecurringEventForm(props.Form)
+		</div>
+	}
+}

@@ -55,11 +55,16 @@ func main() {
 		Handler: finalHandler,
 	}
 
+	workerCtx, stopWorker := context.WithCancel(context.Background())
+	defer stopWorker()
+	go runRecurringWorker(workerCtx, a)
+
 	go func() {
 		sigCh := make(chan os.Signal, 1)
 		signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
 		<-sigCh
 		slog.Info("shutting down gracefully")
+		stopWorker()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		srv.Shutdown(ctx)
@@ -70,5 +75,27 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		slog.Error("server failed", "error", err)
 		panic(err)
+	}
+}
+
+// runRecurringWorker materializes due recurring events on a fixed cadence. It
+// fires once at startup (catching up anything missed while the server was
+// down), then ticks every minute until ctx is cancelled.
+func runRecurringWorker(ctx context.Context, a *app.App) {
+	tick := func() {
+		if err := a.RecurringEventService.ProcessDue(time.Now().UTC()); err != nil {
+			slog.Error("recurring event processing failed", "error", err)
+		}
+	}
+	tick()
+	t := time.NewTicker(time.Minute)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			tick()
+		}
 	}
 }

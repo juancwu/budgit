@@ -1,0 +1,30 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceEditRecurringEventPageProps struct {
+	SpaceID   string
+	SpaceName string
+	EventID   string
+	Form      forms.RecurringEventFormProps
+}
+
+templ SpaceEditRecurringEventPage(props SpaceEditRecurringEventPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Edit Recurring",
+		spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "Edit Recurring"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-6">
+			<div>
+				<h1 class="text-3xl font-bold">Edit Recurring Event</h1>
+				<p class="text-muted-foreground mt-2">
+					Changes apply going forward. Past transactions are not modified.
+				</p>
+			</div>
+			@forms.RecurringEventForm(props.Form)
+		</div>
+	}
+}

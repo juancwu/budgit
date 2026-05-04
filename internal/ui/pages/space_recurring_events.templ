@@ -1,0 +1,132 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceRecurringEventsPageProps struct {
+	SpaceID     string
+	SpaceName   string
+	Events      []*model.RecurringEvent
+	AccountByID map[string]string
+}
+
+templ SpaceRecurringEventsPage(props SpaceRecurringEventsPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Recurring",
+		spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "Recurring"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+	) {
+		<div class="container max-w-5xl px-6 py-8 mx-auto space-y-6">
+			<div class="flex items-start justify-between gap-4">
+				<div>
+					<h1 class="text-3xl font-bold">Recurring</h1>
+					<p class="text-muted-foreground mt-2">
+						Bills, funds, and transfers that fire automatically on a schedule.
+					</p>
+				</div>
+				@button.Button(button.Props{
+					Href:  routeurl.URL("page.app.spaces.space.recurring.create", "spaceID", props.SpaceID),
+					Class: "flex gap-2 items-center",
+				}) {
+					@icon.Plus()
+					New Recurring
+				}
+			</div>
+			if len(props.Events) == 0 {
+				@card.Card(card.Props{Class: "rounded-sm"}) {
+					@card.Content(card.ContentProps{Class: "p-8 text-center text-muted-foreground"}) {
+						No recurring events yet.
+					}
+				}
+			} else {
+				<div class="space-y-3">
+					for _, ev := range props.Events {
+						@recurringEventRow(props.SpaceID, ev, props.AccountByID)
+					}
+				</div>
+			}
+		</div>
+	}
+}
+
+templ recurringEventRow(spaceID string, ev *model.RecurringEvent, accountByID map[string]string) {
+	@card.Card(card.Props{Class: "rounded-sm"}) {
+		@card.Content(card.ContentProps{Class: "p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3"}) {
+			<div class="space-y-1 min-w-0">
+				<div class="flex items-center gap-2 flex-wrap">
+					<span class="font-semibold truncate">{ ev.Title }</span>
+					@kindBadge(ev.Kind)
+					if ev.Paused {
+						@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+							Paused
+						}
+					}
+				</div>
+				<div class="text-sm text-muted-foreground">
+					{ accountLabel(ev, accountByID) } · ${ ev.Amount.StringFixedBank(2) } · { recurrenceSummary(ev) }
+				</div>
+				<div class="text-xs text-muted-foreground">
+					Next: { ev.NextRunAt.Format("2006-01-02 15:04 MST") } ({ ev.Timezone })
+				</div>
+			</div>
+			<div class="flex items-center gap-2 shrink-0">
+				if ev.Paused {
+					<form hx-post={ routeurl.URL("action.app.spaces.space.recurring.event.resume", "spaceID", spaceID, "eventID", ev.ID) }>
+						@button.Button(button.Props{
+							Type:    button.TypeSubmit,
+							Variant: button.VariantOutline,
+							Size:    button.SizeSm,
+						}) {
+							Resume
+						}
+					</form>
+				} else {
+					<form hx-post={ routeurl.URL("action.app.spaces.space.recurring.event.pause", "spaceID", spaceID, "eventID", ev.ID) }>
+						@button.Button(button.Props{
+							Type:    button.TypeSubmit,
+							Variant: button.VariantOutline,
+							Size:    button.SizeSm,
+						}) {
+							Pause
+						}
+					</form>
+				}
+				@button.Button(button.Props{
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Href:    routeurl.URL("page.app.spaces.space.recurring.event.edit", "spaceID", spaceID, "eventID", ev.ID),
+				}) {
+					Edit
+				}
+				<form hx-post={ routeurl.URL("action.app.spaces.space.recurring.event.delete", "spaceID", spaceID, "eventID", ev.ID) } hx-confirm="Delete this recurring event? This does not delete previously generated transactions.">
+					@button.Button(button.Props{
+						Type:    button.TypeSubmit,
+						Variant: button.VariantDestructive,
+						Size:    button.SizeSm,
+					}) {
+						@icon.Trash2()
+					}
+				</form>
+			</div>
+		}
+	}
+}
+
+templ kindBadge(kind model.RecurringEventKind) {
+	switch kind {
+		case model.RecurringEventKindBill:
+			@badge.Badge(badge.Props{Variant: badge.VariantDestructive}) {
+				Bill
+			}
+		case model.RecurringEventKindFund:
+			@badge.Badge(badge.Props{Variant: badge.VariantDefault}) {
+				Fund
+			}
+	}
+}

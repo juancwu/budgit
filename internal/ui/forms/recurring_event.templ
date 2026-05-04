@@ -1,0 +1,336 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/misc/timezone"
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/textarea"
+
+type RecurringEventFormProps struct {
+	SpaceID     string
+	Action      string
+	CancelHref  string
+	SubmitLabel string
+
+	Accounts  []*model.Account
+	Timezones []timezone.TimezoneOption
+
+	Title           string
+	Kind            string
+	SourceAccountID string
+	Amount          string
+	Description     string
+	Frequency       string
+	IntervalCount   string
+	DayOfWeek       string
+	DayOfMonth      string
+	MonthOfYear     string
+	FireTime        string
+	Timezone        string
+	StartDate       string
+
+	TitleErr       string
+	KindErr        string
+	SourceErr      string
+	AmountErr      string
+	FrequencyErr   string
+	IntervalErr    string
+	DayOfWeekErr   string
+	DayOfMonthErr  string
+	MonthOfYearErr string
+	FireTimeErr    string
+	TimezoneErr    string
+	StartDateErr   string
+	GeneralErr     string
+}
+
+func (p RecurringEventFormProps) HasError() bool {
+	return p.TitleErr != "" || p.KindErr != "" || p.SourceErr != "" ||
+		p.AmountErr != "" || p.FrequencyErr != "" || p.IntervalErr != "" ||
+		p.DayOfWeekErr != "" || p.DayOfMonthErr != "" || p.MonthOfYearErr != "" ||
+		p.FireTimeErr != "" || p.TimezoneErr != "" || p.StartDateErr != ""
+}
+
+var weekdayNames = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"}
+var monthNames = []string{"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"}
+
+templ RecurringEventForm(props RecurringEventFormProps) {
+	<form id="recurring-event-form" hx-post={ props.Action } hx-target="#recurring-event-form" hx-swap="outerHTML">
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Content(card.ContentProps{Class: "p-4 space-y-4"}) {
+				if props.GeneralErr != "" {
+					@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+						{ props.GeneralErr }
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "title"}) {
+						Title
+					}
+					@input.Input(input.Props{
+						ID:          "title",
+						Name:        "title",
+						Type:        input.TypeText,
+						Placeholder: "e.g. Rent",
+						Class:       "rounded-sm",
+						Value:       props.Title,
+						HasError:    props.TitleErr != "",
+						Required:    true,
+					})
+					if props.TitleErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.TitleErr }
+						}
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "kind"}) {
+						Kind
+					}
+					<select id="kind" name="kind" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
+						<option value={ string(model.RecurringEventKindBill) } selected?={ props.Kind == string(model.RecurringEventKindBill) }>Bill (withdrawal)</option>
+						<option value={ string(model.RecurringEventKindFund) } selected?={ props.Kind == string(model.RecurringEventKindFund) }>Fund (deposit)</option>
+					</select>
+					if props.KindErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.KindErr }
+						}
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "source_account"}) {
+						Account
+					}
+					<select id="source_account" name="source_account" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
+						<option value="" selected?={ props.SourceAccountID == "" }>Select an account…</option>
+						for _, a := range props.Accounts {
+							<option value={ a.ID } selected?={ props.SourceAccountID == a.ID }>{ a.Name }</option>
+						}
+					</select>
+					if props.SourceErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.SourceErr }
+						}
+					}
+				}
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "amount"}) {
+						Amount
+					}
+					@input.Input(input.Props{
+						ID:          "amount",
+						Name:        "amount",
+						Type:        input.TypeNumber,
+						Placeholder: "0.00",
+						Class:       "rounded-sm",
+						Value:       props.Amount,
+						HasError:    props.AmountErr != "",
+						Required:    true,
+						Attributes: templ.Attributes{
+							"step":      "0.01",
+							"min":       "0",
+							"inputmode": "decimal",
+						},
+					})
+					if props.AmountErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.AmountErr }
+						}
+					}
+				}
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "frequency"}) {
+							Frequency
+						}
+						<select id="frequency" name="frequency" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
+							<option value={ string(model.RecurringFrequencyDaily) } selected?={ props.Frequency == string(model.RecurringFrequencyDaily) }>Daily</option>
+							<option value={ string(model.RecurringFrequencyWeekly) } selected?={ props.Frequency == string(model.RecurringFrequencyWeekly) }>Weekly</option>
+							<option value={ string(model.RecurringFrequencyMonthly) } selected?={ props.Frequency == string(model.RecurringFrequencyMonthly) }>Monthly</option>
+							<option value={ string(model.RecurringFrequencyYearly) } selected?={ props.Frequency == string(model.RecurringFrequencyYearly) }>Yearly</option>
+						</select>
+						if props.FrequencyErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.FrequencyErr }
+							}
+						}
+					}
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "interval_count"}) {
+							Repeat every
+						}
+						@input.Input(input.Props{
+							ID:       "interval_count",
+							Name:     "interval_count",
+							Type:     input.TypeNumber,
+							Class:    "rounded-sm",
+							Value:    props.IntervalCount,
+							HasError: props.IntervalErr != "",
+							Required: true,
+							Attributes: templ.Attributes{
+								"min":  "1",
+								"step": "1",
+							},
+						})
+						@form.Description() {
+							e.g. "every 2" + Weekly = every other week.
+						}
+						if props.IntervalErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.IntervalErr }
+							}
+						}
+					}
+				</div>
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "day_of_week"}) {
+							Day of week
+						}
+						<select id="day_of_week" name="day_of_week" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+							<option value="">—</option>
+							for i, name := range weekdayNames {
+								<option value={ intToStr(i) } selected?={ props.DayOfWeek == intToStr(i) }>{ name }</option>
+							}
+						</select>
+						@form.Description() {
+							Used for weekly events.
+						}
+						if props.DayOfWeekErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.DayOfWeekErr }
+							}
+						}
+					}
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "day_of_month"}) {
+							Day of month
+						}
+						@input.Input(input.Props{
+							ID:       "day_of_month",
+							Name:     "day_of_month",
+							Type:     input.TypeNumber,
+							Class:    "rounded-sm",
+							Value:    props.DayOfMonth,
+							HasError: props.DayOfMonthErr != "",
+							Attributes: templ.Attributes{
+								"min": "1",
+								"max": "31",
+							},
+						})
+						@form.Description() {
+							Used for monthly/yearly. Clamps to last day of short months.
+						}
+						if props.DayOfMonthErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.DayOfMonthErr }
+							}
+						}
+					}
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "month_of_year"}) {
+							Month
+						}
+						<select id="month_of_year" name="month_of_year" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
+							<option value="">—</option>
+							for i, name := range monthNames {
+								<option value={ intToStr(i + 1) } selected?={ props.MonthOfYear == intToStr(i + 1) }>{ name }</option>
+							}
+						</select>
+						@form.Description() {
+							Used for yearly events.
+						}
+						if props.MonthOfYearErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.MonthOfYearErr }
+							}
+						}
+					}
+				</div>
+				<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "fire_time"}) {
+							Time of day
+						}
+						@input.Input(input.Props{
+							ID:       "fire_time",
+							Name:     "fire_time",
+							Type:     input.TypeTime,
+							Class:    "rounded-sm",
+							Value:    props.FireTime,
+							HasError: props.FireTimeErr != "",
+							Required: true,
+						})
+						if props.FireTimeErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.FireTimeErr }
+							}
+						}
+					}
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "timezone"}) {
+							Timezone
+						}
+						<select id="timezone" name="timezone" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
+							for _, tz := range props.Timezones {
+								<option value={ tz.Value } selected?={ props.Timezone == tz.Value }>{ tz.Label }</option>
+							}
+						</select>
+						if props.TimezoneErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.TimezoneErr }
+							}
+						}
+					}
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "start_date"}) {
+							Start date
+						}
+						@input.Input(input.Props{
+							ID:       "start_date",
+							Name:     "start_date",
+							Type:     input.TypeDate,
+							Class:    "rounded-sm",
+							Value:    props.StartDate,
+							HasError: props.StartDateErr != "",
+							Required: true,
+						})
+						@form.Description() {
+							First firing on or after this local date.
+						}
+						if props.StartDateErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.StartDateErr }
+							}
+						}
+					}
+				</div>
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "description"}) {
+						Description
+					}
+					@textarea.Textarea(textarea.Props{
+						ID:          "description",
+						Name:        "description",
+						Placeholder: "Optional",
+						Rows:        3,
+						Value:       props.Description,
+					})
+				}
+			}
+			@card.Footer(card.FooterProps{Class: "flex justify-end gap-2"}) {
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Href:    props.CancelHref,
+				}) {
+					Cancel
+				}
+				@button.Button(button.Props{Type: button.TypeSubmit}) {
+					{ props.SubmitLabel }
+				}
+			}
+		}
+	</form>
+}

@@ -76,6 +76,16 @@ templ spaceSpecificSidebarContent(spaceID string) {
 			}
 			@sidebar.MenuItem() {
 				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.recurring", "spaceID", spaceID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.recurring", "spaceID", spaceID),
+					Tooltip:  "Recurring",
+				}) {
+					@icon.CalendarSync()
+					<span>Recurring</span>
+				}
+			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
 					Href:     routeurl.URL("page.app.spaces.space.activity", "spaceID", spaceID),
 					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.activity", "spaceID", spaceID),
 					Tooltip:  "Activity",

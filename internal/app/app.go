@@ -19,8 +19,9 @@ type App struct {
 	SpaceService       *service.SpaceService
 	AccountService     *service.AccountService
 	AllocationService  *service.AllocationService
-	TransactionService *service.TransactionService
-	InviteService      *service.InviteService
+	TransactionService    *service.TransactionService
+	RecurringEventService *service.RecurringEventService
+	InviteService         *service.InviteService
 	AuditLogService    *service.SpaceAuditLogService
 	TxAuditLogService  *service.TransactionAuditLogService
 	AccountActivitySvc *service.AccountActivityService
@@ -50,6 +51,7 @@ func New(cfg *config.Config) (*App, error) {
 	invitationRepository := repository.NewInvitationRepository(database)
 	auditLogRepository := repository.NewSpaceAuditLogRepository(database)
 	txAuditLogRepository := repository.NewTransactionAuditLogRepository(database)
+	recurringEventRepository := repository.NewRecurringEventRepository(database)
 
 	// Services
 	userService := service.NewUserService(userRepository)
@@ -84,6 +86,7 @@ func New(cfg *config.Config) (*App, error) {
 		cfg.IsProduction(),
 	)
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService, auditLogService)
+	recurringEventService := service.NewRecurringEventService(recurringEventRepository, transactionService, accountService)
 
 	return &App{
 		Cfg:                cfg,
@@ -94,8 +97,9 @@ func New(cfg *config.Config) (*App, error) {
 		SpaceService:       spaceService,
 		AccountService:     accountService,
 		AllocationService:  allocationService,
-		TransactionService: transactionService,
-		InviteService:      inviteService,
+		TransactionService:    transactionService,
+		RecurringEventService: recurringEventService,
+		InviteService:         inviteService,
 		AuditLogService:    auditLogService,
 		TxAuditLogService:  txAuditLogService,
 		AccountActivitySvc: accountActivityService,

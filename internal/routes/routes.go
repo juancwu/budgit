@@ -21,6 +21,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
 	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.AllocationService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc)
 	allocationH := handler.NewAllocationHandler(a.AllocationService, a.AccountService)
+	recurringH := handler.NewRecurringEventHandler(a.RecurringEventService, a.AccountService, a.SpaceService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -106,6 +107,15 @@ func SetupRoutes(a *app.App) http.Handler {
 				g.Post("/invitations/{token}/cancel", spaceH.HandleCancelInvite).Name("action.app.spaces.space.invitations.cancel")
 				g.Get("/accounts/create", spaceH.SpaceCreateAccountPage).Name("page.app.spaces.space.accounts.create")
 				g.Post("/accounts/create", spaceH.HandleCreateAccount).Name("action.app.spaces.space.accounts.create")
+
+				g.Get("/recurring", recurringH.ListPage).Name("page.app.spaces.space.recurring")
+				g.Get("/recurring/create", recurringH.CreatePage).Name("page.app.spaces.space.recurring.create")
+				g.Post("/recurring/create", recurringH.HandleCreate).Name("action.app.spaces.space.recurring.create")
+				g.Get("/recurring/{eventID}/edit", recurringH.EditPage).Name("page.app.spaces.space.recurring.event.edit")
+				g.Post("/recurring/{eventID}/edit", recurringH.HandleEdit).Name("action.app.spaces.space.recurring.event.edit")
+				g.Post("/recurring/{eventID}/delete", recurringH.HandleDelete).Name("action.app.spaces.space.recurring.event.delete")
+				g.Post("/recurring/{eventID}/pause", recurringH.HandlePause).Name("action.app.spaces.space.recurring.event.pause")
+				g.Post("/recurring/{eventID}/resume", recurringH.HandleResume).Name("action.app.spaces.space.recurring.event.resume")
 
 				g.SubGroup("/accounts/{accountID}", func(g *router.Group) {
 					g.Get("/overview", spaceH.SpaceAccountPage).Name("page.app.spaces.space.accounts.account.overview")

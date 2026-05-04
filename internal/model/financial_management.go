@@ -54,6 +54,48 @@ type Allocation struct {
 	UpdatedAt    time.Time        `db:"updated_at"`
 }
 
+type RecurringEventKind string
+
+const (
+	RecurringEventKindBill RecurringEventKind = "bill"
+	RecurringEventKindFund RecurringEventKind = "fund"
+)
+
+type RecurringFrequency string
+
+const (
+	RecurringFrequencyDaily   RecurringFrequency = "daily"
+	RecurringFrequencyWeekly  RecurringFrequency = "weekly"
+	RecurringFrequencyMonthly RecurringFrequency = "monthly"
+	RecurringFrequencyYearly  RecurringFrequency = "yearly"
+)
+
+type RecurringEvent struct {
+	ID              string             `db:"id"`
+	SpaceID         string             `db:"space_id"`
+	Kind            RecurringEventKind `db:"kind"`
+	SourceAccountID string             `db:"source_account_id"`
+	Title           string             `db:"title"`
+	Amount          decimal.Decimal    `db:"amount"`
+	Description     *string            `db:"description"`
+
+	Frequency     RecurringFrequency `db:"frequency"`
+	IntervalCount int                `db:"interval_count"`
+	DayOfWeek     *int               `db:"day_of_week"`
+	DayOfMonth    *int               `db:"day_of_month"`
+	MonthOfYear   *int               `db:"month_of_year"`
+	FireHour      int                `db:"fire_hour"`
+	FireMinute    int                `db:"fire_minute"`
+	Timezone      string             `db:"timezone"`
+
+	NextRunAt time.Time  `db:"next_run_at"`
+	LastRunAt *time.Time `db:"last_run_at"`
+	Paused    bool       `db:"paused"`
+
+	CreatedAt time.Time `db:"created_at"`
+	UpdatedAt time.Time `db:"updated_at"`
+}
+
 type Category struct {
 	ID          string    `db:"id"`
 	Name        string    `db:"name"`
