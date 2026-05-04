@@ -7,6 +7,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/textarea"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 
 type CreateTransferProps struct {
 	SpaceID         string
@@ -15,6 +16,12 @@ type CreateTransferProps struct {
 	// DestAccounts is the list of other accounts in the same space the user
 	// can transfer to. Excludes the source account.
 	DestAccounts []*model.Account
+
+	// SourceAvailable / SourceAllocated are the source account's unallocated
+	// and allocated cash, formatted as plain decimal strings (e.g. "1234.50").
+	SourceAvailable  string
+	SourceAllocated  string
+	SourceOverflow   bool
 
 	Title         string
 	Amount        string
@@ -33,6 +40,25 @@ templ CreateTransfer(props CreateTransferProps) {
 	<form hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.transfers.create", "spaceID", props.SpaceID, "accountID", props.SourceAccountID) }>
 		@card.Card(card.Props{Class: "rounded-sm"}) {
 			@card.Content(card.ContentProps{Class: "p-4 space-y-4"}) {
+				if props.SourceAvailable != "" {
+					{{
+						availClasses := []string{"text-2xl font-bold"}
+						if props.SourceOverflow {
+							availClasses = append(availClasses, "text-red-600 dark:text-red-400")
+						}
+						availFormatted, _ := utils.FormatDecimalWithThousands(props.SourceAvailable)
+						allocFormatted, _ := utils.FormatDecimalWithThousands(props.SourceAllocated)
+					}}
+					<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 border rounded-md p-4 bg-muted/30">
+						<div>
+							<p class="text-xs text-muted-foreground uppercase tracking-wide">Available</p>
+							<p class={ utils.TwMerge(availClasses...) }>${ availFormatted }</p>
+						</div>
+						<p class="text-sm text-muted-foreground">
+							Allocated: ${ allocFormatted }
+						</p>
+					</div>
+				}
 				if props.GeneralErr != "" {
 					@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
 						{ props.GeneralErr }

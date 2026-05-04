@@ -1535,6 +1535,13 @@ func (h *spaceHandler) SpaceCreateTransferPage(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	allocSummary, err := h.allocationService.SummaryForAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load allocation summary", "error", err, "account_id", accountID)
+		ui.RenderError(w, r, "Failed to load page", http.StatusInternalServerError)
+		return
+	}
+
 	ui.Render(w, r, pages.SpaceCreateTransferPage(pages.SpaceCreateTransferPageProps{
 		SpaceID:     spaceID,
 		SpaceName:   space.Name,
@@ -1544,6 +1551,9 @@ func (h *spaceHandler) SpaceCreateTransferPage(w http.ResponseWriter, r *http.Re
 			SpaceID:         spaceID,
 			SourceAccountID: accountID,
 			DestAccounts:    dests,
+			SourceAvailable: allocSummary.Available.StringFixedBank(2),
+			SourceAllocated: allocSummary.Allocated.StringFixedBank(2),
+			SourceOverflow:  allocSummary.Overflow,
 			Date:            time.Now().Format("2006-01-02"),
 		},
 	}))
@@ -1581,6 +1591,14 @@ func (h *spaceHandler) HandleCreateTransfer(w http.ResponseWriter, r *http.Reque
 		DestAccountID:   destInput,
 		Date:            dateInput,
 		Description:     descriptionInput,
+	}
+
+	if allocSummary, err := h.allocationService.SummaryForAccount(accountID); err != nil {
+		slog.Error("failed to load allocation summary", "error", err, "account_id", accountID)
+	} else {
+		formProps.SourceAvailable = allocSummary.Available.StringFixedBank(2)
+		formProps.SourceAllocated = allocSummary.Allocated.StringFixedBank(2)
+		formProps.SourceOverflow = allocSummary.Overflow
 	}
 
 	hasErr := false
