@@ -1,0 +1,102 @@
+package blocks
+
+import "git.juancwu.dev/juancwu/budgit/internal/service"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+
+type AllocationsSectionProps struct {
+	SpaceID   string
+	AccountID string
+	Summary   *service.AllocationSummary
+
+	// CreateForm preserves user input + errors when re-rendering after a
+	// failed create submission. Nil for fresh renders.
+	CreateForm *AllocationFormState
+	// ShowCreateForm forces the create form to be visible (used after a
+	// validation error so the user sees what went wrong).
+	ShowCreateForm bool
+}
+
+// AllocationsSection renders the savings-goals card on the account overview.
+// The whole card is the HTMX swap target so create/edit/delete handlers can
+// return a fresh copy and the Available banner stays in sync.
+templ AllocationsSection(props AllocationsSectionProps) {
+	<div id="allocations-section" class="space-y-4">
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Header() {
+				<div class="flex items-start justify-between gap-4">
+					<div>
+						@card.Title() {
+							Savings Goals
+						}
+						@card.Description() {
+							Earmark portions of this account for things you're saving for.
+						}
+					</div>
+					@button.Button(button.Props{
+						Variant: button.VariantDefault,
+						Class:   "flex items-center gap-2",
+						Attributes: templ.Attributes{
+							"_": "on click toggle .hidden on #allocation-create-form",
+						},
+					}) {
+						@icon.Plus()
+						New goal
+					}
+				</div>
+			}
+			@card.Content(card.ContentProps{Class: "space-y-4"}) {
+				if props.Summary != nil {
+					@allocationsAvailableBanner(props.Summary)
+				}
+				{{
+					createState := AllocationFormState{}
+					if props.CreateForm != nil {
+						createState = *props.CreateForm
+					}
+					createClasses := "hidden"
+					if props.ShowCreateForm {
+						createClasses = ""
+					}
+				}}
+				<div id="allocation-create-form" class={ createClasses }>
+					@allocationCreateForm(props.SpaceID, props.AccountID, createState)
+				</div>
+				if props.Summary != nil && len(props.Summary.Allocations) > 0 {
+					<div class="grid gap-3 md:grid-cols-2">
+						for _, a := range props.Summary.Allocations {
+							@allocationCard(props.SpaceID, props.AccountID, a)
+						}
+					</div>
+				} else {
+					<p class="text-sm text-muted-foreground">No savings goals yet. Create one to start earmarking funds.</p>
+				}
+			}
+		}
+	</div>
+}
+
+templ allocationsAvailableBanner(summary *service.AllocationSummary) {
+	{{
+		availClasses := []string{"text-2xl font-bold"}
+		if summary.Overflow {
+			availClasses = append(availClasses, "text-red-600 dark:text-red-400")
+		}
+	}}
+	<div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 border rounded-md p-4 bg-muted/30">
+		<div>
+			<p class="text-xs text-muted-foreground uppercase tracking-wide">Available</p>
+			<p class={ utils.TwMerge(availClasses...) }>${ utils.FormatDecimalWithThousands(summary.Available.StringFixedBank(2)) }</p>
+		</div>
+		<p class="text-sm text-muted-foreground">
+			Allocated: ${ utils.FormatDecimalWithThousands(summary.Allocated.StringFixedBank(2)) }
+		</p>
+		if summary.Overflow {
+			<div class="text-sm text-red-600 dark:text-red-400 font-medium">
+				Over-allocated by ${ utils.FormatDecimalWithThousands(summary.Available.Abs().StringFixedBank(2)) }
+			</div>
+		}
+	</div>
+}

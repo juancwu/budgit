@@ -71,7 +71,7 @@ func (r *spaceAuditLogRepository) ListAccountEvents(accountID string, limit, off
 		FROM space_audit_logs a
 		LEFT JOIN users actor ON actor.id = a.actor_id
 		LEFT JOIN users target ON target.id = a.target_user_id
-		WHERE a.action LIKE 'account.%'
+		WHERE (a.action LIKE 'account.%' OR a.action LIKE 'allocation.%')
 		  AND a.metadata->>'account_id' = $1
 		ORDER BY a.created_at DESC
 		LIMIT $2 OFFSET $3;`
@@ -84,7 +84,8 @@ func (r *spaceAuditLogRepository) CountAccountEvents(accountID string) (int, err
 	var count int
 	err := r.db.Get(&count,
 		`SELECT COUNT(*) FROM space_audit_logs
-		 WHERE action LIKE 'account.%' AND metadata->>'account_id' = $1;`,
+		 WHERE (action LIKE 'account.%' OR action LIKE 'allocation.%')
+		   AND metadata->>'account_id' = $1;`,
 		accountID)
 	return count, err
 }

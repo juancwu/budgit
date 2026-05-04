@@ -42,6 +42,17 @@ type Tag struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+type Allocation struct {
+	ID           string           `db:"id"`
+	AccountID    string           `db:"account_id"`
+	Name         string           `db:"name"`
+	Amount       decimal.Decimal  `db:"amount"`
+	TargetAmount *decimal.Decimal `db:"target_amount"`
+	SortOrder    int              `db:"sort_order"`
+	CreatedAt    time.Time        `db:"created_at"`
+	UpdatedAt    time.Time        `db:"updated_at"`
+}
+
 type Category struct {
 	ID          string    `db:"id"`
 	Name        string    `db:"name"`

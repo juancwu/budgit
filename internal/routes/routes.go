@@ -19,7 +19,8 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.AllocationService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc)
+	allocationH := handler.NewAllocationHandler(a.AllocationService, a.AccountService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -123,6 +124,10 @@ func SetupRoutes(a *app.App) http.Handler {
 					g.Post("/deposits/create", spaceH.HandleCreateDeposit).Name("action.app.spaces.space.accounts.account.deposits.create")
 					g.Get("/transfers/create", spaceH.SpaceCreateTransferPage).Name("page.app.spaces.space.accounts.account.transfers.create")
 					g.Post("/transfers/create", spaceH.HandleCreateTransfer).Name("action.app.spaces.space.accounts.account.transfers.create")
+
+					g.Post("/allocations/create", allocationH.HandleCreate).Name("action.app.spaces.space.accounts.account.allocations.create")
+					g.Post("/allocations/{allocationID}/edit", allocationH.HandleEdit).Name("action.app.spaces.space.accounts.account.allocations.allocation.edit")
+					g.Post("/allocations/{allocationID}/delete", allocationH.HandleDelete).Name("action.app.spaces.space.accounts.account.allocations.allocation.delete")
 				})
 			})
 		})

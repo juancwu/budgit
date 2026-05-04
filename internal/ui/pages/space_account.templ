@@ -3,6 +3,7 @@ package pages
 import "github.com/shopspring/decimal"
 import "git.juancwu.dev/juancwu/budgit/internal/model"
 import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/service"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
@@ -18,6 +19,7 @@ type SpaceAccountPageProps struct {
 	AccountBalance     decimal.Decimal
 	RecentTransactions       []*model.Transaction
 	NonEditableTransactionIDs map[string]bool
+	AllocationSummary  *service.AllocationSummary
 }
 
 templ SpaceAccountPage(props SpaceAccountPageProps) {
@@ -42,7 +44,7 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 					}
 					@card.Content() {
 						<h1 class={ utils.TwMerge(balanceTextClasses...) }>${ utils.FormatDecimalWithThousands(props.AccountBalance.StringFixedBank(2)) }</h1>
-						<p class="text-sm text-muted-foreground">Available Balance</p>
+						<p class="text-sm text-muted-foreground">Account Balance</p>
 					}
 				}
 				@card.Card(card.Props{Class: "rounded-sm col-span-full md:col-span-4"}) {
@@ -79,6 +81,11 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 					}
 				}
 			</div>
+			@blocks.AllocationsSection(blocks.AllocationsSectionProps{
+				SpaceID:   props.SpaceID,
+				AccountID: props.AccountID,
+				Summary:   props.AllocationSummary,
+			})
 			<div>
 				@card.Card() {
 					@card.Header() {

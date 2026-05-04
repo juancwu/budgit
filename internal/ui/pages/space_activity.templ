@@ -2,6 +2,7 @@ package pages
 
 import "encoding/json"
 import "fmt"
+import "sort"
 import "strings"
 
 import "git.juancwu.dev/juancwu/budgit/internal/model"
@@ -76,6 +77,12 @@ templ activityIcon(action model.SpaceAuditAction) {
 		case model.SpaceAuditActionAccountRenamed:
 			@icon.Pencil(icon.Props{Class: "size-4 text-muted-foreground"})
 		case model.SpaceAuditActionAccountDeleted:
+			@icon.Trash2(icon.Props{Class: "size-4 text-destructive"})
+		case model.SpaceAuditActionAllocationCreated:
+			@icon.Plus(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionAllocationUpdated:
+			@icon.Pencil(icon.Props{Class: "size-4 text-muted-foreground"})
+		case model.SpaceAuditActionAllocationDeleted:
 			@icon.Trash2(icon.Props{Class: "size-4 text-destructive"})
 		default:
 			@icon.History(icon.Props{Class: "size-4 text-muted-foreground"})
@@ -166,6 +173,45 @@ func activityMessage(log *model.SpaceAuditLogWithActor) string {
 			name = "an account"
 		}
 		return fmt.Sprintf("%s deleted the account %s.", actor, bold(name))
+	case model.SpaceAuditActionAllocationCreated:
+		var meta struct {
+			Name   string `json:"name"`
+			Amount string `json:"amount"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		name := meta.Name
+		if name == "" {
+			name = "a savings goal"
+		}
+		if meta.Amount != "" {
+			return fmt.Sprintf("%s created savings goal %s with $%s.", actor, bold(name), bold(meta.Amount))
+		}
+		return fmt.Sprintf("%s created savings goal %s.", actor, bold(name))
+	case model.SpaceAuditActionAllocationUpdated:
+		var meta struct {
+			Changes map[string]map[string]any `json:"changes"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		fields := make([]string, 0, len(meta.Changes))
+		for k := range meta.Changes {
+			fields = append(fields, k)
+		}
+		sort.Strings(fields)
+		if len(fields) == 0 {
+			return fmt.Sprintf("%s updated a savings goal.", actor)
+		}
+		return fmt.Sprintf("%s updated savings goal (%s).", actor, bold(strings.Join(fields, ", ")))
+	case model.SpaceAuditActionAllocationDeleted:
+		var meta struct {
+			Name   string `json:"name"`
+			Amount string `json:"amount"`
+		}
+		_ = json.Unmarshal(log.Metadata, &meta)
+		name := meta.Name
+		if name == "" {
+			name = "a savings goal"
+		}
+		return fmt.Sprintf("%s deleted savings goal %s.", actor, bold(name))
 	default:
 		return fmt.Sprintf("%s performed %s.", actor, bold(string(log.Action)))
 	}

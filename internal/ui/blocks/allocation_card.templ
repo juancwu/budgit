@@ -1,0 +1,240 @@
+package blocks
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+
+// AllocationFormState carries the previously-submitted values + per-field
+// errors so handler responses can re-render forms with messages.
+type AllocationFormState struct {
+	Name         string
+	Amount       string
+	TargetAmount string
+
+	NameErr    string
+	AmountErr  string
+	TargetErr  string
+	GeneralErr string
+}
+
+templ allocationCard(spaceID, accountID string, a *model.Allocation) {
+	{{
+		editID := "alloc-edit-" + a.ID
+		viewID := "alloc-view-" + a.ID
+		percent := ""
+		barWidth := ""
+		if a.TargetAmount != nil && a.TargetAmount.IsPositive() {
+			ratio := a.Amount.Div(*a.TargetAmount)
+			pct := ratio.Mul(decimalHundred()).Truncate(0)
+			if pct.GreaterThan(decimalHundred()) {
+				pct = decimalHundred()
+			}
+			if pct.IsNegative() {
+				pct = decimalZero()
+			}
+			percent = pct.String() + "%"
+			barWidth = "width: " + pct.String() + "%;"
+		}
+	}}
+	<div id={ "alloc-" + a.ID } class="border rounded-md p-4 space-y-3">
+		<div id={ viewID }>
+			<div class="flex items-start justify-between gap-3">
+				<div class="space-y-1">
+					<p class="font-semibold">{ a.Name }</p>
+					<p class="text-2xl font-bold">${ utils.FormatDecimalWithThousands(a.Amount.StringFixedBank(2)) }</p>
+					if a.TargetAmount != nil {
+						<p class="text-xs text-muted-foreground">
+							of ${ utils.FormatDecimalWithThousands(a.TargetAmount.StringFixedBank(2)) } goal
+						</p>
+					}
+				</div>
+				<div class="flex gap-1">
+					@button.Button(button.Props{
+						Variant: button.VariantGhost,
+						Size:    button.SizeIcon,
+						Attributes: templ.Attributes{
+							"_": "on click add .hidden to #" + viewID + " then remove .hidden from #" + editID,
+						},
+					}) {
+						@icon.Pencil()
+					}
+					@dialog.Dialog(dialog.Props{ID: "alloc-delete-" + a.ID}) {
+						@dialog.Trigger(dialog.TriggerProps{For: "alloc-delete-" + a.ID}) {
+							@button.Button(button.Props{
+								Variant: button.VariantGhost,
+								Size:    button.SizeIcon,
+							}) {
+								@icon.Trash2()
+							}
+						}
+						@dialog.Content() {
+							@dialog.Header() {
+								@dialog.Title() {
+									Delete { a.Name }?
+								}
+								@dialog.Description() {
+									This removes the savings goal. Funds in this account are unaffected; they return to Available.
+								}
+							}
+							@dialog.Footer(dialog.FooterProps{Class: "mt-2"}) {
+								@dialog.Close(dialog.CloseProps{For: "alloc-delete-" + a.ID}) {
+									@button.Button(button.Props{Variant: button.VariantOutline}) {
+										Cancel
+									}
+								}
+								<form
+									hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.allocations.allocation.delete", "spaceID", spaceID, "accountID", accountID, "allocationID", a.ID) }
+									hx-target="#allocations-section"
+									hx-swap="outerHTML"
+								>
+									@button.Button(button.Props{
+										Type:    button.TypeSubmit,
+										Variant: button.VariantDestructive,
+										Class:   "flex gap-2 items-center",
+									}) {
+										@icon.Trash2()
+										Delete
+									}
+								</form>
+							}
+						}
+					}
+				</div>
+			</div>
+			if a.TargetAmount != nil && a.TargetAmount.IsPositive() {
+				<div class="mt-3 space-y-1">
+					<div class="h-2 bg-muted rounded-full overflow-hidden">
+						<div class="h-full bg-primary" style={ barWidth }></div>
+					</div>
+					<p class="text-xs text-muted-foreground text-right">{ percent }</p>
+				</div>
+			}
+		</div>
+		<div id={ editID } class="hidden">
+			@allocationEditForm(spaceID, accountID, a, AllocationFormState{
+				Name:         a.Name,
+				Amount:       a.Amount.StringFixedBank(2),
+				TargetAmount: targetDisplay(a.TargetAmount),
+			}, viewID, editID)
+		</div>
+	</div>
+}
+
+templ allocationCreateForm(spaceID, accountID string, state AllocationFormState) {
+	<form
+		hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.allocations.create", "spaceID", spaceID, "accountID", accountID) }
+		hx-target="#allocations-section"
+		hx-swap="outerHTML"
+		class="border rounded-md p-4 space-y-3"
+	>
+		<p class="font-semibold">New savings goal</p>
+		if state.GeneralErr != "" {
+			@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+				{ state.GeneralErr }
+			}
+		}
+		@allocationFormFields(state)
+		<div class="flex justify-end gap-2">
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Attributes: templ.Attributes{
+					"type": "button",
+					"_":    "on click add .hidden to #allocation-create-form",
+				},
+			}) {
+				Cancel
+			}
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Create
+			}
+		</div>
+	</form>
+}
+
+templ allocationEditForm(spaceID, accountID string, a *model.Allocation, state AllocationFormState, viewID, editID string) {
+	<form
+		hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.allocations.allocation.edit", "spaceID", spaceID, "accountID", accountID, "allocationID", a.ID) }
+		hx-target="#allocations-section"
+		hx-swap="outerHTML"
+		class="space-y-3"
+	>
+		if state.GeneralErr != "" {
+			@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+				{ state.GeneralErr }
+			}
+		}
+		@allocationFormFields(state)
+		<div class="flex justify-end gap-2">
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Attributes: templ.Attributes{
+					"type": "button",
+					"_":    "on click add .hidden to #" + editID + " then remove .hidden from #" + viewID,
+				},
+			}) {
+				Cancel
+			}
+			@button.Button(button.Props{Type: button.TypeSubmit}) {
+				Save
+			}
+		</div>
+	</form>
+}
+
+templ allocationFormFields(state AllocationFormState) {
+	@form.Item() {
+		@form.Label(form.LabelProps{For: "name"}) {
+			Name
+		}
+		@input.Input(input.Props{
+			ID: "name", Name: "name", Type: input.TypeText, Class: "rounded-sm",
+			Value: state.Name, HasError: state.NameErr != "", Required: true,
+			Placeholder: "e.g. Emergency Fund",
+			Attributes:  templ.Attributes{"autocomplete": "off"},
+		})
+		if state.NameErr != "" {
+			@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+				{ state.NameErr }
+			}
+		}
+	}
+	<div class="grid grid-cols-2 gap-3">
+		@form.Item() {
+			@form.Label(form.LabelProps{For: "amount"}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				ID: "amount", Name: "amount", Type: input.TypeText, Class: "rounded-sm",
+				Value: state.Amount, HasError: state.AmountErr != "", Required: true,
+				Placeholder: "0.00",
+				Attributes:  templ.Attributes{"inputmode": "decimal"},
+			})
+			if state.AmountErr != "" {
+				@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+					{ state.AmountErr }
+				}
+			}
+		}
+		@form.Item() {
+			@form.Label(form.LabelProps{For: "target_amount"}) {
+				Goal (optional)
+			}
+			@input.Input(input.Props{
+				ID: "target_amount", Name: "target_amount", Type: input.TypeText, Class: "rounded-sm",
+				Value: state.TargetAmount, HasError: state.TargetErr != "",
+				Placeholder: "0.00",
+				Attributes:  templ.Attributes{"inputmode": "decimal"},
+			})
+			if state.TargetErr != "" {
+				@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+					{ state.TargetErr }
+				}
+			}
+		}
+	</div>
+}

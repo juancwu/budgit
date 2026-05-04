@@ -24,6 +24,7 @@ type spaceHandler struct {
 	spaceService       *service.SpaceService
 	accountService     *service.AccountService
 	transactionService *service.TransactionService
+	allocationService  *service.AllocationService
 	inviteService      *service.InviteService
 	auditLogService    *service.SpaceAuditLogService
 	txAuditLogService  *service.TransactionAuditLogService
@@ -34,6 +35,7 @@ func NewSpaceHandler(
 	spaceService *service.SpaceService,
 	accountService *service.AccountService,
 	transactionService *service.TransactionService,
+	allocationService *service.AllocationService,
 	inviteService *service.InviteService,
 	auditLogService *service.SpaceAuditLogService,
 	txAuditLogService *service.TransactionAuditLogService,
@@ -43,6 +45,7 @@ func NewSpaceHandler(
 		spaceService:       spaceService,
 		accountService:     accountService,
 		transactionService: transactionService,
+		allocationService:  allocationService,
 		inviteService:      inviteService,
 		auditLogService:    auditLogService,
 		txAuditLogService:  txAuditLogService,
@@ -328,6 +331,12 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 		recent = nil
 	}
 
+	allocSummary, err := h.allocationService.SummaryForAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load allocation summary", "error", err, "account_id", accountID)
+		allocSummary = nil
+	}
+
 	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
 		SpaceID:                  spaceID,
 		SpaceName:                space.Name,
@@ -336,6 +345,7 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 		AccountBalance:           account.Balance,
 		RecentTransactions:       recent,
 		NonEditableTransactionIDs: h.nonEditableTransactionIDs(recent),
+		AllocationSummary:        allocSummary,
 	}))
 }
 
