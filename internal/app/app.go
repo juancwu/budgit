@@ -66,6 +66,7 @@ func New(cfg *config.Config) (*App, error) {
 	allocationService.SetAuditLogger(auditLogService)
 	transactionService := service.NewTransactionService(transactionRepository, categoryRepository, accountService)
 	transactionService.SetAuditLogger(txAuditLogService)
+	transactionService.SetAllocationService(allocationService)
 	accountActivityService := service.NewAccountActivityService(auditLogService, txAuditLogService)
 	emailService := service.NewEmailService(
 		emailClient,

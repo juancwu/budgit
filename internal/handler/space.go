@@ -1842,6 +1842,11 @@ func (h *spaceHandler) HandleCreateTransfer(w http.ResponseWriter, r *http.Reque
 		Description:     descriptionInput,
 		ActorID:         actorID,
 	}); err != nil {
+		if errors.Is(err, service.ErrTransferExceedsAvailable) {
+			formProps.AmountErr = "Amount exceeds the available balance for this account."
+			ui.Render(w, r, forms.CreateTransfer(formProps))
+			return
+		}
 		slog.Error("failed to create transfer", "error", err, "source", accountID, "dest", destInput)
 		formProps.GeneralErr = "Something went wrong. Please try again."
 		ui.Render(w, r, forms.CreateTransfer(formProps))

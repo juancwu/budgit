@@ -29,12 +29,16 @@ func newTxnFixture(t *testing.T, dbi testutil.DBInfo) *txnFixture {
 	txnRepo := repository.NewTransactionRepository(dbi.DB)
 	categoryRepo := repository.NewCategoryRepository(dbi.DB)
 	accountRepo := repository.NewAccountRepository(dbi.DB)
+	allocationRepo := repository.NewAllocationRepository(dbi.DB)
 	auditRepo := repository.NewTransactionAuditLogRepository(dbi.DB)
 
 	accountSvc := NewAccountService(accountRepo)
+	accountSvc.SetAllocationRepository(allocationRepo)
+	allocationSvc := NewAllocationService(allocationRepo, accountSvc)
 	auditSvc := NewTransactionAuditLogService(auditRepo)
 	svc := NewTransactionService(txnRepo, categoryRepo, accountSvc)
 	svc.SetAuditLogger(auditSvc)
+	svc.SetAllocationService(allocationSvc)
 
 	user := testutil.CreateTestUser(t, dbi.DB, t.Name()+"@example.com", nil)
 	space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "S")
@@ -251,6 +255,13 @@ func TestTransactionService_Transfer_HappyPath(t *testing.T) {
 		f := newTxnFixture(t, dbi)
 		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
 
+		// Seed source so the transfer respects the available-balance constraint.
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(50),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
 		result, err := f.svc.Transfer(TransferInput{
 			SourceAccountID: f.account.ID,
 			DestAccountID:   dest.ID,
@@ -267,10 +278,9 @@ func TestTransactionService_Transfer_HappyPath(t *testing.T) {
 		assert.Equal(t, f.account.ID, result.Withdrawal.AccountID)
 		assert.Equal(t, dest.ID, result.Deposit.AccountID)
 
-		// Source went from 0 → -50 (overdraft allowed); dest 0 → +50.
 		src, err := f.accounts.ByID(f.account.ID)
 		require.NoError(t, err)
-		assert.True(t, decimal.NewFromInt(-50).Equal(src.Balance))
+		assert.True(t, decimal.Zero.Equal(src.Balance))
 		dst, err := f.accounts.ByID(dest.ID)
 		require.NoError(t, err)
 		assert.True(t, decimal.NewFromInt(50).Equal(dst.Balance))
@@ -301,12 +311,12 @@ func TestTransactionService_Transfer_HappyPath(t *testing.T) {
 	})
 }
 
-func TestTransactionService_Transfer_AllowsOverdraft(t *testing.T) {
+func TestTransactionService_Transfer_RejectsOverdraft(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)
 		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "B")
 
-		// Seed source to 100, then transfer 200 → -100.
+		// Seed source to 100, then attempt to transfer 200 — must be refused.
 		_, err := f.svc.Deposit(DepositInput{
 			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(100),
 			OccurredAt: time.Now(), ActorID: f.user.ID,
@@ -316,22 +326,15 @@ func TestTransactionService_Transfer_AllowsOverdraft(t *testing.T) {
 			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
 			Title: "T1", Amount: decimal.NewFromInt(200), OccurredAt: time.Now(), ActorID: f.user.ID,
 		})
-		require.NoError(t, err)
+		require.ErrorIs(t, err, ErrTransferExceedsAvailable)
 
+		// Balances are untouched.
 		src, err := f.accounts.ByID(f.account.ID)
 		require.NoError(t, err)
-		assert.True(t, decimal.NewFromInt(-100).Equal(src.Balance), "expected -100, got %s", src.Balance.String())
-
-		// Transfer another 200 from -100 → -300.
-		_, err = f.svc.Transfer(TransferInput{
-			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
-			Title: "T2", Amount: decimal.NewFromInt(200), OccurredAt: time.Now(), ActorID: f.user.ID,
-		})
+		assert.True(t, decimal.NewFromInt(100).Equal(src.Balance))
+		dst, err := f.accounts.ByID(dest.ID)
 		require.NoError(t, err)
-
-		src, err = f.accounts.ByID(f.account.ID)
-		require.NoError(t, err)
-		assert.True(t, decimal.NewFromInt(-300).Equal(src.Balance), "expected -300, got %s", src.Balance.String())
+		assert.True(t, decimal.Zero.Equal(dst.Balance))
 	})
 }
 
@@ -351,6 +354,13 @@ func TestTransactionService_Transfer_AppearsInActivityFeeds(t *testing.T) {
 			NewTransactionAuditLogService(f.txAudit),
 		)
 
+		// Seed source so the transfer respects the available-balance constraint.
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(75),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
 		result, err := f.svc.Transfer(TransferInput{
 			SourceAccountID: f.account.ID,
 			DestAccountID:   dest.ID,
@@ -361,10 +371,11 @@ func TestTransactionService_Transfer_AppearsInActivityFeeds(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		// Source account activity sees the withdrawal half.
+		// Source account activity sees the withdrawal half (newest first; the
+		// seed deposit appears below).
 		srcRows, err := activitySvc.List(f.account.ID, 10, 0)
 		require.NoError(t, err)
-		require.Len(t, srcRows, 1, "source account feed should include the withdrawal half")
+		require.Len(t, srcRows, 2, "source account feed should include the seed deposit and the withdrawal half")
 		require.NotNil(t, srcRows[0].TxLog)
 		assert.Equal(t, result.Withdrawal.ID, srcRows[0].TxLog.TransactionID)
 		assertTransferRole(t, srcRows[0].TxLog, "source", dest.ID)
@@ -377,10 +388,10 @@ func TestTransactionService_Transfer_AppearsInActivityFeeds(t *testing.T) {
 		assert.Equal(t, result.Deposit.ID, dstRows[0].TxLog.TransactionID)
 		assertTransferRole(t, dstRows[0].TxLog, "destination", f.account.ID)
 
-		// Space-level activity feed sees both halves.
+		// Space-level activity feed sees both transfer halves alongside the seed.
 		spaceRows, err := activitySvc.ListSpace(f.account.SpaceID, 10, 0)
 		require.NoError(t, err)
-		require.Len(t, spaceRows, 2, "space feed should include both halves of the transfer")
+		require.Len(t, spaceRows, 3, "space feed should include the seed deposit and both transfer halves")
 		ids := []string{}
 		for _, r := range spaceRows {
 			require.NotNil(t, r.TxLog)
@@ -392,15 +403,13 @@ func TestTransactionService_Transfer_AppearsInActivityFeeds(t *testing.T) {
 		// Counts agree with what the feed returns (pagination relies on this).
 		srcCount, err := activitySvc.Count(f.account.ID)
 		require.NoError(t, err)
-		assert.Equal(t, 1, srcCount)
+		assert.Equal(t, 2, srcCount)
 		dstCount, err := activitySvc.Count(dest.ID)
 		require.NoError(t, err)
 		assert.Equal(t, 1, dstCount)
 		spaceCount, err := activitySvc.CountSpace(f.account.SpaceID)
 		require.NoError(t, err)
-		// Source account had no activity before the transfer, dest is brand-new;
-		// the only activity in the space is the two transfer halves.
-		assert.Equal(t, 2, spaceCount)
+		assert.Equal(t, 3, spaceCount)
 	})
 }
 
@@ -443,6 +452,12 @@ func TestTransactionService_Update_RejectsTransferTransactions(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)
 		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
+
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(20),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
 
 		result, err := f.svc.Transfer(TransferInput{
 			SourceAccountID: f.account.ID,
@@ -572,6 +587,12 @@ func TestTransactionService_DeleteTransaction_RejectsTransferHalves(t *testing.T
 		f := newTxnFixture(t, dbi)
 		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
 
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(20),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
 		result, err := f.svc.Transfer(TransferInput{
 			SourceAccountID: f.account.ID,
 			DestAccountID:   dest.ID,
@@ -602,7 +623,7 @@ func TestTransactionService_DeleteTransaction_RejectsTransferHalves(t *testing.T
 
 		src, err := f.accounts.ByID(f.account.ID)
 		require.NoError(t, err)
-		assert.True(t, decimal.NewFromInt(-20).Equal(src.Balance))
+		assert.True(t, decimal.Zero.Equal(src.Balance))
 		dst, err := f.accounts.ByID(dest.ID)
 		require.NoError(t, err)
 		assert.True(t, decimal.NewFromInt(20).Equal(dst.Balance))
@@ -659,6 +680,83 @@ func TestTransactionService_DeleteTransaction_RequiresID(t *testing.T) {
 		f := newTxnFixture(t, dbi)
 		_, err := f.svc.DeleteTransaction(DeleteTransactionInput{ActorID: f.user.ID})
 		assert.Error(t, err)
+	})
+}
+
+func TestTransactionService_Transfer_RejectsExceedingAvailable(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
+		allocRepo := repository.NewAllocationRepository(dbi.DB)
+		allocSvc := NewAllocationService(allocRepo, NewAccountService(repository.NewAccountRepository(dbi.DB)))
+		allocSvc.SetAuditLogger(NewSpaceAuditLogService(repository.NewSpaceAuditLogRepository(dbi.DB)))
+
+		// Source: balance 100, allocate 60 → available 40.
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(100),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+		_, err = allocSvc.Create(CreateAllocationInput{
+			AccountID: f.account.ID, Name: "Rent", Amount: decimal.NewFromInt(60), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
+		// 50 > 40 available, must be refused.
+		_, err = f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
+			Title: "Too much", Amount: decimal.NewFromInt(50), OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.ErrorIs(t, err, ErrTransferExceedsAvailable)
+
+		// Balances untouched.
+		src, err := f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(100).Equal(src.Balance))
+		dst, err := f.accounts.ByID(dest.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.Zero.Equal(dst.Balance))
+
+		// 40 (== available) is allowed.
+		_, err = f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
+			Title: "Exact", Amount: decimal.NewFromInt(40), OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
+		src, err = f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(60).Equal(src.Balance))
+		dst, err = f.accounts.ByID(dest.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(40).Equal(dst.Balance))
+	})
+}
+
+func TestTransactionService_Transfer_AllowsUpToAvailable_NoAllocations(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
+
+		// With no allocations, available == balance, so transferring the full
+		// balance is allowed but transferring more is not.
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(30),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
+		_, err = f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
+			Title: "Over", Amount: decimal.NewFromInt(31), OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.ErrorIs(t, err, ErrTransferExceedsAvailable)
+
+		_, err = f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
+			Title: "Full", Amount: decimal.NewFromInt(30), OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
 	})
 }
 

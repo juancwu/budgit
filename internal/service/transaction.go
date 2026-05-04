@@ -19,11 +19,18 @@ import (
 // instead.
 var ErrTransactionPartOfTransfer = errors.New("transaction is part of a transfer")
 
+// ErrTransferExceedsAvailable is returned when a transfer would move more
+// funds out of the source than its available balance (balance minus
+// allocations). Bills can still overdraft, but transfers must respect what
+// has already been allocated to other purposes.
+var ErrTransferExceedsAvailable = errors.New("transfer amount exceeds available balance")
+
 type TransactionService struct {
-	transactionRepo repository.TransactionRepository
-	categoryRepo    repository.CategoryRepository
-	accountService  *AccountService
-	auditSvc        *TransactionAuditLogService
+	transactionRepo   repository.TransactionRepository
+	categoryRepo      repository.CategoryRepository
+	accountService    *AccountService
+	allocationService *AllocationService
+	auditSvc          *TransactionAuditLogService
 }
 
 func NewTransactionService(
@@ -41,6 +48,13 @@ func NewTransactionService(
 // SetAuditLogger wires the audit log service after construction.
 func (s *TransactionService) SetAuditLogger(audit *TransactionAuditLogService) {
 	s.auditSvc = audit
+}
+
+// SetAllocationService wires the allocation service so transfers can enforce
+// the available-balance constraint. Wired after construction to break the
+// circular dependency between allocation and transaction services.
+func (s *TransactionService) SetAllocationService(alloc *AllocationService) {
+	s.allocationService = alloc
 }
 
 type PayBillInput struct {
@@ -237,6 +251,19 @@ func (s *TransactionService) Transfer(input TransferInput) (*TransferResult, err
 	dest, err := s.accountService.GetAccount(input.DestAccountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load destination account: %w", err)
+	}
+
+	// Transfers must respect allocations on the source. A transfer is the user
+	// committing funds elsewhere — if the unallocated cash isn't there, the
+	// transfer can't happen. (Bills are still allowed to overdraft.)
+	if s.allocationService != nil {
+		summary, err := s.allocationService.SummaryForAccount(source.ID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load source allocations: %w", err)
+		}
+		if input.Amount.GreaterThan(summary.Available) {
+			return nil, ErrTransferExceedsAvailable
+		}
 	}
 
 	// Cross-currency transfers require a conversion rate; same-currency
