@@ -329,12 +329,13 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
-		SpaceID:            spaceID,
-		SpaceName:          space.Name,
-		AccountID:          accountID,
-		AccountName:        account.Name,
-		AccountBalance:     account.Balance,
-		RecentTransactions: recent,
+		SpaceID:                  spaceID,
+		SpaceName:                space.Name,
+		AccountID:                accountID,
+		AccountName:              account.Name,
+		AccountBalance:           account.Balance,
+		RecentTransactions:       recent,
+		NonEditableTransactionIDs: h.nonEditableTransactionIDs(recent),
 	}))
 }
 
@@ -392,16 +393,38 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 	}
 
 	ui.Render(w, r, pages.SpaceAccountTransactionsPage(pages.SpaceAccountTransactionsPageProps{
-		SpaceID:      spaceID,
-		SpaceName:    space.Name,
-		AccountID:    accountID,
-		AccountName:  account.Name,
-		Transactions: txns,
-		CurrentPage:  page,
-		TotalPages:   totalPages,
-		TotalCount:   total,
-		PerPage:      perPage,
+		SpaceID:                  spaceID,
+		SpaceName:                space.Name,
+		AccountID:                accountID,
+		AccountName:              account.Name,
+		Transactions:             txns,
+		NonEditableTransactionIDs: h.nonEditableTransactionIDs(txns),
+		CurrentPage:              page,
+		TotalPages:               totalPages,
+		TotalCount:               total,
+		PerPage:                  perPage,
 	}))
+}
+
+// nonEditableTransactionIDs returns the subset of the given transactions that
+// are part of a transfer pair and therefore not editable. Returns an empty
+// (non-nil) map on error so list rendering still works — failure here just
+// means stale Edit buttons appear; the service layer will still refuse the
+// edit, so it's a UX degradation rather than a correctness issue.
+func (h *spaceHandler) nonEditableTransactionIDs(txns []*model.Transaction) map[string]bool {
+	if len(txns) == 0 {
+		return nil
+	}
+	ids := make([]string, len(txns))
+	for i, t := range txns {
+		ids[i] = t.ID
+	}
+	hits, err := h.transactionService.TransferIDsIn(ids)
+	if err != nil {
+		slog.Error("failed to look up transfer ids", "error", err)
+		return map[string]bool{}
+	}
+	return hits
 }
 
 func (h *spaceHandler) SpaceSettingsPage(w http.ResponseWriter, r *http.Request) {
@@ -1042,6 +1065,26 @@ func (h *spaceHandler) SpaceTransactionPage(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	relatedID, err := h.transactionService.GetRelatedTransactionID(transactionID)
+	if err != nil {
+		slog.Error("failed to load related transaction", "error", err, "transaction_id", transactionID)
+		relatedID = ""
+	}
+	var relatedTxn *model.Transaction
+	var relatedAccount *model.Account
+	if relatedID != "" {
+		relatedTxn, err = h.transactionService.GetTransaction(relatedID)
+		if err != nil {
+			slog.Error("failed to load related transaction details", "error", err, "related_id", relatedID)
+		} else {
+			relatedAccount, err = h.accountService.GetAccount(relatedTxn.AccountID)
+			if err != nil {
+				slog.Error("failed to load related transaction account", "error", err, "account_id", relatedTxn.AccountID)
+				relatedAccount = nil
+			}
+		}
+	}
+
 	recentLogs, err := h.txAuditLogService.List(transactionID, 5, 0)
 	if err != nil {
 		slog.Error("failed to load transaction audit logs", "error", err, "transaction_id", transactionID)
@@ -1054,14 +1097,16 @@ func (h *spaceHandler) SpaceTransactionPage(w http.ResponseWriter, r *http.Reque
 	}
 
 	ui.Render(w, r, pages.SpaceTransactionPage(pages.SpaceTransactionPageProps{
-		SpaceID:         spaceID,
-		SpaceName:       space.Name,
-		AccountID:       accountID,
-		AccountName:     account.Name,
-		Transaction:     txn,
-		CategoryName:    categoryName,
-		RecentAuditLogs: recentLogs,
-		AuditLogCount:   logCount,
+		SpaceID:            spaceID,
+		SpaceName:          space.Name,
+		AccountID:          accountID,
+		AccountName:        account.Name,
+		Transaction:        txn,
+		CategoryName:       categoryName,
+		RecentAuditLogs:    recentLogs,
+		AuditLogCount:      logCount,
+		RelatedTransaction: relatedTxn,
+		RelatedAccount:     relatedAccount,
 	}))
 }
 
@@ -1211,6 +1256,22 @@ func (h *spaceHandler) SpaceEditTransactionPage(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// Transfers must be edited as a pair; refuse the edit page entirely.
+	relatedID, err := h.transactionService.GetRelatedTransactionID(transactionID)
+	if err != nil {
+		slog.Error("failed to check transfer linkage", "error", err, "transaction_id", transactionID)
+	}
+	if relatedID != "" {
+		redirectTo := routeurl.URL(
+			"page.app.spaces.space.accounts.account.transactions.transaction",
+			"spaceID", spaceID,
+			"accountID", accountID,
+			"transactionID", transactionID,
+		)
+		http.Redirect(w, r, redirectTo, http.StatusSeeOther)
+		return
+	}
+
 	space, err := h.spaceService.GetSpace(spaceID)
 	if err != nil {
 		slog.Error("failed to load space", "error", err, "space_id", spaceID)
@@ -1283,6 +1344,15 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 	txn, err := h.transactionService.GetTransaction(transactionID)
 	if err != nil || txn.AccountID != accountID {
 		ui.RenderError(w, r, "Transaction not found", http.StatusNotFound)
+		return
+	}
+
+	// Defense in depth — the edit page redirects away for transfers, but a
+	// hand-crafted POST shouldn't be able to bypass it.
+	if relatedID, err := h.transactionService.GetRelatedTransactionID(transactionID); err != nil {
+		slog.Error("failed to check transfer linkage", "error", err, "transaction_id", transactionID)
+	} else if relatedID != "" {
+		ui.RenderError(w, r, "Transfer transactions cannot be edited.", http.StatusBadRequest)
 		return
 	}
 
@@ -1429,6 +1499,183 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 	)
 	w.Header().Set("HX-Redirect", redirectTo)
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *spaceHandler) SpaceCreateTransferPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load page", http.StatusInternalServerError)
+		return
+	}
+
+	dests, err := h.transferDestinations(spaceID, accountID)
+	if err != nil {
+		slog.Error("failed to load destination accounts", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load page", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceCreateTransferPage(pages.SpaceCreateTransferPageProps{
+		SpaceID:     spaceID,
+		SpaceName:   space.Name,
+		AccountID:   accountID,
+		AccountName: account.Name,
+		Form: forms.CreateTransferProps{
+			SpaceID:         spaceID,
+			SourceAccountID: accountID,
+			DestAccounts:    dests,
+			Date:            time.Now().Format("2006-01-02"),
+		},
+	}))
+}
+
+func (h *spaceHandler) HandleCreateTransfer(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	source, err := h.accountService.GetAccount(accountID)
+	if err != nil || source.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
+		return
+	}
+
+	dests, err := h.transferDestinations(spaceID, accountID)
+	if err != nil {
+		slog.Error("failed to load destination accounts", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load form", http.StatusInternalServerError)
+		return
+	}
+
+	titleInput := strings.TrimSpace(r.FormValue("title"))
+	amountInput := strings.TrimSpace(r.FormValue("amount"))
+	destInput := strings.TrimSpace(r.FormValue("destination"))
+	dateInput := strings.TrimSpace(r.FormValue("date"))
+	descriptionInput := strings.TrimSpace(r.FormValue("description"))
+
+	formProps := forms.CreateTransferProps{
+		SpaceID:         spaceID,
+		SourceAccountID: accountID,
+		DestAccounts:    dests,
+		Title:           titleInput,
+		Amount:          amountInput,
+		DestAccountID:   destInput,
+		Date:            dateInput,
+		Description:     descriptionInput,
+	}
+
+	hasErr := false
+	if titleInput == "" {
+		formProps.TitleErr = "Title is required."
+		hasErr = true
+	}
+
+	var amount decimal.Decimal
+	if amountInput == "" {
+		formProps.AmountErr = "Amount is required."
+		hasErr = true
+	} else {
+		amt, err := decimal.NewFromString(amountInput)
+		if err != nil {
+			formProps.AmountErr = "Enter a valid amount (e.g. 12.34)."
+			hasErr = true
+		} else if !amt.IsPositive() {
+			formProps.AmountErr = "Amount must be greater than zero."
+			hasErr = true
+		} else if amt.Exponent() < -2 {
+			formProps.AmountErr = "Amount can have at most 2 decimal places."
+			hasErr = true
+		} else {
+			amount = amt
+		}
+	}
+
+	if destInput == "" {
+		formProps.DestErr = "Choose a destination account."
+		hasErr = true
+	} else if destInput == accountID {
+		formProps.DestErr = "Destination must be a different account."
+		hasErr = true
+	} else {
+		// Verify the destination is in the same space (defends against hand-crafted requests).
+		destAcct, err := h.accountService.GetAccount(destInput)
+		if err != nil || destAcct.SpaceID != spaceID {
+			formProps.DestErr = "Destination account not found."
+			hasErr = true
+		}
+	}
+
+	var occurredAt time.Time
+	if dateInput == "" {
+		formProps.DateErr = "Date is required."
+		hasErr = true
+	} else {
+		parsed, err := time.Parse("2006-01-02", dateInput)
+		if err != nil {
+			formProps.DateErr = "Enter a valid date."
+			hasErr = true
+		} else {
+			occurredAt = parsed
+		}
+	}
+
+	if hasErr {
+		ui.Render(w, r, forms.CreateTransfer(formProps))
+		return
+	}
+
+	actorID := ""
+	if u := ctxkeys.User(r.Context()); u != nil {
+		actorID = u.ID
+	}
+
+	if _, err := h.transactionService.Transfer(service.TransferInput{
+		SourceAccountID: accountID,
+		DestAccountID:   destInput,
+		Title:           titleInput,
+		Amount:          amount,
+		OccurredAt:      occurredAt,
+		Description:     descriptionInput,
+		ActorID:         actorID,
+	}); err != nil {
+		slog.Error("failed to create transfer", "error", err, "source", accountID, "dest", destInput)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.CreateTransfer(formProps))
+		return
+	}
+
+	redirectTo := routeurl.URL(
+		"page.app.spaces.space.accounts.account.overview",
+		"spaceID", spaceID,
+		"accountID", accountID,
+	)
+	w.Header().Set("HX-Redirect", redirectTo)
+	w.WriteHeader(http.StatusOK)
+}
+
+// transferDestinations returns every account in the space except the source.
+func (h *spaceHandler) transferDestinations(spaceID, sourceAccountID string) ([]*model.Account, error) {
+	all, err := h.accountService.GetAccountsForSpace(spaceID)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]*model.Account, 0, len(all))
+	for _, a := range all {
+		if a.ID == sourceAccountID {
+			continue
+		}
+		out = append(out, a)
+	}
+	return out, nil
 }
 
 func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) {

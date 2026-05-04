@@ -246,6 +246,241 @@ func TestTransactionService_UpdateDeposit_RejectsBillTransaction(t *testing.T) {
 	})
 }
 
+func TestTransactionService_Transfer_HappyPath(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
+
+		result, err := f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID,
+			DestAccountID:   dest.ID,
+			Title:           "Move to savings",
+			Amount:          decimal.NewFromInt(50),
+			OccurredAt:      time.Now(),
+			ActorID:         f.user.ID,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, result.Withdrawal)
+		require.NotNil(t, result.Deposit)
+		assert.Equal(t, model.TransactionTypeWithdrawal, result.Withdrawal.Type)
+		assert.Equal(t, model.TransactionTypeDeposit, result.Deposit.Type)
+		assert.Equal(t, f.account.ID, result.Withdrawal.AccountID)
+		assert.Equal(t, dest.ID, result.Deposit.AccountID)
+
+		// Source went from 0 → -50 (overdraft allowed); dest 0 → +50.
+		src, err := f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(-50).Equal(src.Balance))
+		dst, err := f.accounts.ByID(dest.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(50).Equal(dst.Balance))
+
+		// Transactions are linked.
+		relatedID, err := f.svc.GetRelatedTransactionID(result.Withdrawal.ID)
+		require.NoError(t, err)
+		assert.Equal(t, result.Deposit.ID, relatedID)
+
+		// Audit recorded both sides with the right transfer_role and other-account name.
+		wlogs, err := f.txAudit.ListByTransaction(result.Withdrawal.ID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, wlogs, 1)
+		var wmeta map[string]any
+		require.NoError(t, json.Unmarshal(wlogs[0].Metadata, &wmeta))
+		assert.Equal(t, "source", wmeta["transfer_role"])
+		assert.Equal(t, result.Deposit.ID, wmeta["transfer_pair_id"])
+		assert.Equal(t, "Savings", wmeta["transfer_other_name"])
+
+		dlogs, err := f.txAudit.ListByTransaction(result.Deposit.ID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, dlogs, 1)
+		var dmeta map[string]any
+		require.NoError(t, json.Unmarshal(dlogs[0].Metadata, &dmeta))
+		assert.Equal(t, "destination", dmeta["transfer_role"])
+		assert.Equal(t, result.Withdrawal.ID, dmeta["transfer_pair_id"])
+		assert.Equal(t, "Acct", dmeta["transfer_other_name"])
+	})
+}
+
+func TestTransactionService_Transfer_AllowsOverdraft(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "B")
+
+		// Seed source to 100, then transfer 200 → -100.
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(100),
+			OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+		_, err = f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
+			Title: "T1", Amount: decimal.NewFromInt(200), OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
+		src, err := f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(-100).Equal(src.Balance), "expected -100, got %s", src.Balance.String())
+
+		// Transfer another 200 from -100 → -300.
+		_, err = f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
+			Title: "T2", Amount: decimal.NewFromInt(200), OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		require.NoError(t, err)
+
+		src, err = f.accounts.ByID(f.account.ID)
+		require.NoError(t, err)
+		assert.True(t, decimal.NewFromInt(-300).Equal(src.Balance), "expected -300, got %s", src.Balance.String())
+	})
+}
+
+// TestTransactionService_Transfer_AppearsInAccountActivityFeeds is the regression
+// test for "make sure activity logs are also created". The activity views on each
+// account page and the space-level page merge transaction_audit_logs into a unified
+// feed; this test exercises the full path end-to-end so silent gaps in audit
+// recording or merging would fail.
+func TestTransactionService_Transfer_AppearsInActivityFeeds(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
+
+		spaceAuditRepo := repository.NewSpaceAuditLogRepository(dbi.DB)
+		activitySvc := NewAccountActivityService(
+			NewSpaceAuditLogService(spaceAuditRepo),
+			NewTransactionAuditLogService(f.txAudit),
+		)
+
+		result, err := f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID,
+			DestAccountID:   dest.ID,
+			Title:           "Move to savings",
+			Amount:          decimal.NewFromInt(75),
+			OccurredAt:      time.Now(),
+			ActorID:         f.user.ID,
+		})
+		require.NoError(t, err)
+
+		// Source account activity sees the withdrawal half.
+		srcRows, err := activitySvc.List(f.account.ID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, srcRows, 1, "source account feed should include the withdrawal half")
+		require.NotNil(t, srcRows[0].TxLog)
+		assert.Equal(t, result.Withdrawal.ID, srcRows[0].TxLog.TransactionID)
+		assertTransferRole(t, srcRows[0].TxLog, "source", dest.ID)
+
+		// Destination account activity sees the deposit half.
+		dstRows, err := activitySvc.List(dest.ID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, dstRows, 1, "destination account feed should include the deposit half")
+		require.NotNil(t, dstRows[0].TxLog)
+		assert.Equal(t, result.Deposit.ID, dstRows[0].TxLog.TransactionID)
+		assertTransferRole(t, dstRows[0].TxLog, "destination", f.account.ID)
+
+		// Space-level activity feed sees both halves.
+		spaceRows, err := activitySvc.ListSpace(f.account.SpaceID, 10, 0)
+		require.NoError(t, err)
+		require.Len(t, spaceRows, 2, "space feed should include both halves of the transfer")
+		ids := []string{}
+		for _, r := range spaceRows {
+			require.NotNil(t, r.TxLog)
+			ids = append(ids, r.TxLog.TransactionID)
+		}
+		assert.Contains(t, ids, result.Withdrawal.ID)
+		assert.Contains(t, ids, result.Deposit.ID)
+
+		// Counts agree with what the feed returns (pagination relies on this).
+		srcCount, err := activitySvc.Count(f.account.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 1, srcCount)
+		dstCount, err := activitySvc.Count(dest.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 1, dstCount)
+		spaceCount, err := activitySvc.CountSpace(f.account.SpaceID)
+		require.NoError(t, err)
+		// Source account had no activity before the transfer, dest is brand-new;
+		// the only activity in the space is the two transfer halves.
+		assert.Equal(t, 2, spaceCount)
+	})
+}
+
+func assertTransferRole(t *testing.T, log *model.TransactionAuditLogWithActor, expectedRole, expectedOtherAcctID string) {
+	t.Helper()
+	var meta map[string]any
+	require.NoError(t, json.Unmarshal(log.Metadata, &meta))
+	assert.Equal(t, expectedRole, meta["transfer_role"])
+	assert.Equal(t, expectedOtherAcctID, meta["transfer_other_acct"])
+}
+
+func TestTransactionService_Transfer_RejectsSameAccount(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		_, err := f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID,
+			DestAccountID:   f.account.ID,
+			Title:           "Self",
+			Amount:          decimal.NewFromInt(10),
+			OccurredAt:      time.Now(),
+			ActorID:         f.user.ID,
+		})
+		assert.Error(t, err)
+	})
+}
+
+func TestTransactionService_Transfer_RejectsNonPositiveAmount(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "B")
+		_, err := f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID, DestAccountID: dest.ID,
+			Title: "x", Amount: decimal.NewFromInt(0), OccurredAt: time.Now(), ActorID: f.user.ID,
+		})
+		assert.Error(t, err)
+	})
+}
+
+func TestTransactionService_Update_RejectsTransferTransactions(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+		dest := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Savings")
+
+		result, err := f.svc.Transfer(TransferInput{
+			SourceAccountID: f.account.ID,
+			DestAccountID:   dest.ID,
+			Title:           "Initial",
+			Amount:          decimal.NewFromInt(20),
+			OccurredAt:      time.Now(),
+			ActorID:         f.user.ID,
+		})
+		require.NoError(t, err)
+
+		// The withdrawal half cannot be edited via UpdateBill.
+		_, err = f.svc.UpdateBill(UpdateBillInput{
+			TransactionID: result.Withdrawal.ID,
+			Title:         "tampered",
+			Amount:        decimal.NewFromInt(99),
+			OccurredAt:    time.Now(),
+			ActorID:       f.user.ID,
+		})
+		require.ErrorIs(t, err, ErrTransactionPartOfTransfer)
+
+		// The deposit half cannot be edited via UpdateDeposit.
+		_, err = f.svc.UpdateDeposit(UpdateDepositInput{
+			TransactionID: result.Deposit.ID,
+			Title:         "tampered",
+			Amount:        decimal.NewFromInt(99),
+			OccurredAt:    time.Now(),
+			ActorID:       f.user.ID,
+		})
+		require.ErrorIs(t, err, ErrTransactionPartOfTransfer)
+
+		// Underlying transaction is untouched (no audit `edited` row added either).
+		count, err := f.txAudit.CountByTransaction(result.Withdrawal.ID)
+		require.NoError(t, err)
+		assert.Equal(t, 1, count, "only the original `created` audit row should exist")
+	})
+}
+
 func TestTransactionService_Validations(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)

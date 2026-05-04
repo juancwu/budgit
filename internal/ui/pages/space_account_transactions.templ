@@ -11,15 +11,16 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
 
 type SpaceAccountTransactionsPageProps struct {
-	SpaceID      string
-	SpaceName    string
-	AccountID    string
-	AccountName  string
-	Transactions []*model.Transaction
-	CurrentPage  int
-	TotalPages   int
-	TotalCount   int
-	PerPage      int
+	SpaceID                  string
+	SpaceName                string
+	AccountID                string
+	AccountName              string
+	Transactions             []*model.Transaction
+	NonEditableTransactionIDs map[string]bool
+	CurrentPage              int
+	TotalPages               int
+	TotalCount               int
+	PerPage                  int
 }
 
 templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
@@ -62,9 +63,10 @@ templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
 				}
 				@card.Content() {
 					@blocks.TransactionList(blocks.TransactionListProps{
-						SpaceID:      props.SpaceID,
-						AccountID:    props.AccountID,
-						Transactions: props.Transactions,
+						SpaceID:        props.SpaceID,
+						AccountID:      props.AccountID,
+						Transactions:   props.Transactions,
+						NonEditableIDs: props.NonEditableTransactionIDs,
 					})
 				}
 				if props.TotalPages > 1 {

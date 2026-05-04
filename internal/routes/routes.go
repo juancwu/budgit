@@ -121,6 +121,8 @@ func SetupRoutes(a *app.App) http.Handler {
 					g.Post("/bills/create", spaceH.HandleCreateBill).Name("action.app.spaces.space.accounts.account.bills.create")
 					g.Get("/deposits/create", spaceH.SpaceCreateDepositPage).Name("page.app.spaces.space.accounts.account.deposits.create")
 					g.Post("/deposits/create", spaceH.HandleCreateDeposit).Name("action.app.spaces.space.accounts.account.deposits.create")
+					g.Get("/transfers/create", spaceH.SpaceCreateTransferPage).Name("page.app.spaces.space.accounts.account.transfers.create")
+					g.Post("/transfers/create", spaceH.HandleCreateTransfer).Name("action.app.spaces.space.accounts.account.transfers.create")
 				})
 			})
 		})

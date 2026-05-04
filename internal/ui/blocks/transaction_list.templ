@@ -10,6 +10,9 @@ type TransactionListProps struct {
 	SpaceID      string
 	AccountID    string
 	Transactions []*model.Transaction
+	// NonEditableIDs marks transaction IDs whose Edit button should be hidden
+	// (currently: transfer halves). Nil/empty means everything is editable.
+	NonEditableIDs map[string]bool
 }
 
 templ TransactionList(props TransactionListProps) {
@@ -20,13 +23,13 @@ templ TransactionList(props TransactionListProps) {
 	} else {
 		<ul class="divide-y">
 			for _, t := range props.Transactions {
-				@transactionRow(props.SpaceID, props.AccountID, t)
+				@transactionRow(props.SpaceID, props.AccountID, t, !props.NonEditableIDs[t.ID])
 			}
 		</ul>
 	}
 }
 
-templ transactionRow(spaceID, accountID string, t *model.Transaction) {
+templ transactionRow(spaceID, accountID string, t *model.Transaction, editable bool) {
 	{{
 		isDeposit := t.Type == model.TransactionTypeDeposit
 		amountClasses := []string{"text-sm font-semibold tabular-nums"}
@@ -70,7 +73,7 @@ templ transactionRow(spaceID, accountID string, t *model.Transaction) {
 					<p class="text-xs text-muted-foreground truncate max-w-[200px]">{ *t.Description }</p>
 				}
 			</div>
-			if spaceID != "" && accountID != "" {
+			if spaceID != "" && accountID != "" && editable {
 				@button.Button(button.Props{
 					Variant: button.VariantGhost,
 					Size:    button.SizeIcon,

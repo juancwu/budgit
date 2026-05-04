@@ -146,6 +146,16 @@ templ spaceAccountSidebarContent(spaceID, accountID string) {
 			}
 			@sidebar.MenuItem() {
 				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.accounts.account.transfers.create", "spaceID", spaceID, "accountID", accountID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.transfers.create", "spaceID", spaceID, "accountID", accountID),
+					Tooltip:  "Transfer Funds",
+				}) {
+					@icon.ArrowRightLeft()
+					<span>Transfer Funds</span>
+				}
+			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
 					Href:     routeurl.URL("page.app.spaces.space.accounts.account.activity", "spaceID", spaceID, "accountID", accountID),
 					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.activity", "spaceID", spaceID, "accountID", accountID),
 					Tooltip:  "Account Activity",

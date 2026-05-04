@@ -1,6 +1,7 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -10,6 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 )
+
+// ErrTransactionPartOfTransfer is returned when an operation that mutates a
+// single transaction (edit, delete) is attempted on one half of a transfer.
+// Transfers must be edited as a pair or not at all to keep both sides in sync;
+// callers should surface a user-facing message and offer to undo the transfer
+// instead.
+var ErrTransactionPartOfTransfer = errors.New("transaction is part of a transfer")
 
 type TransactionService struct {
 	transactionRepo repository.TransactionRepository
@@ -176,6 +184,153 @@ func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, er
 	return txn, nil
 }
 
+type TransferInput struct {
+	SourceAccountID string
+	DestAccountID   string
+	Title           string
+	Amount          decimal.Decimal
+	OccurredAt      time.Time
+	Description     string
+	ActorID         string
+}
+
+// TransferResult is what the service returns after a successful transfer — both
+// halves are surfaced so callers can audit, redirect, or render either side.
+type TransferResult struct {
+	Withdrawal *model.Transaction
+	Deposit    *model.Transaction
+}
+
+// Transfer moves funds from one account to another. It creates two linked
+// transactions (a withdrawal on the source, a deposit on the destination) plus
+// a row in related_transactions, all in a single SQL transaction.
+//
+// Negative balances are intentionally allowed — the product permits overdraft.
+// Source must differ from destination; the amount must be positive (the sign is
+// implicit in the transaction type).
+func (s *TransactionService) Transfer(input TransferInput) (*TransferResult, error) {
+	title := strings.TrimSpace(input.Title)
+	if title == "" {
+		return nil, fmt.Errorf("title is required")
+	}
+	if input.SourceAccountID == "" || input.DestAccountID == "" {
+		return nil, fmt.Errorf("source and destination account ids are required")
+	}
+	if input.SourceAccountID == input.DestAccountID {
+		return nil, fmt.Errorf("source and destination must differ")
+	}
+	if !input.Amount.IsPositive() {
+		return nil, fmt.Errorf("amount must be greater than zero")
+	}
+	if input.OccurredAt.IsZero() {
+		return nil, fmt.Errorf("date is required")
+	}
+
+	source, err := s.accountService.GetAccount(input.SourceAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load source account: %w", err)
+	}
+	dest, err := s.accountService.GetAccount(input.DestAccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load destination account: %w", err)
+	}
+
+	now := time.Now()
+	var description *string
+	if d := strings.TrimSpace(input.Description); d != "" {
+		description = &d
+	}
+
+	withdrawal := &model.Transaction{
+		ID:          uuid.NewString(),
+		Value:       input.Amount,
+		Type:        model.TransactionTypeWithdrawal,
+		AccountID:   source.ID,
+		Title:       title,
+		Description: description,
+		OccurredAt:  input.OccurredAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+	deposit := &model.Transaction{
+		ID:          uuid.NewString(),
+		Value:       input.Amount,
+		Type:        model.TransactionTypeDeposit,
+		AccountID:   dest.ID,
+		Title:       title,
+		Description: description,
+		OccurredAt:  input.OccurredAt,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	sourceNewBalance := source.Balance.Sub(input.Amount)
+	destNewBalance := dest.Balance.Add(input.Amount)
+
+	if err := s.transactionRepo.TransferAtomic(withdrawal, deposit, sourceNewBalance, destNewBalance); err != nil {
+		return nil, fmt.Errorf("failed to record transfer: %w", err)
+	}
+
+	// Audit each side. Metadata captures the role and the other half so the
+	// activity feed can render "Transferred to/from <other account>" without a
+	// follow-up query.
+	s.auditSvc.Record(TransactionRecordOptions{
+		TransactionID: withdrawal.ID,
+		ActorID:       input.ActorID,
+		Action:        model.TransactionAuditActionCreated,
+		Metadata: map[string]any{
+			"account_id":          withdrawal.AccountID,
+			"transaction_type":    string(withdrawal.Type),
+			"title":               withdrawal.Title,
+			"amount":              withdrawal.Value.StringFixedBank(2),
+			"transfer_role":       "source",
+			"transfer_pair_id":    deposit.ID,
+			"transfer_other_acct": deposit.AccountID,
+			"transfer_other_name": dest.Name,
+		},
+	})
+	s.auditSvc.Record(TransactionRecordOptions{
+		TransactionID: deposit.ID,
+		ActorID:       input.ActorID,
+		Action:        model.TransactionAuditActionCreated,
+		Metadata: map[string]any{
+			"account_id":          deposit.AccountID,
+			"transaction_type":    string(deposit.Type),
+			"title":               deposit.Title,
+			"amount":              deposit.Value.StringFixedBank(2),
+			"transfer_role":       "destination",
+			"transfer_pair_id":    withdrawal.ID,
+			"transfer_other_acct": withdrawal.AccountID,
+			"transfer_other_name": source.Name,
+		},
+	})
+
+	return &TransferResult{Withdrawal: withdrawal, Deposit: deposit}, nil
+}
+
+// TransferIDsIn returns the subset of the given transaction IDs that are part
+// of a transfer pair. Empty input yields an empty (non-nil) map.
+func (s *TransactionService) TransferIDsIn(ids []string) (map[string]bool, error) {
+	hits, err := s.transactionRepo.TransferIDsIn(ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up transfer ids: %w", err)
+	}
+	return hits, nil
+}
+
+// GetRelatedTransactionID returns the other half of a transfer pair, or "" if
+// the transaction is not part of a transfer.
+func (s *TransactionService) GetRelatedTransactionID(transactionID string) (string, error) {
+	id, err := s.transactionRepo.GetRelatedID(transactionID)
+	if err != nil {
+		return "", fmt.Errorf("failed to load related transaction: %w", err)
+	}
+	if id == nil {
+		return "", nil
+	}
+	return *id, nil
+}
+
 type UpdateBillInput struct {
 	TransactionID string
 	Title         string
@@ -207,6 +362,11 @@ func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transacti
 	}
 	if existing.Type != model.TransactionTypeWithdrawal {
 		return nil, fmt.Errorf("transaction is not a bill")
+	}
+	if related, err := s.transactionRepo.GetRelatedID(existing.ID); err != nil {
+		return nil, fmt.Errorf("failed to check transfer linkage: %w", err)
+	} else if related != nil {
+		return nil, ErrTransactionPartOfTransfer
 	}
 
 	account, err := s.accountService.GetAccount(existing.AccountID)
@@ -288,6 +448,11 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 	}
 	if existing.Type != model.TransactionTypeDeposit {
 		return nil, fmt.Errorf("transaction is not a deposit")
+	}
+	if related, err := s.transactionRepo.GetRelatedID(existing.ID); err != nil {
+		return nil, fmt.Errorf("failed to check transfer linkage: %w", err)
+	} else if related != nil {
+		return nil, ErrTransactionPartOfTransfer
 	}
 
 	account, err := s.accountService.GetAccount(existing.AccountID)

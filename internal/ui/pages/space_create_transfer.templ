@@ -1,0 +1,32 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceCreateTransferPageProps struct {
+	SpaceID     string
+	SpaceName   string
+	AccountID   string
+	AccountName string
+	Form        forms.CreateTransferProps
+}
+
+templ SpaceCreateTransferPage(props SpaceCreateTransferPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Transfer Funds",
+		accountChildBreadcrumb(props.SpaceID, props.SpaceName, props.AccountID, props.AccountName, "Transfer Funds"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+		spaceAccountSidebarContent(props.SpaceID, props.AccountID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Transfer Funds</h1>
+				<p class="text-muted-foreground mt-2">
+					Move money out of { props.AccountName } into another account in this space.
+				</p>
+			</div>
+			@forms.CreateTransfer(props.Form)
+		</div>
+	}
+}

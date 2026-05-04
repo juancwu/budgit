@@ -147,9 +147,12 @@ func accountActivityTxMessage(spaceID, accountID string, log *model.TransactionA
 	switch log.Action {
 	case model.TransactionAuditActionCreated:
 		var meta struct {
-			TransactionType string `json:"transaction_type"`
-			Title           string `json:"title"`
-			Amount          string `json:"amount"`
+			TransactionType   string `json:"transaction_type"`
+			Title             string `json:"title"`
+			Amount            string `json:"amount"`
+			TransferRole      string `json:"transfer_role"`
+			TransferOtherAcct string `json:"transfer_other_acct"`
+			TransferOtherName string `json:"transfer_other_name"`
 		}
 		_ = json.Unmarshal(log.Metadata, &meta)
 		title := meta.Title
@@ -160,6 +163,20 @@ func accountActivityTxMessage(spaceID, accountID string, log *model.TransactionA
 		amountSuffix := ""
 		if meta.Amount != "" {
 			amountSuffix = fmt.Sprintf(" for $%s", templEscape(meta.Amount))
+		}
+		// Transfer events get a more descriptive sentence so users can see
+		// which side this entry is and where the money went / came from.
+		if meta.TransferRole != "" {
+			direction := "to"
+			if meta.TransferRole == "destination" {
+				direction = "from"
+			}
+			otherName := meta.TransferOtherName
+			if otherName == "" {
+				otherName = "another account"
+			}
+			return fmt.Sprintf("%s transferred %s%s %s %s.",
+				actor, titleHTML, amountSuffix, templEscape(direction), bold(otherName))
 		}
 		return fmt.Sprintf("%s added a %s %s%s.",
 			actor, templEscape(transactionTypeLabel(meta.TransactionType)), titleHTML, amountSuffix)

@@ -9,14 +9,16 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 
 type SpaceTransactionPageProps struct {
-	SpaceID         string
-	SpaceName       string
-	AccountID       string
-	AccountName     string
-	Transaction     *model.Transaction
-	CategoryName    string
-	RecentAuditLogs []*model.TransactionAuditLogWithActor
-	AuditLogCount   int
+	SpaceID            string
+	SpaceName          string
+	AccountID          string
+	AccountName        string
+	Transaction        *model.Transaction
+	CategoryName       string
+	RecentAuditLogs    []*model.TransactionAuditLogWithActor
+	AuditLogCount      int
+	RelatedTransaction *model.Transaction
+	RelatedAccount     *model.Account
 }
 
 templ SpaceTransactionPage(props SpaceTransactionPageProps) {
@@ -53,13 +55,15 @@ templ SpaceTransactionPage(props SpaceTransactionPageProps) {
 						{ label } in { props.AccountName }
 					</p>
 				</div>
-				@button.Button(button.Props{
-					Variant: button.VariantDefault,
-					Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction.edit", "spaceID", props.SpaceID, "accountID", props.AccountID, "transactionID", props.Transaction.ID),
-					Class:   "flex items-center gap-2",
-				}) {
-					@icon.Pencil(icon.Props{Class: "size-4"})
-					Edit
+				if props.RelatedTransaction == nil {
+					@button.Button(button.Props{
+						Variant: button.VariantDefault,
+						Href:    routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction.edit", "spaceID", props.SpaceID, "accountID", props.AccountID, "transactionID", props.Transaction.ID),
+						Class:   "flex items-center gap-2",
+					}) {
+						@icon.Pencil(icon.Props{Class: "size-4"})
+						Edit
+					}
 				}
 			</div>
 			@card.Card() {
@@ -98,6 +102,23 @@ templ SpaceTransactionPage(props SpaceTransactionPageProps) {
 						<div>
 							<p class="text-sm text-muted-foreground">Description</p>
 							<p class="whitespace-pre-wrap">{ *props.Transaction.Description }</p>
+						</div>
+					}
+					if props.RelatedTransaction != nil && props.RelatedAccount != nil {
+						{{
+							direction := "to"
+							if props.Transaction.Type == model.TransactionTypeDeposit {
+								direction = "from"
+							}
+						}}
+						<div>
+							<p class="text-sm text-muted-foreground">Transferred { direction }</p>
+							<a
+								class="font-medium underline-offset-2 hover:underline"
+								href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.accounts.account.transactions.transaction", "spaceID", props.SpaceID, "accountID", props.RelatedAccount.ID, "transactionID", props.RelatedTransaction.ID)) }
+							>
+								{ props.RelatedAccount.Name }
+							</a>
 						</div>
 					}
 				}

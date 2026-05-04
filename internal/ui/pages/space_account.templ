@@ -16,7 +16,8 @@ type SpaceAccountPageProps struct {
 	AccountID          string
 	AccountName        string
 	AccountBalance     decimal.Decimal
-	RecentTransactions []*model.Transaction
+	RecentTransactions       []*model.Transaction
+	NonEditableTransactionIDs map[string]bool
 }
 
 templ SpaceAccountPage(props SpaceAccountPageProps) {
@@ -92,9 +93,10 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 					}
 					@card.Content() {
 						@blocks.TransactionList(blocks.TransactionListProps{
-							SpaceID:      props.SpaceID,
-							AccountID:    props.AccountID,
-							Transactions: props.RecentTransactions,
+							SpaceID:        props.SpaceID,
+							AccountID:      props.AccountID,
+							Transactions:   props.RecentTransactions,
+							NonEditableIDs: props.NonEditableTransactionIDs,
 						})
 					}
 					@card.Footer(card.FooterProps{Class: "justify-end"}) {
