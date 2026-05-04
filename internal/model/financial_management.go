@@ -11,6 +11,7 @@ type Account struct {
 	Name      string          `db:"name"`
 	SpaceID   string          `db:"space_id"`
 	Balance   decimal.Decimal `db:"balance"`
+	Currency  string          `db:"currency"`
 	CreatedAt time.Time       `db:"created_at"`
 	UpdatedAt time.Time       `db:"updated_at"`
 }

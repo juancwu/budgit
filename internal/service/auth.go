@@ -363,7 +363,7 @@ func (s *AuthService) CompleteOnboarding(userID, name string) error {
 			return fmt.Errorf("failed to create onboarding space: %w", err)
 		}
 
-		if _, err := s.accountService.CreateAccount(space.ID, DefaultAccountName, userID); err != nil {
+		if _, err := s.accountService.CreateAccount(space.ID, DefaultAccountName, "", userID); err != nil {
 			if delErr := s.spaceService.DeleteSpace(space.ID, userID); delErr != nil {
 				slog.Error("failed to roll back space after account creation error",
 					"space_id", space.ID, "error", delErr)

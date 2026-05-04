@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/misc/currency"
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
@@ -217,10 +218,11 @@ func (h *spaceHandler) SpaceOverviewPage(w http.ResponseWriter, r *http.Request)
 	accountCards := make([]blocks.AccountCardInfo, 0, len(accounts))
 	for _, a := range accounts {
 		accountCards = append(accountCards, blocks.AccountCardInfo{
-			SpaceID: space.ID,
-			ID:      a.ID,
-			Name:    a.Name,
-			Balance: a.Balance,
+			SpaceID:  space.ID,
+			ID:       a.ID,
+			Name:     a.Name,
+			Balance:  a.Balance,
+			Currency: a.Currency,
 		})
 	}
 
@@ -253,14 +255,27 @@ func (h *spaceHandler) SpaceCreateAccountPage(w http.ResponseWriter, r *http.Req
 func (h *spaceHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 	nameInput := strings.TrimSpace(r.FormValue("name"))
-
-	formProps := forms.CreateAccountProps{
-		SpaceID: spaceID,
-		Name:    nameInput,
+	currencyInput := currency.Normalize(r.FormValue("currency"))
+	if currencyInput == "" {
+		currencyInput = currency.Default
 	}
 
+	formProps := forms.CreateAccountProps{
+		SpaceID:  spaceID,
+		Name:     nameInput,
+		Currency: currencyInput,
+	}
+
+	hasErr := false
 	if nameInput == "" {
 		formProps.NameErr = "Account name is required."
+		hasErr = true
+	}
+	if !currency.IsValid(currencyInput) {
+		formProps.CurrencyErr = "Choose a supported currency."
+		hasErr = true
+	}
+	if hasErr {
 		ui.Render(w, r, forms.CreateAccount(formProps))
 		return
 	}
@@ -285,7 +300,7 @@ func (h *spaceHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Reques
 	if user != nil {
 		actorID = user.ID
 	}
-	account, err := h.accountService.CreateAccount(spaceID, nameInput, actorID)
+	account, err := h.accountService.CreateAccount(spaceID, nameInput, currencyInput, actorID)
 	if err != nil {
 		slog.Error("failed to create account", "error", err, "space_id", spaceID)
 		formProps.GeneralErr = "Something went wrong. Please try again."
@@ -343,6 +358,7 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 		AccountID:                accountID,
 		AccountName:              account.Name,
 		AccountBalance:           account.Balance,
+		AccountCurrency:          account.Currency,
 		RecentTransactions:       recent,
 		NonEditableTransactionIDs: h.nonEditableTransactionIDs(recent),
 		AllocationSummary:        allocSummary,
@@ -765,14 +781,20 @@ func (h *spaceHandler) SpaceAccountSettingsPage(w http.ResponseWriter, r *http.R
 	}
 
 	ui.Render(w, r, pages.SpaceAccountSettingsPage(pages.SpaceAccountSettingsPageProps{
-		SpaceID:     spaceID,
-		SpaceName:   space.Name,
-		AccountID:   accountID,
-		AccountName: account.Name,
+		SpaceID:         spaceID,
+		SpaceName:       space.Name,
+		AccountID:       accountID,
+		AccountName:     account.Name,
+		AccountCurrency: account.Currency,
 		UpdateForm: forms.UpdateAccountProps{
 			SpaceID:   spaceID,
 			AccountID: accountID,
 			Name:      account.Name,
+		},
+		CurrencyForm: forms.ChangeAccountCurrencyProps{
+			SpaceID:         spaceID,
+			AccountID:       accountID,
+			CurrentCurrency: account.Currency,
 		},
 	}))
 }
@@ -834,6 +856,80 @@ func (h *spaceHandler) HandleRenameAccount(w http.ResponseWriter, r *http.Reques
 
 	formProps.SuccessMsg = "Account name updated."
 	ui.Render(w, r, forms.UpdateAccount(formProps))
+}
+
+func (h *spaceHandler) HandleChangeAccountCurrency(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
+		return
+	}
+
+	newCurrencyInput := currency.Normalize(r.FormValue("new_currency"))
+	rateInput := strings.TrimSpace(r.FormValue("rate"))
+
+	formProps := forms.ChangeAccountCurrencyProps{
+		SpaceID:         spaceID,
+		AccountID:       accountID,
+		CurrentCurrency: account.Currency,
+		NewCurrency:     newCurrencyInput,
+		ConversionRate:  rateInput,
+	}
+
+	hasErr := false
+	if newCurrencyInput == "" {
+		formProps.NewCurrencyErr = "Choose a currency."
+		hasErr = true
+	} else if !currency.IsValid(newCurrencyInput) {
+		formProps.NewCurrencyErr = "Choose a supported currency."
+		hasErr = true
+	} else if newCurrencyInput == account.Currency {
+		formProps.NewCurrencyErr = "Choose a different currency."
+		hasErr = true
+	}
+
+	var rate decimal.Decimal
+	if rateInput == "" {
+		formProps.RateErr = "Conversion rate is required."
+		hasErr = true
+	} else {
+		r, err := decimal.NewFromString(rateInput)
+		if err != nil {
+			formProps.RateErr = "Enter a valid rate (e.g. 1.2345)."
+			hasErr = true
+		} else if !r.IsPositive() {
+			formProps.RateErr = "Rate must be greater than zero."
+			hasErr = true
+		} else {
+			rate = r
+		}
+	}
+
+	if hasErr {
+		ui.Render(w, r, forms.ChangeAccountCurrency(formProps))
+		return
+	}
+
+	user := ctxkeys.User(r.Context())
+	actorID := ""
+	if user != nil {
+		actorID = user.ID
+	}
+	if err := h.accountService.ChangeCurrency(accountID, newCurrencyInput, rate, actorID); err != nil {
+		slog.Error("failed to change account currency", "error", err, "account_id", accountID)
+		formProps.GeneralErr = "Something went wrong. Please try again."
+		ui.Render(w, r, forms.ChangeAccountCurrency(formProps))
+		return
+	}
+
+	formProps.CurrentCurrency = newCurrencyInput
+	formProps.NewCurrency = ""
+	formProps.ConversionRate = ""
+	formProps.SuccessMsg = "Currency updated. Balance and allocations were converted."
+	ui.Render(w, r, forms.ChangeAccountCurrency(formProps))
 }
 
 func (h *spaceHandler) HandleDeleteAccount(w http.ResponseWriter, r *http.Request) {
@@ -1550,6 +1646,7 @@ func (h *spaceHandler) SpaceCreateTransferPage(w http.ResponseWriter, r *http.Re
 		Form: forms.CreateTransferProps{
 			SpaceID:         spaceID,
 			SourceAccountID: accountID,
+			SourceCurrency:  account.Currency,
 			DestAccounts:    dests,
 			SourceAvailable: allocSummary.Available.StringFixedBank(2),
 			SourceAllocated: allocSummary.Allocated.StringFixedBank(2),
@@ -1579,16 +1676,19 @@ func (h *spaceHandler) HandleCreateTransfer(w http.ResponseWriter, r *http.Reque
 	titleInput := strings.TrimSpace(r.FormValue("title"))
 	amountInput := strings.TrimSpace(r.FormValue("amount"))
 	destInput := strings.TrimSpace(r.FormValue("destination"))
+	rateInput := strings.TrimSpace(r.FormValue("rate"))
 	dateInput := strings.TrimSpace(r.FormValue("date"))
 	descriptionInput := strings.TrimSpace(r.FormValue("description"))
 
 	formProps := forms.CreateTransferProps{
 		SpaceID:         spaceID,
 		SourceAccountID: accountID,
+		SourceCurrency:  source.Currency,
 		DestAccounts:    dests,
 		Title:           titleInput,
 		Amount:          amountInput,
 		DestAccountID:   destInput,
+		ConversionRate:  rateInput,
 		Date:            dateInput,
 		Description:     descriptionInput,
 	}
@@ -1627,6 +1727,7 @@ func (h *spaceHandler) HandleCreateTransfer(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	var destCurrency string
 	if destInput == "" {
 		formProps.DestErr = "Choose a destination account."
 		hasErr = true
@@ -1639,6 +1740,27 @@ func (h *spaceHandler) HandleCreateTransfer(w http.ResponseWriter, r *http.Reque
 		if err != nil || destAcct.SpaceID != spaceID {
 			formProps.DestErr = "Destination account not found."
 			hasErr = true
+		} else {
+			destCurrency = destAcct.Currency
+		}
+	}
+
+	var rate decimal.Decimal
+	if destCurrency != "" && destCurrency != source.Currency {
+		if rateInput == "" {
+			formProps.RateErr = "Conversion rate is required for cross-currency transfers."
+			hasErr = true
+		} else {
+			r, err := decimal.NewFromString(rateInput)
+			if err != nil {
+				formProps.RateErr = "Enter a valid rate (e.g. 1.2345)."
+				hasErr = true
+			} else if !r.IsPositive() {
+				formProps.RateErr = "Rate must be greater than zero."
+				hasErr = true
+			} else {
+				rate = r
+			}
 		}
 	}
 
@@ -1671,6 +1793,7 @@ func (h *spaceHandler) HandleCreateTransfer(w http.ResponseWriter, r *http.Reque
 		DestAccountID:   destInput,
 		Title:           titleInput,
 		Amount:          amount,
+		ConversionRate:  rate,
 		OccurredAt:      occurredAt,
 		Description:     descriptionInput,
 		ActorID:         actorID,

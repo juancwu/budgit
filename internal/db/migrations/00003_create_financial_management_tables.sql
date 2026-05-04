@@ -40,5 +40,5 @@ CREATE TABLE transaction_tags (
 DROP TABLE transaction_tags;
 DROP TABLE tags;
 DROP TABLE transactions;
-DROP TABLE accounts;
+DROP TABLE accounts CASCADE;
 -- +goose StatementEnd

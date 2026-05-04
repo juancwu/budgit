@@ -89,12 +89,13 @@ func CreateTestAccount(t *testing.T, db *sqlx.DB, spaceID, name string) *model.A
 		Name:      name,
 		SpaceID:   spaceID,
 		Balance:   decimal.Zero,
+		Currency:  "CAD",
 		CreatedAt: now,
 		UpdatedAt: now,
 	}
 	_, err := db.Exec(
-		`INSERT INTO accounts (id, name, space_id, balance, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)`,
-		account.ID, account.Name, account.SpaceID, account.Balance, account.CreatedAt, account.UpdatedAt,
+		`INSERT INTO accounts (id, name, space_id, balance, currency, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		account.ID, account.Name, account.SpaceID, account.Balance, account.Currency, account.CreatedAt, account.UpdatedAt,
 	)
 	if err != nil {
 		t.Fatalf("CreateTestAccount: %v", err)

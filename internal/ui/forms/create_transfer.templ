@@ -12,6 +12,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
 type CreateTransferProps struct {
 	SpaceID         string
 	SourceAccountID string
+	SourceCurrency  string
 
 	// DestAccounts is the list of other accounts in the same space the user
 	// can transfer to. Excludes the source account.
@@ -19,19 +20,21 @@ type CreateTransferProps struct {
 
 	// SourceAvailable / SourceAllocated are the source account's unallocated
 	// and allocated cash, formatted as plain decimal strings (e.g. "1234.50").
-	SourceAvailable  string
-	SourceAllocated  string
-	SourceOverflow   bool
+	SourceAvailable string
+	SourceAllocated string
+	SourceOverflow  bool
 
-	Title         string
-	Amount        string
-	DestAccountID string
-	Date          string
-	Description   string
+	Title          string
+	Amount         string
+	DestAccountID  string
+	ConversionRate string
+	Date           string
+	Description    string
 
 	TitleErr   string
 	AmountErr  string
 	DestErr    string
+	RateErr    string
 	DateErr    string
 	GeneralErr string
 }
@@ -104,10 +107,26 @@ templ CreateTransfer(props CreateTransferProps) {
 								templ.KV("border-destructive", props.DestErr != ""),
 								templ.KV("border-input", props.DestErr == "") }
 							required
+							data-source-currency={ props.SourceCurrency }
+							_="on change
+								set opt to my.options[my.selectedIndex]
+								set destCur to opt.getAttribute('data-currency') or ''
+								set srcCur to @data-source-currency of me
+								if destCur is not '' and destCur is not srcCur
+									remove .hidden from #rate-row
+									set #rate-dest-currency.innerText to destCur
+									set #rate-source-currency.innerText to srcCur
+								else
+									add .hidden to #rate-row
+								end"
 						>
 							<option value="" selected?={ props.DestAccountID == "" }>Select an account…</option>
 							for _, a := range props.DestAccounts {
-								<option value={ a.ID } selected?={ props.DestAccountID == a.ID }>{ a.Name }</option>
+								<option
+									value={ a.ID }
+									data-currency={ a.Currency }
+									selected?={ props.DestAccountID == a.ID }
+								>{ a.Name } ({ a.Currency })</option>
 							}
 						</select>
 					}
@@ -164,6 +183,57 @@ templ CreateTransfer(props CreateTransferProps) {
 							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
 								{ props.DateErr }
 							}
+						}
+					}
+				</div>
+				{{
+					selectedDestCurrency := ""
+					for _, a := range props.DestAccounts {
+						if a.ID == props.DestAccountID {
+							selectedDestCurrency = a.Currency
+							break
+						}
+					}
+					rateRowHidden := selectedDestCurrency == "" || selectedDestCurrency == props.SourceCurrency
+					rateRowClasses := []string{"space-y-2 rounded-md border p-4 bg-muted/30"}
+					if rateRowHidden {
+						rateRowClasses = append(rateRowClasses, "hidden")
+					}
+				}}
+				<div id="rate-row" class={ utils.TwMerge(rateRowClasses...) }>
+					<p class="text-sm">
+						Source and destination use different currencies. Set the conversion rate.
+					</p>
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "rate"}) {
+							Conversion rate
+						}
+						<div class="flex items-center gap-2">
+							<span class="text-sm text-muted-foreground">1 <span id="rate-source-currency">{ props.SourceCurrency }</span> =</span>
+							@input.Input(input.Props{
+								ID:          "rate",
+								Name:        "rate",
+								Type:        input.TypeNumber,
+								Placeholder: "1.00",
+								Class:       "rounded-sm",
+								Value:       props.ConversionRate,
+								HasError:    props.RateErr != "",
+								Attributes: templ.Attributes{
+									"step":         "0.000001",
+									"min":          "0",
+									"inputmode":    "decimal",
+									"autocomplete": "off",
+								},
+							})
+							<span class="text-sm text-muted-foreground" id="rate-dest-currency">{ selectedDestCurrency }</span>
+						</div>
+						if props.RateErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.RateErr }
+							}
+						}
+						@form.Description() {
+							The destination account will be credited the converted amount, rounded to 2 decimals.
 						}
 					}
 				</div>

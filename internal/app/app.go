@@ -59,6 +59,7 @@ func New(cfg *config.Config) (*App, error) {
 	spaceService.SetAuditLogger(auditLogService)
 	accountService := service.NewAccountService(accountRepository)
 	accountService.SetAuditLogger(auditLogService)
+	accountService.SetAllocationRepository(allocationRepository)
 	allocationService := service.NewAllocationService(allocationRepository, accountService)
 	allocationService.SetAuditLogger(auditLogService)
 	transactionService := service.NewTransactionService(transactionRepository, categoryRepository, accountService)
