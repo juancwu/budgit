@@ -88,8 +88,9 @@ func (h *recurringEventHandler) CreatePage(w http.ResponseWriter, r *http.Reques
 		Frequency:     string(model.RecurringFrequencyMonthly),
 		IntervalCount: "1",
 		FireTime:      "09:00",
-		Timezone:      "UTC",
-		StartDate:     now.Format("2006-01-02"),
+		Timezone:         "UTC",
+		StartDate:        now.Format("2006-01-02"),
+		BusinessDaysOnly: false,
 		DayOfMonth:    strconv.Itoa(now.Day()),
 		DayOfWeek:     strconv.Itoa(int(now.Weekday())),
 		MonthOfYear:   strconv.Itoa(int(now.Month())),
@@ -138,8 +139,9 @@ func (h *recurringEventHandler) EditPage(w http.ResponseWriter, r *http.Request)
 		Frequency:       string(ev.Frequency),
 		IntervalCount:   strconv.Itoa(ev.IntervalCount),
 		FireTime:        formatTimeOfDay(ev.FireHour, ev.FireMinute),
-		Timezone:        ev.Timezone,
-		StartDate:       ev.NextRunAt.In(mustLoc(ev.Timezone)).Format("2006-01-02"),
+		Timezone:         ev.Timezone,
+		StartDate:        ev.NextRunAt.In(mustLoc(ev.Timezone)).Format("2006-01-02"),
+		BusinessDaysOnly: ev.BusinessDaysOnly,
 	}
 	if ev.Description != nil {
 		formProps.Description = *ev.Description
@@ -226,8 +228,9 @@ func (h *recurringEventHandler) HandleEdit(w http.ResponseWriter, r *http.Reques
 		MonthOfYear:     parsed.MonthOfYear,
 		FireHour:        parsed.FireHour,
 		FireMinute:      parsed.FireMinute,
-		Timezone:        parsed.Timezone,
-		StartDate:       parsed.StartDate,
+		Timezone:         parsed.Timezone,
+		BusinessDaysOnly: parsed.BusinessDaysOnly,
+		StartDate:        parsed.StartDate,
 	}); err != nil {
 		slog.Error("failed to update recurring event", "error", err, "event_id", eventID)
 		formProps.GeneralErr = friendlyRecurringError(err)
@@ -299,6 +302,7 @@ func (h *recurringEventHandler) parseForm(r *http.Request, spaceID string) (serv
 	fireTime := strings.TrimSpace(r.FormValue("fire_time"))
 	tz := strings.TrimSpace(r.FormValue("timezone"))
 	startDateStr := strings.TrimSpace(r.FormValue("start_date"))
+	businessDaysOnly := r.FormValue("business_days_only") != ""
 
 	props := forms.RecurringEventFormProps{
 		SpaceID:         spaceID,
@@ -314,19 +318,21 @@ func (h *recurringEventHandler) parseForm(r *http.Request, spaceID string) (serv
 		DayOfWeek:       dowStr,
 		DayOfMonth:      domStr,
 		MonthOfYear:     moyStr,
-		FireTime:        fireTime,
-		Timezone:        tz,
-		StartDate:       startDateStr,
+		FireTime:         fireTime,
+		Timezone:         tz,
+		StartDate:        startDateStr,
+		BusinessDaysOnly: businessDaysOnly,
 	}
 
 	input := service.CreateRecurringEventInput{
-		SpaceID:         spaceID,
-		Kind:            model.RecurringEventKind(kind),
-		SourceAccountID: sourceID,
-		Title:           title,
-		Description:     descriptionStr,
-		Frequency:       model.RecurringFrequency(frequency),
-		Timezone:        tz,
+		SpaceID:          spaceID,
+		Kind:             model.RecurringEventKind(kind),
+		SourceAccountID:  sourceID,
+		Title:            title,
+		Description:      descriptionStr,
+		Frequency:        model.RecurringFrequency(frequency),
+		Timezone:         tz,
+		BusinessDaysOnly: businessDaysOnly,
 	}
 
 	if title == "" {

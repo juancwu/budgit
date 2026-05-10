@@ -19,39 +19,43 @@ var weekdayLabels = []string{"Sunday", "Monday", "Tuesday", "Wednesday", "Thursd
 
 func recurrenceSummary(ev *model.RecurringEvent) string {
 	timePart := fmt.Sprintf(" at %02d:%02d", ev.FireHour, ev.FireMinute)
+	suffix := ""
+	if ev.BusinessDaysOnly {
+		suffix = " (skips weekends)"
+	}
 	switch ev.Frequency {
 	case model.RecurringFrequencyDaily:
 		if ev.IntervalCount == 1 {
-			return "Daily" + timePart
+			return "Daily" + timePart + suffix
 		}
-		return fmt.Sprintf("Every %d days%s", ev.IntervalCount, timePart)
+		return fmt.Sprintf("Every %d days%s", ev.IntervalCount, timePart) + suffix
 	case model.RecurringFrequencyWeekly:
 		dow := ""
 		if ev.DayOfWeek != nil && *ev.DayOfWeek >= 0 && *ev.DayOfWeek < len(weekdayLabels) {
 			dow = " on " + weekdayLabels[*ev.DayOfWeek]
 		}
 		if ev.IntervalCount == 1 {
-			return "Weekly" + dow + timePart
+			return "Weekly" + dow + timePart + suffix
 		}
-		return fmt.Sprintf("Every %d weeks%s%s", ev.IntervalCount, dow, timePart)
+		return fmt.Sprintf("Every %d weeks%s%s", ev.IntervalCount, dow, timePart) + suffix
 	case model.RecurringFrequencyMonthly:
 		dom := ""
 		if ev.DayOfMonth != nil {
 			dom = fmt.Sprintf(" on day %d", *ev.DayOfMonth)
 		}
 		if ev.IntervalCount == 1 {
-			return "Monthly" + dom + timePart
+			return "Monthly" + dom + timePart + suffix
 		}
-		return fmt.Sprintf("Every %d months%s%s", ev.IntervalCount, dom, timePart)
+		return fmt.Sprintf("Every %d months%s%s", ev.IntervalCount, dom, timePart) + suffix
 	case model.RecurringFrequencyYearly:
 		date := ""
 		if ev.MonthOfYear != nil && ev.DayOfMonth != nil {
 			date = fmt.Sprintf(" on %s %d", time.Month(*ev.MonthOfYear).String(), *ev.DayOfMonth)
 		}
 		if ev.IntervalCount == 1 {
-			return "Yearly" + date + timePart
+			return "Yearly" + date + timePart + suffix
 		}
-		return fmt.Sprintf("Every %d years%s%s", ev.IntervalCount, date, timePart)
+		return fmt.Sprintf("Every %d years%s%s", ev.IntervalCount, date, timePart) + suffix
 	}
 	return string(ev.Frequency)
 }

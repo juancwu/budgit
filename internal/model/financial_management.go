@@ -88,6 +88,8 @@ type RecurringEvent struct {
 	FireMinute    int                `db:"fire_minute"`
 	Timezone      string             `db:"timezone"`
 
+	BusinessDaysOnly bool `db:"business_days_only"`
+
 	NextRunAt time.Time  `db:"next_run_at"`
 	LastRunAt *time.Time `db:"last_run_at"`
 	Paused    bool       `db:"paused"`

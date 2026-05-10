@@ -35,18 +35,18 @@ func (r *recurringEventRepository) Create(e *model.RecurringEvent) error {
 	query := `INSERT INTO recurring_events (
         id, space_id, kind, source_account_id, title, amount, description,
         frequency, interval_count, day_of_week, day_of_month, month_of_year,
-        fire_hour, fire_minute, timezone,
+        fire_hour, fire_minute, timezone, business_days_only,
         next_run_at, last_run_at, paused, created_at, updated_at
     ) VALUES (
         $1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11, $12,
-        $13, $14, $15,
-        $16, $17, $18, $19, $20
+        $13, $14, $15, $16,
+        $17, $18, $19, $20, $21
     );`
 	_, err := r.db.Exec(query,
 		e.ID, e.SpaceID, e.Kind, e.SourceAccountID, e.Title, e.Amount, e.Description,
 		e.Frequency, e.IntervalCount, e.DayOfWeek, e.DayOfMonth, e.MonthOfYear,
-		e.FireHour, e.FireMinute, e.Timezone,
+		e.FireHour, e.FireMinute, e.Timezone, e.BusinessDaysOnly,
 		e.NextRunAt, e.LastRunAt, e.Paused, e.CreatedAt, e.UpdatedAt,
 	)
 	return err
@@ -89,13 +89,13 @@ func (r *recurringEventRepository) Update(e *model.RecurringEvent) error {
 	query := `UPDATE recurring_events SET
         kind = $1, source_account_id = $2, title = $3, amount = $4, description = $5,
         frequency = $6, interval_count = $7, day_of_week = $8, day_of_month = $9, month_of_year = $10,
-        fire_hour = $11, fire_minute = $12, timezone = $13,
-        next_run_at = $14, paused = $15, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $16;`
+        fire_hour = $11, fire_minute = $12, timezone = $13, business_days_only = $14,
+        next_run_at = $15, paused = $16, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $17;`
 	res, err := r.db.Exec(query,
 		e.Kind, e.SourceAccountID, e.Title, e.Amount, e.Description,
 		e.Frequency, e.IntervalCount, e.DayOfWeek, e.DayOfMonth, e.MonthOfYear,
-		e.FireHour, e.FireMinute, e.Timezone,
+		e.FireHour, e.FireMinute, e.Timezone, e.BusinessDaysOnly,
 		e.NextRunAt, e.Paused, e.ID,
 	)
 	if err != nil {

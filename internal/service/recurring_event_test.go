@@ -137,10 +137,58 @@ func TestNextFireAfter_TimezoneCrossesUTCBoundary(t *testing.T) {
 	}
 }
 
+func TestNextFireAfter_MonthlyBusinessDaysOnlyShiftsWeekendToMonday(t *testing.T) {
+	loc := mustLoad(t, "UTC")
+	// Monthly on day 10 at 09:00, BusinessDaysOnly=true.
+	// April 10 2026 is Friday → fires April 10.
+	// May 10 2026 is Sunday → must shift to Monday May 11.
+	ev := &model.RecurringEvent{
+		Frequency:        model.RecurringFrequencyMonthly,
+		IntervalCount:    1,
+		DayOfMonth:       intPtr(10),
+		FireHour:         9,
+		FireMinute:       0,
+		BusinessDaysOnly: true,
+	}
+	got, err := nextFireAfter(ev, time.Date(2026, 4, 11, 0, 0, 0, 0, loc), loc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := time.Date(2026, 5, 11, 9, 0, 0, 0, loc)
+	if !got.Equal(want) {
+		t.Errorf("monthly shift: got %v want %v", got.In(loc), want)
+	}
+
+	// Cursor advanced to May 11 (Mon); next firing should be June 10 (Wed) — no shift.
+	got2, _ := nextFireAfter(ev, got, loc)
+	want2 := time.Date(2026, 6, 10, 9, 0, 0, 0, loc)
+	if !got2.Equal(want2) {
+		t.Errorf("monthly next after shift: got %v want %v", got2.In(loc), want2)
+	}
+}
+
+func TestNextFireAfter_MonthlyBusinessDaysOnlySaturdayShiftsToMonday(t *testing.T) {
+	loc := mustLoad(t, "UTC")
+	// 2026-08-01 is a Saturday — should shift to Monday Aug 3.
+	ev := &model.RecurringEvent{
+		Frequency:        model.RecurringFrequencyMonthly,
+		IntervalCount:    1,
+		DayOfMonth:       intPtr(1),
+		FireHour:         9,
+		FireMinute:       0,
+		BusinessDaysOnly: true,
+	}
+	got, _ := nextFireAfter(ev, time.Date(2026, 7, 2, 0, 0, 0, 0, loc), loc)
+	want := time.Date(2026, 8, 3, 9, 0, 0, 0, loc)
+	if !got.Equal(want) {
+		t.Errorf("got %v want %v", got.In(loc), want)
+	}
+}
+
 func TestFirstFireOnOrAfter_SameDayBeforeFire(t *testing.T) {
 	loc := mustLoad(t, "UTC")
 	// Daily at 09:00, start date 2026-05-10 → first fire 2026-05-10 09:00.
-	got, err := firstFireOnOrAfter(model.RecurringFrequencyDaily, 1, nil, nil, nil, 9, 0, loc, time.Date(2026, 5, 10, 0, 0, 0, 0, loc))
+	got, err := firstFireOnOrAfter(model.RecurringFrequencyDaily, 1, nil, nil, nil, 9, 0, loc, time.Date(2026, 5, 10, 0, 0, 0, 0, loc), false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +201,7 @@ func TestFirstFireOnOrAfter_SameDayBeforeFire(t *testing.T) {
 func TestFirstFireOnOrAfter_WeeklyShiftsToTargetDayOfWeek(t *testing.T) {
 	loc := mustLoad(t, "UTC")
 	// Start 2026-05-04 (Mon), target weekday Friday (5) → first fire 2026-05-08.
-	got, _ := firstFireOnOrAfter(model.RecurringFrequencyWeekly, 1, intPtr(5), nil, nil, 8, 0, loc, time.Date(2026, 5, 4, 0, 0, 0, 0, loc))
+	got, _ := firstFireOnOrAfter(model.RecurringFrequencyWeekly, 1, intPtr(5), nil, nil, 8, 0, loc, time.Date(2026, 5, 4, 0, 0, 0, 0, loc), false)
 	want := time.Date(2026, 5, 8, 8, 0, 0, 0, loc)
 	if !got.Equal(want) {
 		t.Errorf("got %v want %v", got, want)

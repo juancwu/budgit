@@ -49,6 +49,10 @@ type CreateRecurringEventInput struct {
 	FireMinute    int
 	Timezone      string
 
+	// BusinessDaysOnly, if true, shifts any firing that lands on Saturday or
+	// Sunday forward to the following Monday.
+	BusinessDaysOnly bool
+
 	// StartDate is the local calendar date (Y-M-D) of the first intended firing
 	// in the event's timezone. The first NextRunAt is computed from StartDate,
 	// FireHour, FireMinute, and Timezone — clamped to the recurrence anchors.
@@ -78,7 +82,7 @@ func (s *RecurringEventService) Create(input CreateRecurringEventInput) (*model.
 		return nil, fmt.Errorf("start date is required")
 	}
 
-	firstFire, err := firstFireOnOrAfter(input.Frequency, input.IntervalCount, input.DayOfWeek, input.DayOfMonth, input.MonthOfYear, input.FireHour, input.FireMinute, loc, input.StartDate)
+	firstFire, err := firstFireOnOrAfter(input.Frequency, input.IntervalCount, input.DayOfWeek, input.DayOfMonth, input.MonthOfYear, input.FireHour, input.FireMinute, loc, input.StartDate, input.BusinessDaysOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -90,25 +94,26 @@ func (s *RecurringEventService) Create(input CreateRecurringEventInput) (*model.
 
 	now := time.Now().UTC()
 	ev := &model.RecurringEvent{
-		ID:              uuid.NewString(),
-		SpaceID:         input.SpaceID,
-		Kind:            input.Kind,
-		SourceAccountID: input.SourceAccountID,
-		Title:           title,
-		Amount:          input.Amount,
-		Description:     description,
-		Frequency:       input.Frequency,
-		IntervalCount:   input.IntervalCount,
-		DayOfWeek:       input.DayOfWeek,
-		DayOfMonth:      input.DayOfMonth,
-		MonthOfYear:     input.MonthOfYear,
-		FireHour:        input.FireHour,
-		FireMinute:      input.FireMinute,
-		Timezone:        input.Timezone,
-		NextRunAt:       firstFire.UTC(),
-		Paused:          false,
-		CreatedAt:       now,
-		UpdatedAt:       now,
+		ID:               uuid.NewString(),
+		SpaceID:          input.SpaceID,
+		Kind:             input.Kind,
+		SourceAccountID:  input.SourceAccountID,
+		Title:            title,
+		Amount:           input.Amount,
+		Description:      description,
+		Frequency:        input.Frequency,
+		IntervalCount:    input.IntervalCount,
+		DayOfWeek:        input.DayOfWeek,
+		DayOfMonth:       input.DayOfMonth,
+		MonthOfYear:      input.MonthOfYear,
+		FireHour:         input.FireHour,
+		FireMinute:       input.FireMinute,
+		Timezone:         input.Timezone,
+		BusinessDaysOnly: input.BusinessDaysOnly,
+		NextRunAt:        firstFire.UTC(),
+		Paused:           false,
+		CreatedAt:        now,
+		UpdatedAt:        now,
 	}
 
 	if err := s.repo.Create(ev); err != nil {
@@ -133,6 +138,8 @@ type UpdateRecurringEventInput struct {
 	FireHour      int
 	FireMinute    int
 	Timezone      string
+
+	BusinessDaysOnly bool
 
 	// StartDate, if non-zero, recomputes the next firing. If zero, the current
 	// cursor is kept (useful for purely cosmetic edits like renaming).
@@ -163,7 +170,7 @@ func (s *RecurringEventService) Update(input UpdateRecurringEventInput) (*model.
 
 	nextRun := existing.NextRunAt
 	if !input.StartDate.IsZero() {
-		firstFire, err := firstFireOnOrAfter(input.Frequency, input.IntervalCount, input.DayOfWeek, input.DayOfMonth, input.MonthOfYear, input.FireHour, input.FireMinute, loc, input.StartDate)
+		firstFire, err := firstFireOnOrAfter(input.Frequency, input.IntervalCount, input.DayOfWeek, input.DayOfMonth, input.MonthOfYear, input.FireHour, input.FireMinute, loc, input.StartDate, input.BusinessDaysOnly)
 		if err != nil {
 			return nil, err
 		}
@@ -188,6 +195,7 @@ func (s *RecurringEventService) Update(input UpdateRecurringEventInput) (*model.
 	existing.FireHour = input.FireHour
 	existing.FireMinute = input.FireMinute
 	existing.Timezone = input.Timezone
+	existing.BusinessDaysOnly = input.BusinessDaysOnly
 	existing.NextRunAt = nextRun
 
 	if err := s.repo.Update(existing); err != nil {
@@ -334,19 +342,33 @@ func validateRule(kind model.RecurringEventKind, src string, freq model.Recurrin
 
 // firstFireOnOrAfter computes the first firing in `loc` at or after the local
 // midnight of startDate, snapped to the recurrence anchors and time-of-day.
-func firstFireOnOrAfter(freq model.RecurringFrequency, interval int, dow, dom, moy *int, hour, minute int, loc *time.Location, startDate time.Time) (time.Time, error) {
+func firstFireOnOrAfter(freq model.RecurringFrequency, interval int, dow, dom, moy *int, hour, minute int, loc *time.Location, startDate time.Time, businessDaysOnly bool) (time.Time, error) {
 	startLocal := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, loc)
 	threshold := startLocal.Add(-time.Nanosecond) // nextFireAfter computes strictly-after; -1ns lets the first candidate land on startDate
 	ev := &model.RecurringEvent{
-		Frequency:     freq,
-		IntervalCount: interval,
-		DayOfWeek:     dow,
-		DayOfMonth:    dom,
-		MonthOfYear:   moy,
-		FireHour:      hour,
-		FireMinute:    minute,
+		Frequency:        freq,
+		IntervalCount:    interval,
+		DayOfWeek:        dow,
+		DayOfMonth:       dom,
+		MonthOfYear:      moy,
+		FireHour:         hour,
+		FireMinute:       minute,
+		BusinessDaysOnly: businessDaysOnly,
 	}
 	return nextFireAfter(ev, threshold, loc)
+}
+
+// shiftToBusinessDay rolls Saturday/Sunday firings forward to the following
+// Monday, preserving the time-of-day in `loc`.
+func shiftToBusinessDay(t time.Time, loc *time.Location) time.Time {
+	local := t.In(loc)
+	switch local.Weekday() {
+	case time.Saturday:
+		return local.AddDate(0, 0, 2)
+	case time.Sunday:
+		return local.AddDate(0, 0, 1)
+	}
+	return local
 }
 
 // nextFireAfter computes the next firing strictly after `after`, in UTC.
@@ -357,6 +379,9 @@ func nextFireAfter(ev *model.RecurringEvent, after time.Time, loc *time.Location
 		c := time.Date(afterLocal.Year(), afterLocal.Month(), afterLocal.Day(), ev.FireHour, ev.FireMinute, 0, 0, loc)
 		for !c.After(after) {
 			c = c.AddDate(0, 0, ev.IntervalCount)
+		}
+		if ev.BusinessDaysOnly {
+			c = shiftToBusinessDay(c, loc)
 		}
 		return c.UTC(), nil
 
@@ -370,6 +395,9 @@ func nextFireAfter(ev *model.RecurringEvent, after time.Time, loc *time.Location
 		for !c.After(after) {
 			c = c.AddDate(0, 0, 7*ev.IntervalCount)
 		}
+		if ev.BusinessDaysOnly {
+			c = shiftToBusinessDay(c, loc)
+		}
 		return c.UTC(), nil
 
 	case model.RecurringFrequencyMonthly:
@@ -381,6 +409,9 @@ func nextFireAfter(ev *model.RecurringEvent, after time.Time, loc *time.Location
 		for !c.After(after) {
 			y, m = addMonths(y, m, ev.IntervalCount)
 			c = monthlyCandidate(y, m, *ev.DayOfMonth, ev.FireHour, ev.FireMinute, loc)
+		}
+		if ev.BusinessDaysOnly {
+			c = shiftToBusinessDay(c, loc)
 		}
 		return c.UTC(), nil
 
@@ -394,6 +425,9 @@ func nextFireAfter(ev *model.RecurringEvent, after time.Time, loc *time.Location
 		for !c.After(after) {
 			y += ev.IntervalCount
 			c = monthlyCandidate(y, moy, *ev.DayOfMonth, ev.FireHour, ev.FireMinute, loc)
+		}
+		if ev.BusinessDaysOnly {
+			c = shiftToBusinessDay(c, loc)
 		}
 		return c.UTC(), nil
 	}

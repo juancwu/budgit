@@ -4,6 +4,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/misc/timezone"
 import "git.juancwu.dev/juancwu/budgit/internal/model"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/checkbox"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/textarea"
@@ -27,9 +28,10 @@ type RecurringEventFormProps struct {
 	DayOfWeek       string
 	DayOfMonth      string
 	MonthOfYear     string
-	FireTime        string
-	Timezone        string
-	StartDate       string
+	FireTime         string
+	Timezone         string
+	StartDate        string
+	BusinessDaysOnly bool
 
 	TitleErr       string
 	KindErr        string
@@ -307,6 +309,24 @@ templ RecurringEventForm(props RecurringEventFormProps) {
 						}
 					}
 				</div>
+				@form.Item() {
+					<div class="flex items-start gap-2">
+						@checkbox.Checkbox(checkbox.Props{
+							ID:      "business_days_only",
+							Name:    "business_days_only",
+							Value:   "1",
+							Checked: props.BusinessDaysOnly,
+						})
+						<div class="space-y-1">
+							<label for="business_days_only" class="text-sm font-medium leading-none cursor-pointer">
+								Skip non-business days
+							</label>
+							@form.Description() {
+								If a firing lands on Saturday or Sunday, push it to the following Monday.
+							}
+						</div>
+					</div>
+				}
 				@form.Item() {
 					@form.Label(form.LabelProps{For: "description"}) {
 						Description
