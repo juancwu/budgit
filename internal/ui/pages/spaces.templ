@@ -1,8 +1,6 @@
 package pages
 
 import (
-	"fmt"
-
 	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
 	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
@@ -10,11 +8,9 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/sidebar"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/utils"
-	"github.com/shopspring/decimal"
 )
 
-templ Spaces(spaces []blocks.SpaceCardInfo, totalBalance decimal.Decimal) {
+templ Spaces(spaces []blocks.SpaceCardInfo) {
 	{{
 		user := ctxkeys.User(ctx)
 		displayName := ""
@@ -30,14 +26,6 @@ templ Spaces(spaces []blocks.SpaceCardInfo, totalBalance decimal.Decimal) {
 					<h1 class="text-2xl font-bold">Hello, { displayName }</h1>
 					if len(spaces) == 0 {
 						<p class="text-muted-foreground">Create a space to start tracking your expenses.</p>
-					} else {
-						{{
-							countPhrase := fmt.Sprintf("Across %d spaces", len(spaces))
-							if len(spaces) == 1 {
-								countPhrase = "Across 1 space"
-							}
-						}}
-						<p class="text-muted-foreground">{ countPhrase } you have <span class="font-medium text-foreground">${ utils.FormatDecimalWithThousands(totalBalance.StringFixedBank(2)) }</span> tracked.</p>
 					}
 				</div>
 				<div>

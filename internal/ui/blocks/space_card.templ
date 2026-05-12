@@ -1,16 +1,14 @@
 package blocks
 
-import "github.com/shopspring/decimal"
 import "strings"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 import "fmt"
 import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
 
 type SpaceCardInfo struct {
-	ID           string
-	Name         string
-	MemberCount  int
-	TotalBalance decimal.Decimal
+	ID          string
+	Name        string
+	MemberCount int
 }
 
 templ SpaceCard(info SpaceCardInfo) {
@@ -23,8 +21,6 @@ templ SpaceCard(info SpaceCardInfo) {
 				<div>
 					<p class="font-semibold">{ info.Name }</p>
 					<p class="text-xs text-muted-foreground">
-						<span>${ info.TotalBalance.StringFixedBank(2) }</span>
-						<span>•</span>
 						<span>{ fmt.Sprintf("%d members", info.MemberCount) }</span>
 					</p>
 				</div>

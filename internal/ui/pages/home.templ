@@ -9,14 +9,11 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
-	"git.juancwu.dev/juancwu/budgit/internal/ui/utils"
-	"github.com/shopspring/decimal"
 )
 
 type HomeProps struct {
 	OwnedSpaces  []blocks.SpaceCardInfo
 	SharedSpaces []blocks.SpaceCardInfo
-	TotalBalance decimal.Decimal
 }
 
 templ Home(props HomeProps) {
@@ -36,14 +33,6 @@ templ Home(props HomeProps) {
 					<h1 class="text-2xl font-bold">Hello, { displayName }</h1>
 					if totalSpaces == 0 {
 						<p class="text-muted-foreground">Create a space to start tracking your expenses.</p>
-					} else {
-						{{
-							countPhrase := fmt.Sprintf("Across %d spaces", totalSpaces)
-							if totalSpaces == 1 {
-								countPhrase = "Across 1 space"
-							}
-						}}
-						<p class="text-muted-foreground">{ countPhrase } you own you have <span class="font-medium text-foreground">${ utils.FormatDecimalWithThousands(props.TotalBalance.StringFixedBank(2)) }</span> tracked.</p>
 					}
 				</div>
 				<div>

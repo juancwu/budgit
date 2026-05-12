@@ -78,15 +78,9 @@ func (h *spaceHandler) HomePage(w http.ResponseWriter, r *http.Request) {
 	ownedCards := h.buildSpaceCards(owned)
 	sharedCards := h.buildSpaceCards(shared)
 
-	total := decimal.Zero
-	for _, c := range ownedCards {
-		total = total.Add(c.TotalBalance)
-	}
-
 	ui.Render(w, r, pages.Home(pages.HomeProps{
 		OwnedSpaces:  ownedCards,
 		SharedSpaces: sharedCards,
-		TotalBalance: total,
 	}))
 }
 
@@ -106,12 +100,7 @@ func (h *spaceHandler) SpacesPage(w http.ResponseWriter, r *http.Request) {
 
 	cards := h.buildSpaceCards(spaces)
 
-	total := decimal.Zero
-	for _, c := range cards {
-		total = total.Add(c.TotalBalance)
-	}
-
-	ui.Render(w, r, pages.Spaces(cards, total))
+	ui.Render(w, r, pages.Spaces(cards))
 }
 
 func (h *spaceHandler) SharedSpacesPage(w http.ResponseWriter, r *http.Request) {
@@ -141,22 +130,10 @@ func (h *spaceHandler) buildSpaceCards(spaces []*model.Space) []blocks.SpaceCard
 			memberCount = 0
 		}
 
-		accounts, err := h.accountService.GetAccountsForSpace(sp.ID)
-		if err != nil {
-			slog.Error("failed to get space accounts", "error", err, "space_id", sp.ID)
-			accounts = nil
-		}
-
-		totalBalance := decimal.Zero
-		for _, acc := range accounts {
-			totalBalance = totalBalance.Add(acc.Balance)
-		}
-
 		cards = append(cards, blocks.SpaceCardInfo{
-			ID:           sp.ID,
-			Name:         sp.Name,
-			MemberCount:  memberCount,
-			TotalBalance: totalBalance,
+			ID:          sp.ID,
+			Name:        sp.Name,
+			MemberCount: memberCount,
 		})
 	}
 	return cards
