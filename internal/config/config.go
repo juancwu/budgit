@@ -23,6 +23,8 @@ type Config struct {
 	JWTExpiry            time.Duration
 	TokenMagicLinkExpiry time.Duration
 
+	DisableRegistration bool
+
 	MailerSMTPHost  string
 	MailerSMTPPort  int
 	MailerIMAPHost  string
@@ -57,6 +59,8 @@ func Load(version string) *Config {
 		JWTSecret:            envRequired("JWT_SECRET"),
 		JWTExpiry:            envDuration("JWT_EXPIRY", 168*time.Hour), // 7 days default
 		TokenMagicLinkExpiry: envDuration("TOKEN_MAGIC_LINK_EXPIRY", 10*time.Minute),
+
+		DisableRegistration: envBool("DISABLE_REGISTRATION", false),
 
 		MailerSMTPHost:  envString("MAILER_SMTP_HOST", ""),
 		MailerSMTPPort:  envInt("MAILER_SMTP_PORT", 587),
@@ -118,6 +122,19 @@ func envInt(key string, def int) int {
 		return def
 	}
 	return int(i)
+}
+
+func envBool(key string, def bool) bool {
+	value, ok := os.LookupEnv(key)
+	if !ok || value == "" {
+		return def
+	}
+	b, err := strconv.ParseBool(value)
+	if err != nil {
+		slog.Warn("config invalid bool, using default", "key", key, "value", value, "default", def)
+		return def
+	}
+	return b
 }
 
 func envDuration(key string, def time.Duration) time.Duration {

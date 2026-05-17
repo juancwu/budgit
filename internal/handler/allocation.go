@@ -191,8 +191,8 @@ func (h *allocationHandler) renderSectionWithCreateError(w http.ResponseWriter, 
 	}
 	ui.Render(w, r, blocks.AllocationsSection(blocks.AllocationsSectionProps{
 		SpaceID: spaceID, AccountID: accountID, Summary: summary,
-		CreateForm:        &state,
-		ShowCreateForm:    true,
+		CreateForm:     &state,
+		ShowCreateForm: true,
 	}))
 }
 

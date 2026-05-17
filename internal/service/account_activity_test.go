@@ -27,7 +27,7 @@ func (s *stubSpaceAuditRepo) ListBySpace(_ string, limit, _ int) ([]*model.Space
 	}
 	return firstN(s.listSpace, limit), nil
 }
-func (s *stubSpaceAuditRepo) CountBySpace(string) (int, error)   { return s.countSpace, s.err }
+func (s *stubSpaceAuditRepo) CountBySpace(string) (int, error) { return s.countSpace, s.err }
 func (s *stubSpaceAuditRepo) ListAccountEvents(_ string, limit, _ int) ([]*model.SpaceAuditLogWithActor, error) {
 	if s.err != nil {
 		return nil, s.err
@@ -99,9 +99,9 @@ func TestAccountActivityService_List_MergesAndSortsByTimestamp(t *testing.T) {
 	}
 	txRepo := &stubTxAuditRepo{
 		listAccount: []*model.TransactionAuditLogWithActor{
-			txLog(model.TransactionAuditActionEdited, now),                            // newest overall
+			txLog(model.TransactionAuditActionEdited, now), // newest overall
 			txLog(model.TransactionAuditActionCreated, now.Add(-5*time.Minute)),
-			txLog(model.TransactionAuditActionDeleted, now.Add(-15*time.Minute)),      // oldest overall
+			txLog(model.TransactionAuditActionDeleted, now.Add(-15*time.Minute)), // oldest overall
 		},
 		countAccount: 3,
 	}

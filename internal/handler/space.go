@@ -330,15 +330,15 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 	}
 
 	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
-		SpaceID:                  spaceID,
-		SpaceName:                space.Name,
-		AccountID:                accountID,
-		AccountName:              account.Name,
-		AccountBalance:           account.Balance,
-		AccountCurrency:          account.Currency,
-		RecentTransactions:       recent,
+		SpaceID:                   spaceID,
+		SpaceName:                 space.Name,
+		AccountID:                 accountID,
+		AccountName:               account.Name,
+		AccountBalance:            account.Balance,
+		AccountCurrency:           account.Currency,
+		RecentTransactions:        recent,
 		NonEditableTransactionIDs: h.nonEditableTransactionIDs(recent),
-		AllocationSummary:        allocSummary,
+		AllocationSummary:         allocSummary,
 	}))
 }
 
@@ -396,16 +396,16 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 	}
 
 	ui.Render(w, r, pages.SpaceAccountTransactionsPage(pages.SpaceAccountTransactionsPageProps{
-		SpaceID:                  spaceID,
-		SpaceName:                space.Name,
-		AccountID:                accountID,
-		AccountName:              account.Name,
-		Transactions:             txns,
+		SpaceID:                   spaceID,
+		SpaceName:                 space.Name,
+		AccountID:                 accountID,
+		AccountName:               account.Name,
+		Transactions:              txns,
 		NonEditableTransactionIDs: h.nonEditableTransactionIDs(txns),
-		CurrentPage:              page,
-		TotalPages:               totalPages,
-		TotalCount:               total,
-		PerPage:                  perPage,
+		CurrentPage:               page,
+		TotalPages:                totalPages,
+		TotalCount:                total,
+		PerPage:                   perPage,
 	}))
 }
 

@@ -210,9 +210,9 @@ func TestFirstFireOnOrAfter_WeeklyShiftsToTargetDayOfWeek(t *testing.T) {
 
 func TestAddMonths(t *testing.T) {
 	tests := []struct {
-		y int
-		m time.Month
-		n int
+		y  int
+		m  time.Month
+		n  int
 		wy int
 		wm time.Month
 	}{

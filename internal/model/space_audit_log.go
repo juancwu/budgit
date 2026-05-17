@@ -5,19 +5,19 @@ import "time"
 type SpaceAuditAction string
 
 const (
-	SpaceAuditActionRenamed         SpaceAuditAction = "space.renamed"
-	SpaceAuditActionDeleted         SpaceAuditAction = "space.deleted"
-	SpaceAuditActionMemberInvited   SpaceAuditAction = "member.invited"
-	SpaceAuditActionMemberJoined    SpaceAuditAction = "member.joined"
-	SpaceAuditActionMemberRemoved   SpaceAuditAction = "member.removed"
-	SpaceAuditActionInviteCancelled SpaceAuditAction = "invite.cancelled"
-	SpaceAuditActionAccountCreated  SpaceAuditAction = "account.created"
-	SpaceAuditActionAccountRenamed  SpaceAuditAction = "account.renamed"
-	SpaceAuditActionAccountDeleted          SpaceAuditAction = "account.deleted"
-	SpaceAuditActionAccountCurrencyChanged  SpaceAuditAction = "account.currency_changed"
-	SpaceAuditActionAllocationCreated SpaceAuditAction = "allocation.created"
-	SpaceAuditActionAllocationUpdated SpaceAuditAction = "allocation.updated"
-	SpaceAuditActionAllocationDeleted SpaceAuditAction = "allocation.deleted"
+	SpaceAuditActionRenamed                SpaceAuditAction = "space.renamed"
+	SpaceAuditActionDeleted                SpaceAuditAction = "space.deleted"
+	SpaceAuditActionMemberInvited          SpaceAuditAction = "member.invited"
+	SpaceAuditActionMemberJoined           SpaceAuditAction = "member.joined"
+	SpaceAuditActionMemberRemoved          SpaceAuditAction = "member.removed"
+	SpaceAuditActionInviteCancelled        SpaceAuditAction = "invite.cancelled"
+	SpaceAuditActionAccountCreated         SpaceAuditAction = "account.created"
+	SpaceAuditActionAccountRenamed         SpaceAuditAction = "account.renamed"
+	SpaceAuditActionAccountDeleted         SpaceAuditAction = "account.deleted"
+	SpaceAuditActionAccountCurrencyChanged SpaceAuditAction = "account.currency_changed"
+	SpaceAuditActionAllocationCreated      SpaceAuditAction = "allocation.created"
+	SpaceAuditActionAllocationUpdated      SpaceAuditAction = "allocation.updated"
+	SpaceAuditActionAllocationDeleted      SpaceAuditAction = "allocation.deleted"
 )
 
 type SpaceAuditLog struct {

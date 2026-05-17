@@ -30,6 +30,7 @@ func newTestAuthService(dbi testutil.DBInfo) *AuthService {
 		cfg.JWTExpiry,
 		cfg.TokenMagicLinkExpiry,
 		false,
+		false,
 	)
 }
 

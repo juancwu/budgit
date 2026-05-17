@@ -11,7 +11,7 @@ import (
 )
 
 type fakeSpaceAuditRepo struct {
-	created []*model.SpaceAuditLog
+	created  []*model.SpaceAuditLog
 	failNext error
 }
 

@@ -88,6 +88,23 @@ func (h *authHandler) SendMagicLink(w http.ResponseWriter, r *http.Request) {
 	err = h.authService.SendMagicLink(email)
 	if err != nil {
 		slog.Warn("magic link send failed", "error", err, "email", email)
+
+		if errors.Is(err, service.ErrRegistrationDisabled) {
+			msg := "Registration is disabled. Please contact an administrator if you need an account."
+			if r.URL.Query().Get("resend") == "true" {
+				ui.RenderToast(w, r, toast.Toast(toast.Props{
+					Title:       "Magic link not sent",
+					Description: msg,
+					Variant:     toast.VariantError,
+					Icon:        true,
+					Dismissible: true,
+					Duration:    5000,
+				}))
+				return
+			}
+			ui.Render(w, r, pages.Auth(msg))
+			return
+		}
 	}
 
 	if r.URL.Query().Get("resend") == "true" {

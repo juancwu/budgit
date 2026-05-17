@@ -20,15 +20,16 @@ import (
 )
 
 var (
-	ErrInvalidCredentials  = errors.New("invalid email or password")
-	ErrNoPassword          = errors.New("account uses passwordless login. Use magic link")
-	ErrPasswordsDoNotMatch = errors.New("passwords do not match")
-	ErrEmailAlreadyExists  = errors.New("email already exists")
-	ErrWeakPassword        = errors.New("password must be at least 12 characters")
-	ErrCommonPassword      = errors.New("password is too common, please choose a stronger one")
-	ErrEmailNotVerified    = errors.New("email not verified")
-	ErrInvalidEmail        = errors.New("invalid email address")
-	ErrNameRequired        = errors.New("name is required")
+	ErrInvalidCredentials   = errors.New("invalid email or password")
+	ErrNoPassword           = errors.New("account uses passwordless login. Use magic link")
+	ErrPasswordsDoNotMatch  = errors.New("passwords do not match")
+	ErrEmailAlreadyExists   = errors.New("email already exists")
+	ErrWeakPassword         = errors.New("password must be at least 12 characters")
+	ErrCommonPassword       = errors.New("password is too common, please choose a stronger one")
+	ErrEmailNotVerified     = errors.New("email not verified")
+	ErrInvalidEmail         = errors.New("invalid email address")
+	ErrNameRequired         = errors.New("name is required")
+	ErrRegistrationDisabled = errors.New("registration is disabled")
 )
 
 type AuthService struct {
@@ -41,6 +42,7 @@ type AuthService struct {
 	jwtExpiry            time.Duration
 	tokenMagicLinkExpiry time.Duration
 	isProduction         bool
+	disableRegistration  bool
 }
 
 func NewAuthService(
@@ -53,6 +55,7 @@ func NewAuthService(
 	jwtExpiry time.Duration,
 	tokenMagicLinkExpiry time.Duration,
 	isProduction bool,
+	disableRegistration bool,
 ) *AuthService {
 	return &AuthService{
 		emailService:         emailService,
@@ -64,6 +67,7 @@ func NewAuthService(
 		jwtExpiry:            jwtExpiry,
 		tokenMagicLinkExpiry: tokenMagicLinkExpiry,
 		isProduction:         isProduction,
+		disableRegistration:  disableRegistration,
 	}
 }
 
@@ -235,6 +239,10 @@ func (s *AuthService) SendMagicLink(email string) error {
 	if err != nil {
 		// User doesn't exist - create a new passwordless account
 		if errors.Is(err, repository.ErrUserNotFound) {
+			if s.disableRegistration {
+				slog.Info("registration disabled, refusing to create new user", "email", email)
+				return ErrRegistrationDisabled
+			}
 			now := time.Now()
 			user = &model.User{
 				ID:        uuid.NewString(),

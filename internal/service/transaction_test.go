@@ -16,11 +16,11 @@ import (
 // txnFixture builds a fully wired TransactionService against a real DB along with
 // the helper repos the tests need to inspect post-state.
 type txnFixture struct {
-	svc       *TransactionService
-	txAudit   repository.TransactionAuditLogRepository
-	accounts  repository.AccountRepository
-	user      *model.User
-	account   *model.Account
+	svc      *TransactionService
+	txAudit  repository.TransactionAuditLogRepository
+	accounts repository.AccountRepository
+	user     *model.User
+	account  *model.Account
 }
 
 func newTxnFixture(t *testing.T, dbi testutil.DBInfo) *txnFixture {
@@ -149,8 +149,8 @@ func TestTransactionService_UpdateDeposit_RebalancesAndDiffs(t *testing.T) {
 		assert.Equal(t, model.TransactionAuditActionEdited, logs[0].Action)
 
 		var meta struct {
-			AccountID string                              `json:"account_id"`
-			Changes   map[string]map[string]any           `json:"changes"`
+			AccountID string                    `json:"account_id"`
+			Changes   map[string]map[string]any `json:"changes"`
 		}
 		require.NoError(t, json.Unmarshal(logs[0].Metadata, &meta))
 		assert.Equal(t, f.account.ID, meta.AccountID)

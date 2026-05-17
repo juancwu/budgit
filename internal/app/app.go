@@ -11,20 +11,20 @@ import (
 )
 
 type App struct {
-	Cfg                *config.Config
-	DB                 *sqlx.DB
-	UserService        *service.UserService
-	AuthService        *service.AuthService
-	EmailService       *service.EmailService
-	SpaceService       *service.SpaceService
-	AccountService     *service.AccountService
-	AllocationService  *service.AllocationService
+	Cfg                   *config.Config
+	DB                    *sqlx.DB
+	UserService           *service.UserService
+	AuthService           *service.AuthService
+	EmailService          *service.EmailService
+	SpaceService          *service.SpaceService
+	AccountService        *service.AccountService
+	AllocationService     *service.AllocationService
 	TransactionService    *service.TransactionService
 	RecurringEventService *service.RecurringEventService
 	InviteService         *service.InviteService
-	AuditLogService    *service.SpaceAuditLogService
-	TxAuditLogService  *service.TransactionAuditLogService
-	AccountActivitySvc *service.AccountActivityService
+	AuditLogService       *service.SpaceAuditLogService
+	TxAuditLogService     *service.TransactionAuditLogService
+	AccountActivitySvc    *service.AccountActivityService
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -85,25 +85,26 @@ func New(cfg *config.Config) (*App, error) {
 		cfg.JWTExpiry,
 		cfg.TokenMagicLinkExpiry,
 		cfg.IsProduction(),
+		cfg.DisableRegistration,
 	)
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService, auditLogService)
 	recurringEventService := service.NewRecurringEventService(recurringEventRepository, transactionService, accountService)
 
 	return &App{
-		Cfg:                cfg,
-		DB:                 database,
-		UserService:        userService,
-		AuthService:        authService,
-		EmailService:       emailService,
-		SpaceService:       spaceService,
-		AccountService:     accountService,
-		AllocationService:  allocationService,
+		Cfg:                   cfg,
+		DB:                    database,
+		UserService:           userService,
+		AuthService:           authService,
+		EmailService:          emailService,
+		SpaceService:          spaceService,
+		AccountService:        accountService,
+		AllocationService:     allocationService,
 		TransactionService:    transactionService,
 		RecurringEventService: recurringEventService,
 		InviteService:         inviteService,
-		AuditLogService:    auditLogService,
-		TxAuditLogService:  txAuditLogService,
-		AccountActivitySvc: accountActivityService,
+		AuditLogService:       auditLogService,
+		TxAuditLogService:     txAuditLogService,
+		AccountActivitySvc:    accountActivityService,
 	}, nil
 }
 
