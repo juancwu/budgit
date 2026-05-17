@@ -224,6 +224,56 @@ func (s *EmailService) SendInvitationEmail(email, spaceName, inviterName, token 
 	return err
 }
 
+func (s *EmailService) SendAccountDeletionRequestedEmail(email, name, requestID string) error {
+	trackURL := fmt.Sprintf("%s/account-deletion-status/%s", s.appURL, requestID)
+	subject, body := accountDeletionRequestedEmailTemplate(name, trackURL, s.appName)
+
+	if !s.isProd {
+		slog.Info("email sent (dev mode)", "type", "account_deletion_requested", "to", email, "subject", subject, "url", trackURL)
+		return nil
+	}
+
+	if s.client == nil {
+		return fmt.Errorf("email service not configured")
+	}
+
+	params := &EmailParams{
+		From:    s.fromEmail,
+		To:      []string{email},
+		Subject: subject,
+		Text:    body,
+	}
+
+	_, err := s.client.SendWithContext(context.Background(), params)
+	if err == nil {
+		slog.Info("email sent", "type", "account_deletion_requested", "to", email)
+	}
+	return err
+}
+
+func accountDeletionRequestedEmailTemplate(name, trackURL, appName string) (string, string) {
+	greeting := "Hi,"
+	if name != "" {
+		greeting = fmt.Sprintf("Hi %s,", name)
+	}
+	subject := fmt.Sprintf("Your %s account deletion request was received", appName)
+	body := fmt.Sprintf(`%s
+
+We received your request to permanently delete your %s account. The deletion is now in progress and typically finishes within a few minutes.
+
+You can track the status of your request here:
+%s
+
+This link is the only way to check on the request — keep it somewhere safe if you want to confirm completion later. Once the deletion finishes, your data is gone for good and cannot be recovered.
+
+If you did NOT request this, contact our support team immediately. We may still be able to halt the deletion before it completes.
+
+Best,
+The %s Team`, greeting, appName, trackURL, appName)
+
+	return subject, body
+}
+
 func magicLinkEmailTemplate(magicURL, appName string) (string, string) {
 	subject := fmt.Sprintf("Sign in to %s", appName)
 	body := fmt.Sprintf(`Click this link to sign in to your account:

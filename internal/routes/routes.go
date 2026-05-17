@@ -57,6 +57,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	r.Get("/privacy", homeH.PrivacyPage).Name("page.public.privacy")
 	r.Get("/terms", homeH.TermsPage).Name("page.public.terms")
 	r.Get("/join/{token}", authH.JoinSpace).Name("page.public.join-space")
+	r.Get("/account-deletion-status/{requestID}", settingsH.AccountDeletionStatusPage).Name("page.public.account-deletion-status")
 	r.Post("/join/{token}/accept", authH.AcceptInvite).Name("action.public.join-space.accept")
 
 	// Permanent redirects

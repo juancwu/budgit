@@ -1,0 +1,121 @@
+package pages
+
+import (
+	"strconv"
+
+	"git.juancwu.dev/juancwu/budgit/internal/ctxkeys"
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+func deletionBadgeClass(status string) string {
+	switch status {
+	case model.AccountDeletionStatusCompleted:
+		return "bg-primary text-primary-foreground"
+	case model.AccountDeletionStatusFailed:
+		return "bg-destructive text-destructive-foreground"
+	case model.AccountDeletionStatusProcessing:
+		return "bg-secondary text-secondary-foreground"
+	default:
+		return "border border-input"
+	}
+}
+
+func deletionBadgeText(status string) string {
+	switch status {
+	case model.AccountDeletionStatusCompleted:
+		return "Completed"
+	case model.AccountDeletionStatusFailed:
+		return "Failed"
+	case model.AccountDeletionStatusProcessing:
+		return "Processing"
+	default:
+		return "Pending"
+	}
+}
+
+func deletionBlurb(status string) string {
+	switch status {
+	case model.AccountDeletionStatusCompleted:
+		return "Your data has been permanently deleted. This record is the only thing that remains."
+	case model.AccountDeletionStatusFailed:
+		return "We hit a problem we couldn't recover from automatically. Your data is still in place — please reach out to support so we can finish the deletion manually."
+	case model.AccountDeletionStatusProcessing:
+		return "Your data is being deleted right now. This usually finishes within a few seconds."
+	default:
+		return "Your request is in the queue. The background worker picks it up within 30 seconds."
+	}
+}
+
+templ AccountDeletionStatus(req *model.AccountDeletionRequest) {
+	{{ cfg := ctxkeys.Config(ctx) }}
+	@layouts.Auth(layouts.SEOProps{
+		Title:       "Account Deletion Status",
+		Description: "Track the status of an account deletion request",
+		Path:        "/account-deletion-status",
+	}) {
+		<div class="container max-w-xl px-4 py-16 mx-auto">
+			@card.Card() {
+				@card.Header() {
+					@card.Title(card.TitleProps{Class: "flex items-center gap-2"}) {
+						@icon.Trash2()
+						<span>Account Deletion Status</span>
+					}
+					@card.Description() {
+						Request for { req.Email }
+					}
+				}
+				@card.Content() {
+					<dl class="space-y-3 text-sm">
+						<div class="flex items-center justify-between">
+							<dt class="text-muted-foreground">Status</dt>
+							<dd>
+								<span class={ "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium", deletionBadgeClass(req.Status) }>
+									{ deletionBadgeText(req.Status) }
+								</span>
+							</dd>
+						</div>
+						<div class="flex items-center justify-between">
+							<dt class="text-muted-foreground">Requested</dt>
+							<dd>{ req.RequestedAt.Format("January 2, 2006 at 3:04 PM MST") }</dd>
+						</div>
+						if req.CompletedAt != nil {
+							<div class="flex items-center justify-between">
+								<dt class="text-muted-foreground">Completed</dt>
+								<dd>{ req.CompletedAt.Format("January 2, 2006 at 3:04 PM MST") }</dd>
+							</div>
+						}
+						if req.Attempts > 0 {
+							<div class="flex items-center justify-between">
+								<dt class="text-muted-foreground">Attempts</dt>
+								<dd>{ strconv.Itoa(req.Attempts) }</dd>
+							</div>
+						}
+						if req.SpacesDeleted != nil {
+							<div class="flex items-center justify-between">
+								<dt class="text-muted-foreground">Spaces deleted</dt>
+								<dd>{ strconv.Itoa(*req.SpacesDeleted) }</dd>
+							</div>
+						}
+					</dl>
+					<p class="mt-6 text-sm text-muted-foreground">{ deletionBlurb(req.Status) }</p>
+					if req.LastError != nil {
+						<p class="mt-4 text-sm text-destructive">Last error: { *req.LastError }</p>
+						<p class="mt-2 text-sm text-muted-foreground">Please contact support at <a href={ templ.URL("mailto:" + cfg.SupportEmail) } class="text-primary hover:underline">{ cfg.SupportEmail }</a></p>
+					}
+				}
+				@card.Footer(card.FooterProps{Class: "justify-between"}) {
+					@button.Button(button.Props{Href: "/", Variant: button.VariantGhost}) {
+						Back to home
+					}
+					@button.Button(button.Props{Href: "/account-deletion-status/" + req.ID, Variant: button.VariantOutline}) {
+						Refresh
+					}
+				}
+			}
+		</div>
+	}
+}

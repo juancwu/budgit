@@ -26,6 +26,7 @@ type UserService struct {
 	db                  *sqlx.DB
 	userRepository      repository.UserRepository
 	deletionRequestRepo repository.AccountDeletionRequestRepository
+	emailService        *EmailService
 	// triggerDeletion is set by the worker so that handlers can wake the
 	// worker up immediately after enqueueing a new request, instead of
 	// waiting for the next periodic tick.
@@ -36,12 +37,27 @@ func NewUserService(
 	db *sqlx.DB,
 	userRepository repository.UserRepository,
 	deletionRequestRepo repository.AccountDeletionRequestRepository,
+	emailService *EmailService,
 ) *UserService {
 	return &UserService{
 		db:                  db,
 		userRepository:      userRepository,
 		deletionRequestRepo: deletionRequestRepo,
+		emailService:        emailService,
 	}
+}
+
+// GetDeletionRequest fetches a deletion request by ID. Returns
+// repository.ErrAccountDeletionRequestNotFound when the ID is unknown.
+func (s *UserService) GetDeletionRequest(id string) (*model.AccountDeletionRequest, error) {
+	return s.deletionRequestRepo.ByID(id)
+}
+
+// LatestDeletionRequestForUser returns the most recent deletion request for
+// the given user, or repository.ErrAccountDeletionRequestNotFound if there
+// is none.
+func (s *UserService) LatestDeletionRequestForUser(userID string) (*model.AccountDeletionRequest, error) {
+	return s.deletionRequestRepo.LatestForUser(userID)
 }
 
 func (s *UserService) SetDeletionTrigger(ch chan<- struct{}) {
@@ -112,6 +128,18 @@ func (s *UserService) RequestAccountDeletion(input RequestAccountDeletionInput) 
 	})
 	if err != nil {
 		return err
+	}
+
+	// Confirmation email — best-effort. The deletion proceeds regardless so
+	// a transient mail outage doesn't trap the user with a flagged account.
+	if s.emailService != nil {
+		name := ""
+		if user.Name != nil {
+			name = *user.Name
+		}
+		if err := s.emailService.SendAccountDeletionRequestedEmail(user.Email, name, req.ID); err != nil {
+			slog.Error("failed to send account deletion confirmation email", "error", err, "user_id", user.ID, "request_id", req.ID)
+		}
 	}
 
 	// Wake the worker so it picks up immediately rather than waiting for the

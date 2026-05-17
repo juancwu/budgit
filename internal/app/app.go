@@ -58,7 +58,14 @@ func New(cfg *config.Config) (*App, error) {
 	accountDeletionRequestRepo := repository.NewAccountDeletionRequestRepository(database)
 
 	// Services
-	userService := service.NewUserService(database, userRepository, accountDeletionRequestRepo)
+	emailService := service.NewEmailService(
+		emailClient,
+		cfg.MailerEmailFrom,
+		cfg.AppURL,
+		cfg.AppName,
+		cfg.IsProduction(),
+	)
+	userService := service.NewUserService(database, userRepository, accountDeletionRequestRepo, emailService)
 	accountDeletionWorker := worker.NewAccountDeletionWorker(userService, 30*time.Second)
 	auditLogService := service.NewSpaceAuditLogService(auditLogRepository)
 	txAuditLogService := service.NewTransactionAuditLogService(txAuditLogRepository)
@@ -73,13 +80,6 @@ func New(cfg *config.Config) (*App, error) {
 	transactionService.SetAuditLogger(txAuditLogService)
 	transactionService.SetAllocationService(allocationService)
 	accountActivityService := service.NewAccountActivityService(auditLogService, txAuditLogService)
-	emailService := service.NewEmailService(
-		emailClient,
-		cfg.MailerEmailFrom,
-		cfg.AppURL,
-		cfg.AppName,
-		cfg.IsProduction(),
-	)
 	authService := service.NewAuthService(
 		emailService,
 		userRepository,

@@ -77,13 +77,36 @@ func (h *settingsHandler) DeleteAccount(w http.ResponseWriter, r *http.Request) 
 	http.Redirect(w, r, "/account-pending-deletion", http.StatusSeeOther)
 }
 
+func (h *settingsHandler) AccountDeletionStatusPage(w http.ResponseWriter, r *http.Request) {
+	requestID := r.PathValue("requestID")
+	if requestID == "" {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	req, err := h.userService.GetDeletionRequest(requestID)
+	if err != nil {
+		slog.Info("account deletion status lookup failed",
+			"request_id", requestID,
+			"error", err,
+		)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+	ui.Render(w, r, pages.AccountDeletionStatus(req))
+}
+
 func (h *settingsHandler) AccountPendingDeletionPage(w http.ResponseWriter, r *http.Request) {
 	user := ctxkeys.User(r.Context())
 	if user == nil || !user.IsPendingDeletion() {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	ui.Render(w, r, pages.AccountPendingDeletion(*user.PendingDeletionAt))
+	trackingID := ""
+	if req, err := h.userService.LatestDeletionRequestForUser(user.ID); err == nil {
+		trackingID = req.ID
+	}
+	ui.Render(w, r, pages.AccountPendingDeletion(*user.PendingDeletionAt, trackingID))
 }
 
 func (h *settingsHandler) SetPassword(w http.ResponseWriter, r *http.Request) {

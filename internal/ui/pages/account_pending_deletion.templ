@@ -10,7 +10,7 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ AccountPendingDeletion(requestedAt time.Time) {
+templ AccountPendingDeletion(requestedAt time.Time, trackingID string) {
 	@layouts.Auth(layouts.SEOProps{
 		Title:       "Account Pending Deletion",
 		Description: "Your account is being deleted",
@@ -34,8 +34,26 @@ templ AccountPendingDeletion(requestedAt time.Time) {
 					<p class="text-sm text-muted-foreground mt-4">
 						If you believe this was a mistake, please contact support immediately — we may be able to halt the deletion before it completes.
 					</p>
+					if trackingID != "" {
+						<p class="text-sm text-muted-foreground mt-4">
+							We also emailed you a confirmation. You can check the status of your deletion any time at
+							<a class="text-primary hover:underline break-all" href={ templ.SafeURL("/account-deletion-status/" + trackingID) }>
+								/account-deletion-status/{ trackingID }
+							</a>.
+						</p>
+					}
 				}
-				@card.Footer(card.FooterProps{Class: "justify-end"}) {
+				@card.Footer(card.FooterProps{Class: "justify-between"}) {
+					if trackingID != "" {
+						@button.Button(button.Props{
+							Href:    "/account-deletion-status/" + trackingID,
+							Variant: button.VariantGhost,
+						}) {
+							Track status
+						}
+					} else {
+						<span></span>
+					}
 					<form action="/auth/logout" method="POST">
 						@csrf.Token()
 						@button.Button(button.Props{

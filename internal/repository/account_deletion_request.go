@@ -13,7 +13,9 @@ var ErrAccountDeletionRequestNotFound = errors.New("account deletion request not
 
 type AccountDeletionRequestRepository interface {
 	CreateTx(tx *sqlx.Tx, req *model.AccountDeletionRequest) error
+	ByID(id string) (*model.AccountDeletionRequest, error)
 	HasPendingForUser(userID string) (bool, error)
+	LatestForUser(userID string) (*model.AccountDeletionRequest, error)
 
 	// ClaimNextPending atomically transitions the oldest pending request to
 	// "processing" and returns it. Returns ErrAccountDeletionRequestNotFound
@@ -54,6 +56,36 @@ func (r *accountDeletionRequestRepository) CreateTx(tx *sqlx.Tx, req *model.Acco
 		req.Status, req.Attempts, req.RequestedAt,
 	)
 	return err
+}
+
+func (r *accountDeletionRequestRepository) ByID(id string) (*model.AccountDeletionRequest, error) {
+	var req model.AccountDeletionRequest
+	err := r.db.Get(&req, `SELECT * FROM account_deletion_requests WHERE id = $1;`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrAccountDeletionRequestNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &req, nil
+}
+
+func (r *accountDeletionRequestRepository) LatestForUser(userID string) (*model.AccountDeletionRequest, error) {
+	var req model.AccountDeletionRequest
+	err := r.db.Get(&req,
+		`SELECT * FROM account_deletion_requests
+		 WHERE user_id = $1
+		 ORDER BY requested_at DESC
+		 LIMIT 1;`,
+		userID,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrAccountDeletionRequestNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &req, nil
 }
 
 func (r *accountDeletionRequestRepository) HasPendingForUser(userID string) (bool, error) {

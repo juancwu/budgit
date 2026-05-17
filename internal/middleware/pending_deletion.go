@@ -33,8 +33,10 @@ func BlockPendingDeletion(next http.Handler) http.HandlerFunc {
 			return
 		}
 
-		// Always permit static assets so the pending page can render.
-		if strings.HasPrefix(r.URL.Path, "/assets/") {
+		// Always permit static assets so the pending page can render, and
+		// the dynamic deletion-status URL the user got in their email.
+		if strings.HasPrefix(r.URL.Path, "/assets/") ||
+			strings.HasPrefix(r.URL.Path, "/account-deletion-status/") {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -48,10 +50,10 @@ func BlockPendingDeletion(next http.Handler) http.HandlerFunc {
 		// Safe methods are redirected to the pending-deletion landing page.
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.WriteHeader(http.StatusForbidden)
-			ui.Render(w, r, pages.AccountPendingDeletion(*user.PendingDeletionAt))
+			ui.Render(w, r, pages.AccountPendingDeletion(*user.PendingDeletionAt, ""))
 			return
 		}
 
-		ui.Render(w, r, pages.AccountPendingDeletion(*user.PendingDeletionAt))
+		ui.Render(w, r, pages.AccountPendingDeletion(*user.PendingDeletionAt, ""))
 	}
 }
