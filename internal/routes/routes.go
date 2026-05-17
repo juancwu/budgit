@@ -34,6 +34,7 @@ func SetupRoutes(a *app.App) http.Handler {
 		middleware.NoCacheDynamic,
 		middleware.CSRFProtection,
 		middleware.AuthMiddleware(a.AuthService, a.UserService),
+		middleware.BlockPendingDeletion,
 		middleware.WithURLPath,
 		middleware.WithSidebarState,
 	)
@@ -82,6 +83,10 @@ func SetupRoutes(a *app.App) http.Handler {
 		g.Post("/onboarding", authH.CompleteOnboarding).Name("action.auth.onboarding.complete")
 	})
 	r.Post("/auth/logout", authH.Logout).Name("action.auth.logout")
+
+	// Account pending deletion page — reachable while the deletion worker
+	// finishes wiping the user's data.
+	r.Get("/account-pending-deletion", settingsH.AccountPendingDeletionPage).Name("page.account.pending-deletion")
 
 	// App routes
 	r.Group("/app", func(g *router.Group) {
@@ -154,6 +159,7 @@ func SetupRoutes(a *app.App) http.Handler {
 			g.SubGroup("", func(g *router.Group) {
 				g.RateLimit(5, 15*time.Minute)
 				g.Post("/password", settingsH.SetPassword).Name("action.app.settings.password.set")
+				g.Post("/delete-account", settingsH.DeleteAccount).Name("action.app.settings.account.delete")
 			})
 		})
 	})

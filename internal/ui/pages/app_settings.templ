@@ -7,17 +7,19 @@ import (
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/components/sidebar"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/textarea"
 	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 )
 
-templ AppSettings(hasPassword bool, errorMsg string) {
+templ AppSettings(hasPassword bool, email string, passwordError string, deleteError string) {
 	@layouts.App("Settings", spaceOverviewSidebarContent(), settingsSidebarContent()) {
-		<div class="container max-w-2xl px-6 py-8">
+		<div class="container max-w-2xl px-6 py-8 space-y-8">
 			@blocks.PageHeader("Settings", "Manage your account settings")
 			@card.Card() {
 				@card.Header() {
@@ -52,7 +54,7 @@ templ AppSettings(hasPassword bool, errorMsg string) {
 									Name:        "current_password",
 									Type:        input.TypePassword,
 									Placeholder: "••••••••",
-									HasError:    errorMsg != "",
+									HasError:    passwordError != "",
 								})
 							}
 						}
@@ -68,7 +70,7 @@ templ AppSettings(hasPassword bool, errorMsg string) {
 								Name:        "new_password",
 								Type:        input.TypePassword,
 								Placeholder: "••••••••",
-								HasError:    errorMsg != "",
+								HasError:    passwordError != "",
 							})
 						}
 						@form.Item() {
@@ -83,11 +85,11 @@ templ AppSettings(hasPassword bool, errorMsg string) {
 								Name:        "confirm_password",
 								Type:        input.TypePassword,
 								Placeholder: "••••••••",
-								HasError:    errorMsg != "",
+								HasError:    passwordError != "",
 							})
-							if errorMsg != "" {
+							if passwordError != "" {
 								@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
-									{ errorMsg }
+									{ passwordError }
 								}
 							}
 						}
@@ -101,7 +103,99 @@ templ AppSettings(hasPassword bool, errorMsg string) {
 					</form>
 				}
 			}
+			@dangerZone(email, deleteError)
 		</div>
+	}
+}
+
+templ dangerZone(email string, deleteError string) {
+	@card.Card(card.Props{Class: "rounded-sm border-destructive"}) {
+		@card.Header() {
+			@card.Title(card.TitleProps{Class: "text-destructive"}) {
+				Danger Zone
+			}
+			@card.Description() {
+				Permanently delete your account and every space you own. This wipes all of your data — accounts, transactions, allocations, members you invited, and audit history for spaces you own. This cannot be undone.
+			}
+		}
+		@card.Footer(card.FooterProps{Class: "flex justify-end pt-8"}) {
+			@dialog.Dialog() {
+				@dialog.Trigger() {
+					@button.Button(button.Props{
+						Variant: button.VariantDestructive,
+						Class:   "flex gap-2 items-center",
+					}) {
+						@icon.Trash2()
+						Delete Account
+					}
+				}
+				@dialog.Content() {
+					<form action="/app/settings/delete-account" method="POST" class="space-y-4">
+						@csrf.Token()
+						@dialog.Header() {
+							@dialog.Title() {
+								Delete your account?
+							}
+							@dialog.Description() {
+								This permanently deletes your account along with all spaces you own and the data inside them. We keep a small internal audit record of the deletion request, but your data itself is gone for good.
+							}
+						}
+						<div class="space-y-4 pt-2">
+							@form.Item() {
+								@label.Label(label.Props{
+									For:   "confirm_email",
+									Class: "block mb-2",
+								}) {
+									Type your email <span class="font-mono">{ email }</span> to confirm
+								}
+								@input.Input(input.Props{
+									ID:          "confirm_email",
+									Name:        "confirm_email",
+									Type:        input.TypeEmail,
+									Placeholder: email,
+									HasError:    deleteError != "",
+									Required:    true,
+								})
+								if deleteError != "" {
+									@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+										{ deleteError }
+									}
+								}
+							}
+							@form.Item() {
+								@label.Label(label.Props{
+									For:   "reason",
+									Class: "block mb-2",
+								}) {
+									Reason (optional)
+								}
+								@textarea.Textarea(textarea.Props{
+									ID:          "reason",
+									Name:        "reason",
+									Placeholder: "Help us understand why you're leaving",
+									Rows:        3,
+								})
+							}
+						</div>
+						@dialog.Footer(dialog.FooterProps{Class: "mt-2"}) {
+							@dialog.Close() {
+								@button.Button(button.Props{Variant: button.VariantOutline, Type: button.TypeButton}) {
+									Cancel
+								}
+							}
+							@button.Button(button.Props{
+								Type:    button.TypeSubmit,
+								Variant: button.VariantDestructive,
+								Class:   "flex gap-2 items-center",
+							}) {
+								@icon.Trash2()
+								Permanently Delete
+							}
+						}
+					</form>
+				}
+			}
+		}
 	}
 }
 

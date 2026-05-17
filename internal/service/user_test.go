@@ -12,7 +12,7 @@ import (
 func TestUserService_ByID(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		userRepo := repository.NewUserRepository(dbi.DB)
-		svc := NewUserService(userRepo)
+		svc := NewUserService(dbi.DB, userRepo, repository.NewAccountDeletionRequestRepository(dbi.DB))
 
 		user := testutil.CreateTestUser(t, dbi.DB, "test@example.com", nil)
 
@@ -26,7 +26,7 @@ func TestUserService_ByID(t *testing.T) {
 func TestUserService_ByID_NotFound(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		userRepo := repository.NewUserRepository(dbi.DB)
-		svc := NewUserService(userRepo)
+		svc := NewUserService(dbi.DB, userRepo, repository.NewAccountDeletionRequestRepository(dbi.DB))
 
 		_, err := svc.ByID("nonexistent-id")
 		assert.Error(t, err)

@@ -58,6 +58,7 @@ func main() {
 	workerCtx, stopWorker := context.WithCancel(context.Background())
 	defer stopWorker()
 	go runRecurringWorker(workerCtx, a)
+	go a.AccountDeletionWorker.Start(workerCtx)
 
 	go func() {
 		sigCh := make(chan os.Signal, 1)

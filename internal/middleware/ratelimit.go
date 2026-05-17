@@ -101,7 +101,7 @@ func (rl *RateLimiter) cleanup() {
 func (rl *RateLimiter) Middleware() Middleware {
 	return func(next http.Handler) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
-			ip := getClientIP(r)
+			ip := GetClientIP(r)
 			if !rl.Allow(ip) {
 				slog.Warn("rate limit exceeded",
 					"ip", ip,
@@ -115,8 +115,8 @@ func (rl *RateLimiter) Middleware() Middleware {
 	}
 }
 
-// getClientIP extracts real client IP from request
-func getClientIP(r *http.Request) string {
+// GetClientIP extracts real client IP from request
+func GetClientIP(r *http.Request) string {
 	// Check X-Forwarded-For header (proxy/load balancer)
 	xff := r.Header.Get("X-Forwarded-For")
 	if xff != "" {

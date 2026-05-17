@@ -22,7 +22,7 @@ func newTestSettingsHandler(dbi testutil.DBInfo) (*settingsHandler, *service.Aut
 	accountSvc := service.NewAccountService(accountRepo)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
 	authSvc := service.NewAuthService(emailSvc, userRepo, tokenRepo, spaceSvc, accountSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false, false)
-	userSvc := service.NewUserService(userRepo)
+	userSvc := service.NewUserService(dbi.DB, userRepo, repository.NewAccountDeletionRequestRepository(dbi.DB))
 	return NewSettingsHandler(authSvc, userSvc), authSvc
 }
 

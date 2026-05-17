@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
 	"github.com/jmoiron/sqlx"
@@ -20,6 +21,11 @@ type UserRepository interface {
 	ByEmail(email string) (*model.User, error)
 	Update(user *model.User) error
 	Delete(id string) error
+
+	// MarkPendingDeletionTx sets the pending_deletion_at flag inside the
+	// supplied transaction. The flag is what middleware checks on every
+	// request to lock the user out of any further actions.
+	MarkPendingDeletionTx(tx *sqlx.Tx, userID string, at time.Time) error
 }
 
 type userRepository struct {
@@ -75,6 +81,32 @@ func (r *userRepository) Update(user *model.User) error {
 	_, err := r.db.Exec(query, user.Email, user.Name, user.PasswordHash, user.PendingEmail, user.EmailVerifiedAt, user.UpdatedAt, user.ID)
 
 	return err
+}
+
+func (r *userRepository) MarkPendingDeletionTx(tx *sqlx.Tx, userID string, at time.Time) error {
+	res, err := tx.Exec(
+		`UPDATE users SET pending_deletion_at = $1, updated_at = $1 WHERE id = $2 AND pending_deletion_at IS NULL;`,
+		at, userID,
+	)
+	if err != nil {
+		return err
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		// Either the user does not exist or is already pending. Verify so we
+		// can distinguish.
+		var exists bool
+		if err := tx.Get(&exists, `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1);`, userID); err != nil {
+			return err
+		}
+		if !exists {
+			return ErrUserNotFound
+		}
+	}
+	return nil
 }
 
 func (r *userRepository) Delete(id string) error {

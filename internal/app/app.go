@@ -2,11 +2,13 @@ package app
 
 import (
 	"fmt"
+	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/config"
 	"git.juancwu.dev/juancwu/budgit/internal/db"
 	"git.juancwu.dev/juancwu/budgit/internal/repository"
 	"git.juancwu.dev/juancwu/budgit/internal/service"
+	"git.juancwu.dev/juancwu/budgit/internal/worker"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -25,6 +27,7 @@ type App struct {
 	AuditLogService       *service.SpaceAuditLogService
 	TxAuditLogService     *service.TransactionAuditLogService
 	AccountActivitySvc    *service.AccountActivityService
+	AccountDeletionWorker *worker.AccountDeletionWorker
 }
 
 func New(cfg *config.Config) (*App, error) {
@@ -52,9 +55,11 @@ func New(cfg *config.Config) (*App, error) {
 	auditLogRepository := repository.NewSpaceAuditLogRepository(database)
 	txAuditLogRepository := repository.NewTransactionAuditLogRepository(database)
 	recurringEventRepository := repository.NewRecurringEventRepository(database)
+	accountDeletionRequestRepo := repository.NewAccountDeletionRequestRepository(database)
 
 	// Services
-	userService := service.NewUserService(userRepository)
+	userService := service.NewUserService(database, userRepository, accountDeletionRequestRepo)
+	accountDeletionWorker := worker.NewAccountDeletionWorker(userService, 30*time.Second)
 	auditLogService := service.NewSpaceAuditLogService(auditLogRepository)
 	txAuditLogService := service.NewTransactionAuditLogService(txAuditLogRepository)
 	spaceService := service.NewSpaceService(spaceRepository)
@@ -105,6 +110,7 @@ func New(cfg *config.Config) (*App, error) {
 		AuditLogService:       auditLogService,
 		TxAuditLogService:     txAuditLogService,
 		AccountActivitySvc:    accountActivityService,
+		AccountDeletionWorker: accountDeletionWorker,
 	}, nil
 }
 

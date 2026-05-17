@@ -27,7 +27,7 @@ func newTestApp(dbi testutil.DBInfo) *app.App {
 	accountSvc := service.NewAccountService(accountRepo)
 	emailSvc := service.NewEmailService(nil, "test@example.com", "http://localhost:9999", "Budgit Test", false)
 	authSvc := service.NewAuthService(emailSvc, userRepo, tokenRepo, spaceSvc, accountSvc, cfg.JWTSecret, cfg.JWTExpiry, cfg.TokenMagicLinkExpiry, false, false)
-	userSvc := service.NewUserService(userRepo)
+	userSvc := service.NewUserService(dbi.DB, userRepo, repository.NewAccountDeletionRequestRepository(dbi.DB))
 	inviteSvc := service.NewInviteService(inviteRepo, spaceRepo, userRepo, emailSvc, nil)
 
 	return &app.App{

@@ -1,0 +1,52 @@
+package pages
+
+import (
+	"time"
+
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+)
+
+templ AccountPendingDeletion(requestedAt time.Time) {
+	@layouts.Auth(layouts.SEOProps{
+		Title:       "Account Pending Deletion",
+		Description: "Your account is being deleted",
+		Path:        "/account-pending-deletion",
+	}) {
+		<div class="container max-w-xl px-4 py-16 mx-auto">
+			@card.Card(card.Props{Class: "border-destructive"}) {
+				@card.Header() {
+					@card.Title(card.TitleProps{Class: "text-destructive flex items-center gap-2"}) {
+						@icon.Trash2()
+						<span>Account Pending Deletion</span>
+					}
+					@card.Description() {
+						You requested to delete your account on { requestedAt.Format("January 2, 2006 at 3:04 PM MST") }. Your data is being permanently removed in the background and this typically finishes within a few minutes.
+					}
+				}
+				@card.Content() {
+					<p class="text-sm text-muted-foreground">
+						While the deletion is in progress, you can no longer view or change anything in the app. Once it completes, your session will end and you'll be returned to the home page.
+					</p>
+					<p class="text-sm text-muted-foreground mt-4">
+						If you believe this was a mistake, please contact support immediately — we may be able to halt the deletion before it completes.
+					</p>
+				}
+				@card.Footer(card.FooterProps{Class: "justify-end"}) {
+					<form action="/auth/logout" method="POST">
+						@csrf.Token()
+						@button.Button(button.Props{
+							Type:    button.TypeSubmit,
+							Variant: button.VariantOutline,
+						}) {
+							Sign out
+						}
+					</form>
+				}
+			}
+		</div>
+	}
+}

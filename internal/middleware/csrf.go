@@ -64,7 +64,7 @@ func CSRFProtection(next http.Handler) http.HandlerFunc {
 			slog.Warn("csrf validation failed",
 				"path", r.URL.Path,
 				"method", r.Method,
-				"ip", getClientIP(r),
+				"ip", GetClientIP(r),
 			)
 			http.Error(w, "Invalid CSRF token", http.StatusForbidden)
 			return

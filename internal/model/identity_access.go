@@ -7,11 +7,16 @@ type User struct {
 	Email string  `db:"email"`
 	Name  *string `db:"name"`
 	// Allow null for passwordless users
-	PasswordHash    *string    `db:"password_hash"`
-	PendingEmail    *string    `db:"pending_email"`
-	EmailVerifiedAt *time.Time `db:"email_verified_at"`
-	CreatedAt       time.Time  `db:"created_at"`
-	UpdatedAt       time.Time  `db:"updated_at"`
+	PasswordHash      *string    `db:"password_hash"`
+	PendingEmail      *string    `db:"pending_email"`
+	EmailVerifiedAt   *time.Time `db:"email_verified_at"`
+	PendingDeletionAt *time.Time `db:"pending_deletion_at"`
+	CreatedAt         time.Time  `db:"created_at"`
+	UpdatedAt         time.Time  `db:"updated_at"`
+}
+
+func (u *User) IsPendingDeletion() bool {
+	return u.PendingDeletionAt != nil
 }
 
 func (u *User) HasPassword() bool {
