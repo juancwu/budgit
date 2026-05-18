@@ -109,6 +109,13 @@ templ spaceSpecificSidebarContent(spaceID string) {
 }
 
 templ spaceAccountSidebarContent(spaceID, accountID string) {
+	{{
+		billURL := routeurl.URL("page.app.spaces.space.accounts.account.bills.create", "spaceID", spaceID, "accountID", accountID)
+		depositURL := routeurl.URL("page.app.spaces.space.accounts.account.deposits.create", "spaceID", spaceID, "accountID", accountID)
+		shortcutScript := "on keydown[(metaKey or ctrlKey) and altKey and (code=='KeyB' or key=='b' or key=='B')] from window halt the event then set window.location.href to '" + billURL + "' end " +
+			"on keydown[(metaKey or ctrlKey) and altKey and (code=='KeyE' or key=='e' or key=='E')] from window halt the event then set window.location.href to '" + depositURL + "'"
+	}}
+	<div hidden _={ shortcutScript }></div>
 	@sidebar.Group() {
 		@sidebar.GroupLabel() {
 			Account
@@ -138,7 +145,7 @@ templ spaceAccountSidebarContent(spaceID, accountID string) {
 				@sidebar.MenuButton(sidebar.MenuButtonProps{
 					Href:     routeurl.URL("page.app.spaces.space.accounts.account.bills.create", "spaceID", spaceID, "accountID", accountID),
 					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.bills.create", "spaceID", spaceID, "accountID", accountID),
-					Tooltip:  "Pay Bills",
+					Tooltip:  "Pay Bills (⌘/Ctrl + Alt + B)",
 				}) {
 					@icon.HandCoins()
 					<span>Pay Bills</span>
@@ -148,7 +155,7 @@ templ spaceAccountSidebarContent(spaceID, accountID string) {
 				@sidebar.MenuButton(sidebar.MenuButtonProps{
 					Href:     routeurl.URL("page.app.spaces.space.accounts.account.deposits.create", "spaceID", spaceID, "accountID", accountID),
 					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.accounts.account.deposits.create", "spaceID", spaceID, "accountID", accountID),
-					Tooltip:  "Deposit Funds",
+					Tooltip:  "Deposit Funds (⌘/Ctrl + Alt + E)",
 				}) {
 					@icon.BanknoteArrowDown()
 					<span>Deposit Funds</span>
