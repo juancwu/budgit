@@ -7,6 +7,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/checkbox"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/textarea"
 
 type RecurringEventFormProps struct {
@@ -91,10 +92,31 @@ templ RecurringEventForm(props RecurringEventFormProps) {
 					@form.Label(form.LabelProps{For: "kind"}) {
 						Kind
 					}
-					<select id="kind" name="kind" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
-						<option value={ string(model.RecurringEventKindBill) } selected?={ props.Kind == string(model.RecurringEventKindBill) }>Bill (withdrawal)</option>
-						<option value={ string(model.RecurringEventKindFund) } selected?={ props.Kind == string(model.RecurringEventKindFund) }>Fund (deposit)</option>
-					</select>
+					@selectbox.SelectBox() {
+						@selectbox.Trigger(selectbox.TriggerProps{
+							ID:       "kind",
+							Name:     "kind",
+							HasError: props.KindErr != "",
+						}) {
+							@selectbox.Value(selectbox.ValueProps{Placeholder: "Select a kind…"}) {
+								{ kindLabel(props.Kind) }
+							}
+						}
+						@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+							@selectbox.Item(selectbox.ItemProps{
+								Value:    string(model.RecurringEventKindBill),
+								Selected: props.Kind == string(model.RecurringEventKindBill),
+							}) {
+								Bill (withdrawal)
+							}
+							@selectbox.Item(selectbox.ItemProps{
+								Value:    string(model.RecurringEventKindFund),
+								Selected: props.Kind == string(model.RecurringEventKindFund),
+							}) {
+								Fund (deposit)
+							}
+						}
+					}
 					if props.KindErr != "" {
 						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
 							{ props.KindErr }
@@ -105,12 +127,27 @@ templ RecurringEventForm(props RecurringEventFormProps) {
 					@form.Label(form.LabelProps{For: "source_account"}) {
 						Account
 					}
-					<select id="source_account" name="source_account" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
-						<option value="" selected?={ props.SourceAccountID == "" }>Select an account…</option>
-						for _, a := range props.Accounts {
-							<option value={ a.ID } selected?={ props.SourceAccountID == a.ID }>{ a.Name }</option>
+					@selectbox.SelectBox() {
+						@selectbox.Trigger(selectbox.TriggerProps{
+							ID:       "source_account",
+							Name:     "source_account",
+							HasError: props.SourceErr != "",
+						}) {
+							@selectbox.Value(selectbox.ValueProps{Placeholder: "Select an account…"}) {
+								{ accountLabel(props.Accounts, props.SourceAccountID) }
+							}
 						}
-					</select>
+						@selectbox.Content(selectbox.ContentProps{SearchPlaceholder: "Search accounts…"}) {
+							for _, a := range props.Accounts {
+								@selectbox.Item(selectbox.ItemProps{
+									Value:    a.ID,
+									Selected: props.SourceAccountID == a.ID,
+								}) {
+									{ a.Name }
+								}
+							}
+						}
+					}
 					if props.SourceErr != "" {
 						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
 							{ props.SourceErr }
@@ -147,12 +184,43 @@ templ RecurringEventForm(props RecurringEventFormProps) {
 						@form.Label(form.LabelProps{For: "frequency"}) {
 							Frequency
 						}
-						<select id="frequency" name="frequency" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
-							<option value={ string(model.RecurringFrequencyDaily) } selected?={ props.Frequency == string(model.RecurringFrequencyDaily) }>Daily</option>
-							<option value={ string(model.RecurringFrequencyWeekly) } selected?={ props.Frequency == string(model.RecurringFrequencyWeekly) }>Weekly</option>
-							<option value={ string(model.RecurringFrequencyMonthly) } selected?={ props.Frequency == string(model.RecurringFrequencyMonthly) }>Monthly</option>
-							<option value={ string(model.RecurringFrequencyYearly) } selected?={ props.Frequency == string(model.RecurringFrequencyYearly) }>Yearly</option>
-						</select>
+						@selectbox.SelectBox() {
+							@selectbox.Trigger(selectbox.TriggerProps{
+								ID:       "frequency",
+								Name:     "frequency",
+								HasError: props.FrequencyErr != "",
+							}) {
+								@selectbox.Value(selectbox.ValueProps{Placeholder: "Select a frequency…"}) {
+									{ frequencyLabel(props.Frequency) }
+								}
+							}
+							@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+								@selectbox.Item(selectbox.ItemProps{
+									Value:    string(model.RecurringFrequencyDaily),
+									Selected: props.Frequency == string(model.RecurringFrequencyDaily),
+								}) {
+									Daily
+								}
+								@selectbox.Item(selectbox.ItemProps{
+									Value:    string(model.RecurringFrequencyWeekly),
+									Selected: props.Frequency == string(model.RecurringFrequencyWeekly),
+								}) {
+									Weekly
+								}
+								@selectbox.Item(selectbox.ItemProps{
+									Value:    string(model.RecurringFrequencyMonthly),
+									Selected: props.Frequency == string(model.RecurringFrequencyMonthly),
+								}) {
+									Monthly
+								}
+								@selectbox.Item(selectbox.ItemProps{
+									Value:    string(model.RecurringFrequencyYearly),
+									Selected: props.Frequency == string(model.RecurringFrequencyYearly),
+								}) {
+									Yearly
+								}
+							}
+						}
 						if props.FrequencyErr != "" {
 							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
 								{ props.FrequencyErr }
@@ -191,12 +259,33 @@ templ RecurringEventForm(props RecurringEventFormProps) {
 						@form.Label(form.LabelProps{For: "day_of_week"}) {
 							Day of week
 						}
-						<select id="day_of_week" name="day_of_week" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-							<option value="">—</option>
-							for i, name := range weekdayNames {
-								<option value={ intToStr(i) } selected?={ props.DayOfWeek == intToStr(i) }>{ name }</option>
+						@selectbox.SelectBox() {
+							@selectbox.Trigger(selectbox.TriggerProps{
+								ID:       "day_of_week",
+								Name:     "day_of_week",
+								HasError: props.DayOfWeekErr != "",
+							}) {
+								@selectbox.Value(selectbox.ValueProps{Placeholder: "—"}) {
+									{ weekdayLabel(props.DayOfWeek) }
+								}
 							}
-						</select>
+							@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+								@selectbox.Item(selectbox.ItemProps{
+									Value:    "",
+									Selected: props.DayOfWeek == "",
+								}) {
+									—
+								}
+								for i, name := range weekdayNames {
+									@selectbox.Item(selectbox.ItemProps{
+										Value:    intToStr(i),
+										Selected: props.DayOfWeek == intToStr(i),
+									}) {
+										{ name }
+									}
+								}
+							}
+						}
 						@form.Description() {
 							Used for weekly events.
 						}
@@ -235,12 +324,33 @@ templ RecurringEventForm(props RecurringEventFormProps) {
 						@form.Label(form.LabelProps{For: "month_of_year"}) {
 							Month
 						}
-						<select id="month_of_year" name="month_of_year" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring">
-							<option value="">—</option>
-							for i, name := range monthNames {
-								<option value={ intToStr(i + 1) } selected?={ props.MonthOfYear == intToStr(i + 1) }>{ name }</option>
+						@selectbox.SelectBox() {
+							@selectbox.Trigger(selectbox.TriggerProps{
+								ID:       "month_of_year",
+								Name:     "month_of_year",
+								HasError: props.MonthOfYearErr != "",
+							}) {
+								@selectbox.Value(selectbox.ValueProps{Placeholder: "—"}) {
+									{ monthLabel(props.MonthOfYear) }
+								}
 							}
-						</select>
+							@selectbox.Content(selectbox.ContentProps{NoSearch: true}) {
+								@selectbox.Item(selectbox.ItemProps{
+									Value:    "",
+									Selected: props.MonthOfYear == "",
+								}) {
+									—
+								}
+								for i, name := range monthNames {
+									@selectbox.Item(selectbox.ItemProps{
+										Value:    intToStr(i + 1),
+										Selected: props.MonthOfYear == intToStr(i + 1),
+									}) {
+										{ name }
+									}
+								}
+							}
+						}
 						@form.Description() {
 							Used for yearly events.
 						}
@@ -275,11 +385,27 @@ templ RecurringEventForm(props RecurringEventFormProps) {
 						@form.Label(form.LabelProps{For: "timezone"}) {
 							Timezone
 						}
-						<select id="timezone" name="timezone" class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" required>
-							for _, tz := range props.Timezones {
-								<option value={ tz.Value } selected?={ props.Timezone == tz.Value }>{ tz.Label }</option>
+						@selectbox.SelectBox() {
+							@selectbox.Trigger(selectbox.TriggerProps{
+								ID:       "timezone",
+								Name:     "timezone",
+								HasError: props.TimezoneErr != "",
+							}) {
+								@selectbox.Value(selectbox.ValueProps{Placeholder: "Select a timezone…"}) {
+									{ timezoneLabel(props.Timezones, props.Timezone) }
+								}
 							}
-						</select>
+							@selectbox.Content(selectbox.ContentProps{SearchPlaceholder: "Search timezones…"}) {
+								for _, tz := range props.Timezones {
+									@selectbox.Item(selectbox.ItemProps{
+										Value:    tz.Value,
+										Selected: props.Timezone == tz.Value,
+									}) {
+										{ tz.Label }
+									}
+								}
+							}
+						}
 						if props.TimezoneErr != "" {
 							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
 								{ props.TimezoneErr }
