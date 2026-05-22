@@ -55,29 +55,29 @@ type InvestmentTrade struct {
 // average per-unit cost of remaining shares (reduced proportionally on sells).
 // RealizedPL is the cumulative realized profit/loss from sells.
 type HoldingPosition struct {
-	Holding        InvestmentHolding
-	Quantity       decimal.Decimal
-	AvgCost        decimal.Decimal
-	CostBasis      decimal.Decimal
-	LastBuyPrice   *decimal.Decimal
-	LastSellPrice  *decimal.Decimal
-	RealizedPL     decimal.Decimal
-	TotalBuyQty    decimal.Decimal
-	TotalSellQty   decimal.Decimal
-	TotalFees      decimal.Decimal
+	Holding       InvestmentHolding
+	Quantity      decimal.Decimal
+	AvgCost       decimal.Decimal
+	CostBasis     decimal.Decimal
+	LastBuyPrice  *decimal.Decimal
+	LastSellPrice *decimal.Decimal
+	RealizedPL    decimal.Decimal
+	TotalBuyQty   decimal.Decimal
+	TotalSellQty  decimal.Decimal
+	TotalFees     decimal.Decimal
 }
 
 // InvestmentAccountSummary is the rolled-up view for an investment-flagged
 // account: contribution room and YTD cash flow plus aggregate cost basis across
 // holdings.
 type InvestmentAccountSummary struct {
-	Account            *Account
-	Year               int
-	RoomAmount         *decimal.Decimal // nil if room not yet set for the year
-	YTDContributions   decimal.Decimal
-	YTDWithdrawals     decimal.Decimal
-	RoomRemaining      *decimal.Decimal // nil if RoomAmount is nil
-	NetContributions   decimal.Decimal  // lifetime: all deposits minus all withdrawals
-	TotalCostBasis     decimal.Decimal
-	HoldingCount       int
+	Account          *Account
+	Year             int
+	RoomAmount       *decimal.Decimal // nil if room not yet set for the year
+	YTDContributions decimal.Decimal
+	YTDWithdrawals   decimal.Decimal
+	RoomRemaining    *decimal.Decimal // nil if RoomAmount is nil
+	NetContributions decimal.Decimal  // lifetime: all deposits minus all withdrawals
+	TotalCostBasis   decimal.Decimal
+	HoldingCount     int
 }

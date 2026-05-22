@@ -71,4 +71,3 @@ func (r *investmentContributionRoomRepository) Delete(accountID string, year int
 	}
 	return nil
 }
-
