@@ -22,6 +22,12 @@ type TransactionRepository interface {
 	TransferIDsIn(ids []string) (map[string]bool, error)
 	ListByAccount(accountID string, limit, offset int) ([]*model.Transaction, error)
 	CountByAccount(accountID string) (int, error)
+	// SumByAccountYearType totals transaction values for an account, year,
+	// and type (deposit or withdrawal). Returns zero when no rows match.
+	SumByAccountYearType(accountID string, year int, txType model.TransactionType) (decimal.Decimal, error)
+	// SumLifetimeByAccountType totals transaction values for an account over
+	// its full history, restricted to one type.
+	SumLifetimeByAccountType(accountID string, txType model.TransactionType) (decimal.Decimal, error)
 }
 
 type transactionRepository struct {
@@ -303,4 +309,26 @@ func (r *transactionRepository) CountByAccount(accountID string) (int, error) {
 		return 0, err
 	}
 	return count, nil
+}
+
+func (r *transactionRepository) SumByAccountYearType(accountID string, year int, txType model.TransactionType) (decimal.Decimal, error) {
+	var sum decimal.Decimal
+	query := `SELECT COALESCE(SUM(value::numeric), 0)::text FROM transactions
+	          WHERE account_id = $1
+	            AND type = $2
+	            AND EXTRACT(YEAR FROM occurred_at) = $3;`
+	if err := r.db.Get(&sum, query, accountID, txType, year); err != nil {
+		return decimal.Zero, err
+	}
+	return sum, nil
+}
+
+func (r *transactionRepository) SumLifetimeByAccountType(accountID string, txType model.TransactionType) (decimal.Decimal, error) {
+	var sum decimal.Decimal
+	query := `SELECT COALESCE(SUM(value::numeric), 0)::text FROM transactions
+	          WHERE account_id = $1 AND type = $2;`
+	if err := r.db.Get(&sum, query, accountID, txType); err != nil {
+		return decimal.Zero, err
+	}
+	return sum, nil
 }

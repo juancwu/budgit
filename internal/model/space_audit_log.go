@@ -15,6 +15,7 @@ const (
 	SpaceAuditActionAccountRenamed         SpaceAuditAction = "account.renamed"
 	SpaceAuditActionAccountDeleted         SpaceAuditAction = "account.deleted"
 	SpaceAuditActionAccountCurrencyChanged SpaceAuditAction = "account.currency_changed"
+	SpaceAuditActionAccountInvestmentFlag  SpaceAuditAction = "account.investment_flag_changed"
 	SpaceAuditActionAllocationCreated      SpaceAuditAction = "allocation.created"
 	SpaceAuditActionAllocationUpdated      SpaceAuditAction = "allocation.updated"
 	SpaceAuditActionAllocationDeleted      SpaceAuditAction = "allocation.deleted"

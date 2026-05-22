@@ -30,6 +30,7 @@ type spaceHandler struct {
 	auditLogService    *service.SpaceAuditLogService
 	txAuditLogService  *service.TransactionAuditLogService
 	accountActivitySvc *service.AccountActivityService
+	investmentService  *service.InvestmentService
 }
 
 func NewSpaceHandler(
@@ -41,6 +42,7 @@ func NewSpaceHandler(
 	auditLogService *service.SpaceAuditLogService,
 	txAuditLogService *service.TransactionAuditLogService,
 	accountActivitySvc *service.AccountActivityService,
+	investmentService *service.InvestmentService,
 ) *spaceHandler {
 	return &spaceHandler{
 		spaceService:       spaceService,
@@ -51,6 +53,7 @@ func NewSpaceHandler(
 		auditLogService:    auditLogService,
 		txAuditLogService:  txAuditLogService,
 		accountActivitySvc: accountActivitySvc,
+		investmentService:  investmentService,
 	}
 }
 
@@ -236,11 +239,15 @@ func (h *spaceHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Reques
 	if currencyInput == "" {
 		currencyInput = currency.Default
 	}
+	isInvestment := r.FormValue("is_investment") == "1"
+	subtypeInput := strings.ToLower(strings.TrimSpace(r.FormValue("investment_subtype")))
 
 	formProps := forms.CreateAccountProps{
-		SpaceID:  spaceID,
-		Name:     nameInput,
-		Currency: currencyInput,
+		SpaceID:           spaceID,
+		Name:              nameInput,
+		Currency:          currencyInput,
+		IsInvestment:      isInvestment,
+		InvestmentSubtype: subtypeInput,
 	}
 
 	hasErr := false
@@ -250,6 +257,10 @@ func (h *spaceHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Reques
 	}
 	if !currency.IsValid(currencyInput) {
 		formProps.CurrencyErr = "Choose a supported currency."
+		hasErr = true
+	}
+	if isInvestment && !model.IsValidInvestmentSubtype(subtypeInput) {
+		formProps.SubtypeErr = "Choose an account type."
 		hasErr = true
 	}
 	if hasErr {
@@ -277,7 +288,14 @@ func (h *spaceHandler) HandleCreateAccount(w http.ResponseWriter, r *http.Reques
 	if user != nil {
 		actorID = user.ID
 	}
-	account, err := h.accountService.CreateAccount(spaceID, nameInput, currencyInput, actorID)
+	account, err := h.accountService.CreateAccount(service.CreateAccountInput{
+		SpaceID:           spaceID,
+		Name:              nameInput,
+		CurrencyCode:      currencyInput,
+		IsInvestment:      isInvestment,
+		InvestmentSubtype: subtypeInput,
+		ActorID:           actorID,
+	})
 	if err != nil {
 		slog.Error("failed to create account", "error", err, "space_id", spaceID)
 		formProps.GeneralErr = "Something went wrong. Please try again."
@@ -329,7 +347,7 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 		allocSummary = nil
 	}
 
-	ui.Render(w, r, pages.SpaceAccountPage(pages.SpaceAccountPageProps{
+	props := pages.SpaceAccountPageProps{
 		SpaceID:                   spaceID,
 		SpaceName:                 space.Name,
 		AccountID:                 accountID,
@@ -339,7 +357,24 @@ func (h *spaceHandler) SpaceAccountPage(w http.ResponseWriter, r *http.Request) 
 		RecentTransactions:        recent,
 		NonEditableTransactionIDs: h.nonEditableTransactionIDs(recent),
 		AllocationSummary:         allocSummary,
-	}))
+	}
+	if account.IsInvestment {
+		year := time.Now().Year()
+		summary, err := h.investmentService.SummarizeAccount(accountID, year)
+		if err != nil {
+			slog.Error("failed to summarize investment account", "error", err, "account_id", accountID)
+		} else {
+			props.InvestmentSummary = summary
+		}
+		positions, err := h.investmentService.HoldingPositions(accountID)
+		if err != nil {
+			slog.Error("failed to load holding positions", "error", err, "account_id", accountID)
+		} else {
+			props.InvestmentPositions = positions
+		}
+	}
+
+	ui.Render(w, r, pages.SpaceAccountPage(props))
 }
 
 func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *http.Request) {
@@ -757,12 +792,18 @@ func (h *spaceHandler) SpaceAccountSettingsPage(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	subtype := ""
+	if account.InvestmentSubtype != nil {
+		subtype = *account.InvestmentSubtype
+	}
 	ui.Render(w, r, pages.SpaceAccountSettingsPage(pages.SpaceAccountSettingsPageProps{
-		SpaceID:         spaceID,
-		SpaceName:       space.Name,
-		AccountID:       accountID,
-		AccountName:     account.Name,
-		AccountCurrency: account.Currency,
+		SpaceID:           spaceID,
+		SpaceName:         space.Name,
+		AccountID:         accountID,
+		AccountName:       account.Name,
+		AccountCurrency:   account.Currency,
+		IsInvestment:      account.IsInvestment,
+		InvestmentSubtype: subtype,
 		UpdateForm: forms.UpdateAccountProps{
 			SpaceID:   spaceID,
 			AccountID: accountID,
@@ -774,6 +815,35 @@ func (h *spaceHandler) SpaceAccountSettingsPage(w http.ResponseWriter, r *http.R
 			CurrentCurrency: account.Currency,
 		},
 	}))
+}
+
+func (h *spaceHandler) HandleSetInvestmentFlag(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	isInvestment := r.FormValue("is_investment") == "1"
+	subtype := strings.ToLower(strings.TrimSpace(r.FormValue("investment_subtype")))
+
+	user := ctxkeys.User(r.Context())
+	actorID := ""
+	if user != nil {
+		actorID = user.ID
+	}
+	if err := h.accountService.SetInvestmentFlag(accountID, isInvestment, subtype, actorID); err != nil {
+		slog.Error("failed to update investment flag", "error", err, "account_id", accountID)
+		http.Error(w, "could not update", http.StatusBadRequest)
+		return
+	}
+	w.Header().Set("HX-Redirect", routeurl.URL(
+		"page.app.spaces.space.accounts.account.settings",
+		"spaceID", spaceID, "accountID", accountID,
+	))
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *spaceHandler) HandleRenameAccount(w http.ResponseWriter, r *http.Request) {

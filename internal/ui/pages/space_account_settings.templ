@@ -6,16 +6,19 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
 
 type SpaceAccountSettingsPageProps struct {
-	SpaceID         string
-	SpaceName       string
-	AccountID       string
-	AccountName     string
-	AccountCurrency string
-	UpdateForm      forms.UpdateAccountProps
-	CurrencyForm    forms.ChangeAccountCurrencyProps
+	SpaceID           string
+	SpaceName         string
+	AccountID         string
+	AccountName       string
+	AccountCurrency   string
+	IsInvestment      bool
+	InvestmentSubtype string
+	UpdateForm        forms.UpdateAccountProps
+	CurrencyForm      forms.ChangeAccountCurrencyProps
 }
 
 templ SpaceAccountSettingsPage(props SpaceAccountSettingsPageProps) {
@@ -35,6 +38,68 @@ templ SpaceAccountSettingsPage(props SpaceAccountSettingsPageProps) {
 			</div>
 			@forms.UpdateAccount(props.UpdateForm)
 			@forms.ChangeAccountCurrency(props.CurrencyForm)
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Header() {
+					@card.Title() {
+						Investment account
+					}
+					@card.Description() {
+						Flag this account to track contribution room, holdings, and trades.
+					}
+				}
+				@card.Content() {
+					{{
+						selectedSubtype := props.InvestmentSubtype
+						if selectedSubtype == "" {
+							selectedSubtype = "tfsa"
+						}
+					}}
+					<form
+						hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.settings.investment", "spaceID", props.SpaceID, "accountID", props.AccountID) }
+						class="space-y-4"
+					>
+						@form.Item() {
+							<label class="flex items-center gap-2 text-sm font-medium">
+								<input
+									type="checkbox"
+									name="is_investment"
+									value="1"
+									class="h-4 w-4 rounded border-input"
+									checked?={ props.IsInvestment }
+									_="on change toggle .hidden on #settings-subtype-wrapper"
+								/>
+								Track as an investment account
+							</label>
+						}
+						<div
+							id="settings-subtype-wrapper"
+							class={ templ.KV("hidden", !props.IsInvestment) }
+						>
+							@form.Item() {
+								@form.Label(form.LabelProps{For: "settings-subtype"}) {
+									Account type
+								}
+								<select
+									id="settings-subtype"
+									name="investment_subtype"
+									class="flex h-9 w-full items-center rounded-sm border bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring border-input"
+								>
+									<option value="tfsa" selected?={ selectedSubtype == "tfsa" }>TFSA</option>
+									<option value="rrsp" selected?={ selectedSubtype == "rrsp" }>RRSP</option>
+									<option value="fhsa" selected?={ selectedSubtype == "fhsa" }>FHSA</option>
+									<option value="personal" selected?={ selectedSubtype == "personal" }>Personal / Non-registered</option>
+									<option value="other" selected?={ selectedSubtype == "other" }>Other</option>
+								</select>
+							}
+						</div>
+						<div class="flex justify-end">
+							@button.Button(button.Props{Type: button.TypeSubmit}) {
+								Save investment settings
+							}
+						</div>
+					</form>
+				}
+			}
 			@card.Card(card.Props{Class: "rounded-sm border-destructive"}) {
 				@card.Header() {
 					@card.Title(card.TitleProps{Class: "text-destructive"}) {

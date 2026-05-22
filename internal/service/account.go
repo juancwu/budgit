@@ -34,45 +34,124 @@ func (s *AccountService) SetAuditLogger(audit *SpaceAuditLogService) {
 	s.auditSvc = audit
 }
 
-func (s *AccountService) CreateAccount(spaceID, name, currencyCode, actorID string) (*model.Account, error) {
-	if spaceID == "" {
+// CreateAccountInput captures all the fields the caller can set when creating
+// an account. isInvestment + investmentSubtype are optional; if isInvestment is
+// false the subtype is forced to nil.
+type CreateAccountInput struct {
+	SpaceID           string
+	Name              string
+	CurrencyCode      string
+	IsInvestment      bool
+	InvestmentSubtype string // canonical lowercase string; ignored if IsInvestment is false
+	ActorID           string
+}
+
+func (s *AccountService) CreateAccount(input CreateAccountInput) (*model.Account, error) {
+	if input.SpaceID == "" {
 		return nil, fmt.Errorf("space id is required")
 	}
-	if name == "" {
+	if input.Name == "" {
 		return nil, fmt.Errorf("account name cannot be empty")
 	}
 
-	code := currency.Normalize(currencyCode)
+	code := currency.Normalize(input.CurrencyCode)
 	if code == "" {
 		code = currency.Default
 	}
 	if !currency.IsValid(code) {
-		return nil, fmt.Errorf("unsupported currency code: %s", currencyCode)
+		return nil, fmt.Errorf("unsupported currency code: %s", input.CurrencyCode)
+	}
+
+	var subtypePtr *string
+	if input.IsInvestment {
+		sub := input.InvestmentSubtype
+		if !model.IsValidInvestmentSubtype(sub) {
+			return nil, fmt.Errorf("invalid investment subtype: %s", sub)
+		}
+		subtypePtr = &sub
 	}
 
 	now := time.Now()
 	account := &model.Account{
-		ID:        uuid.NewString(),
-		Name:      name,
-		SpaceID:   spaceID,
-		Currency:  code,
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:                uuid.NewString(),
+		Name:              input.Name,
+		SpaceID:           input.SpaceID,
+		Currency:          code,
+		IsInvestment:      input.IsInvestment,
+		InvestmentSubtype: subtypePtr,
+		CreatedAt:         now,
+		UpdatedAt:         now,
 	}
 	if err := s.accountRepo.Create(account); err != nil {
 		return nil, fmt.Errorf("failed to create account: %w", err)
 	}
+	meta := map[string]any{
+		"account_id":   account.ID,
+		"account_name": account.Name,
+		"currency":     account.Currency,
+	}
+	if account.IsInvestment {
+		meta["is_investment"] = true
+		if subtypePtr != nil {
+			meta["investment_subtype"] = *subtypePtr
+		}
+	}
 	s.auditSvc.Record(RecordOptions{
-		SpaceID: spaceID,
-		ActorID: actorID,
-		Action:  model.SpaceAuditActionAccountCreated,
-		Metadata: map[string]any{
-			"account_id":   account.ID,
-			"account_name": account.Name,
-			"currency":     account.Currency,
-		},
+		SpaceID:  input.SpaceID,
+		ActorID:  input.ActorID,
+		Action:   model.SpaceAuditActionAccountCreated,
+		Metadata: meta,
 	})
 	return account, nil
+}
+
+// SetInvestmentFlag toggles the investment flag on an existing account. When
+// turning the flag off, the subtype is cleared.
+func (s *AccountService) SetInvestmentFlag(accountID string, isInvestment bool, subtype string, actorID string) error {
+	if accountID == "" {
+		return fmt.Errorf("account id is required")
+	}
+	account, err := s.accountRepo.ByID(accountID)
+	if err != nil {
+		return fmt.Errorf("failed to load account: %w", err)
+	}
+
+	var subtypePtr *string
+	if isInvestment {
+		if !model.IsValidInvestmentSubtype(subtype) {
+			return fmt.Errorf("invalid investment subtype: %s", subtype)
+		}
+		s := subtype
+		subtypePtr = &s
+	}
+	if err := s.accountRepo.SetInvestment(accountID, isInvestment, subtypePtr); err != nil {
+		return fmt.Errorf("failed to update investment flag: %w", err)
+	}
+	s.auditSvc.Record(RecordOptions{
+		SpaceID: account.SpaceID,
+		ActorID: actorID,
+		Action:  model.SpaceAuditActionAccountInvestmentFlag,
+		Metadata: map[string]any{
+			"account_id":         accountID,
+			"account_name":       account.Name,
+			"is_investment":      isInvestment,
+			"investment_subtype": subtypePtr,
+		},
+	})
+	return nil
+}
+
+// InvestmentAccountsForUser lists every investment-flagged account in spaces
+// the user is a member of (including spaces they own).
+func (s *AccountService) InvestmentAccountsForUser(userID string) ([]*model.Account, error) {
+	if userID == "" {
+		return nil, fmt.Errorf("user id is required")
+	}
+	accounts, err := s.accountRepo.InvestmentAccountsByUserID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list investment accounts: %w", err)
+	}
+	return accounts, nil
 }
 
 func (s *AccountService) GetAccount(id string) (*model.Account, error) {

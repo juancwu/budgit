@@ -10,12 +10,26 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 type CreateAccountProps struct {
 	SpaceID string
 
-	Name     string
-	Currency string
+	Name              string
+	Currency          string
+	IsInvestment      bool
+	InvestmentSubtype string
 
 	NameErr     string
 	CurrencyErr string
+	SubtypeErr  string
 	GeneralErr  string
+}
+
+var investmentSubtypes = []struct {
+	Value string
+	Label string
+}{
+	{"tfsa", "TFSA"},
+	{"rrsp", "RRSP"},
+	{"fhsa", "FHSA"},
+	{"personal", "Personal / Non-registered"},
+	{"other", "Other"},
 }
 
 templ CreateAccount(props CreateAccountProps) {
@@ -82,6 +96,54 @@ templ CreateAccount(props CreateAccountProps) {
 						}
 					}
 				}
+				{{
+					selectedSubtype := props.InvestmentSubtype
+					if selectedSubtype == "" {
+						selectedSubtype = "tfsa"
+					}
+				}}
+				@form.Item() {
+					<label class="flex items-center gap-2 text-sm font-medium">
+						<input
+							type="checkbox"
+							name="is_investment"
+							value="1"
+							class="h-4 w-4 rounded border-input"
+							checked?={ props.IsInvestment }
+							_="on change toggle .hidden on #investment-subtype-wrapper"
+						/>
+						Investment account
+					</label>
+					@form.Description() {
+						Tracks contributions, contribution room, and holdings.
+					}
+				}
+				<div
+					id="investment-subtype-wrapper"
+					class={ templ.KV("hidden", !props.IsInvestment) }
+				>
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "investment_subtype"}) {
+							Account type
+						}
+						<select
+							id="investment_subtype"
+							name="investment_subtype"
+							class={ "flex h-9 w-full items-center rounded-sm border bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+								templ.KV("border-destructive", props.SubtypeErr != ""),
+								templ.KV("border-input", props.SubtypeErr == "") }
+						>
+							for _, opt := range investmentSubtypes {
+								<option value={ opt.Value } selected?={ selectedSubtype == opt.Value }>{ opt.Label }</option>
+							}
+						</select>
+						if props.SubtypeErr != "" {
+							@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+								{ props.SubtypeErr }
+							}
+						}
+					}
+				</div>
 			}
 			@card.Footer(card.FooterProps{Class: "flex justify-end gap-2"}) {
 				@button.Button(button.Props{

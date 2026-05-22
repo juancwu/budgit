@@ -22,6 +22,8 @@ type SpaceAccountPageProps struct {
 	RecentTransactions        []*model.Transaction
 	NonEditableTransactionIDs map[string]bool
 	AllocationSummary         *service.AllocationSummary
+	InvestmentSummary         *model.InvestmentAccountSummary
+	InvestmentPositions       []model.HoldingPosition
 }
 
 templ SpaceAccountPage(props SpaceAccountPageProps) {
@@ -91,11 +93,21 @@ templ SpaceAccountPage(props SpaceAccountPageProps) {
 					}
 				}
 			</div>
-			@blocks.AllocationsSection(blocks.AllocationsSectionProps{
-				SpaceID:   props.SpaceID,
-				AccountID: props.AccountID,
-				Summary:   props.AllocationSummary,
-			})
+			if props.InvestmentSummary != nil {
+				@blocks.InvestmentSection(blocks.InvestmentSectionProps{
+					SpaceID:   props.SpaceID,
+					AccountID: props.AccountID,
+					Currency:  props.AccountCurrency,
+					Summary:   props.InvestmentSummary,
+					Positions: props.InvestmentPositions,
+				})
+			} else {
+				@blocks.AllocationsSection(blocks.AllocationsSectionProps{
+					SpaceID:   props.SpaceID,
+					AccountID: props.AccountID,
+					Summary:   props.AllocationSummary,
+				})
+			}
 			<div>
 				@card.Card() {
 					@card.Header() {

@@ -1,0 +1,131 @@
+package pages
+
+import (
+	"fmt"
+
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+)
+
+type InvestmentOverviewRow struct {
+	SpaceID     string
+	SpaceName   string
+	AccountID   string
+	AccountName string
+	Currency    string
+	Summary     *model.InvestmentAccountSummary
+}
+
+type InvestmentsOverviewProps struct {
+	Year int
+	Rows []InvestmentOverviewRow
+}
+
+templ InvestmentsOverviewPage(props InvestmentsOverviewProps) {
+	@layouts.App("Investments", spaceOverviewSidebarContent()) {
+		<div class="container px-6 py-8 mx-auto space-y-6">
+			<div class="flex items-start justify-between gap-3 flex-wrap">
+				<div>
+					<h1 class="text-3xl font-bold">Investments</h1>
+					<p class="text-muted-foreground mt-1">
+						{ fmt.Sprintf("%d contribution rooms, YTD activity, and total cost basis across your investment accounts.", props.Year) }
+					</p>
+				</div>
+			</div>
+			if len(props.Rows) == 0 {
+				@card.Card(card.Props{Class: "rounded-sm"}) {
+					@card.Content(card.ContentProps{Class: "p-6 space-y-3"}) {
+						<p class="text-sm text-muted-foreground">
+							You don't have any investment accounts yet. In any space, create a new account and check
+							<strong>Investment account</strong> to start tracking contributions and holdings.
+						</p>
+					}
+				}
+			} else {
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+					for _, row := range props.Rows {
+						{{
+							subtypeLabel := ""
+							if row.Summary != nil && row.Summary.Account != nil && row.Summary.Account.InvestmentSubtype != nil {
+								subtypeLabel = upperString(*row.Summary.Account.InvestmentSubtype)
+							}
+						}}
+						@card.Card(card.Props{Class: "rounded-sm"}) {
+							@card.Header() {
+								<div class="flex items-start justify-between gap-2">
+									<div>
+										@card.Title() {
+											<div class="flex items-center gap-2">
+												{ row.AccountName }
+												if subtypeLabel != "" {
+													@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "text-xs"}) {
+														{ subtypeLabel }
+													}
+												}
+												@badge.Badge(badge.Props{Variant: badge.VariantOutline, Class: "text-xs"}) {
+													{ row.Currency }
+												}
+											</div>
+										}
+										@card.Description() {
+											{ row.SpaceName }
+										}
+									</div>
+									@button.Button(button.Props{
+										Variant: button.VariantGhost,
+										Class:   "h-8 px-2",
+										Href:    routeurl.URL("page.app.spaces.space.accounts.account.overview", "spaceID", row.SpaceID, "accountID", row.AccountID),
+									}) {
+										@icon.ChevronRight()
+									}
+								</div>
+							}
+							@card.Content(card.ContentProps{Class: "grid grid-cols-2 gap-3 text-sm"}) {
+								<div>
+									<div class="text-muted-foreground">YTD Contributions</div>
+									<div class="font-semibold">${ utils.FormatDecimalWithThousands(row.Summary.YTDContributions.StringFixedBank(2)) }</div>
+								</div>
+								<div>
+									<div class="text-muted-foreground">YTD Withdrawals</div>
+									<div class="font-semibold">${ utils.FormatDecimalWithThousands(row.Summary.YTDWithdrawals.StringFixedBank(2)) }</div>
+								</div>
+								<div>
+									<div class="text-muted-foreground">Room remaining</div>
+									<div class="font-semibold">
+										if row.Summary.RoomRemaining != nil {
+											${ utils.FormatDecimalWithThousands(row.Summary.RoomRemaining.StringFixedBank(2)) }
+										} else {
+											<span class="text-muted-foreground italic">Room not set</span>
+										}
+									</div>
+								</div>
+								<div>
+									<div class="text-muted-foreground">Total cost basis</div>
+									<div class="font-semibold">${ utils.FormatDecimalWithThousands(row.Summary.TotalCostBasis.StringFixedBank(2)) }</div>
+								</div>
+							}
+						}
+					}
+				</div>
+			}
+		</div>
+	}
+}
+
+func upperString(s string) string {
+	out := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'a' && c <= 'z' {
+			c -= 32
+		}
+		out[i] = c
+	}
+	return string(out)
+}

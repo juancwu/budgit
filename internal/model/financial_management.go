@@ -7,13 +7,34 @@ import (
 )
 
 type Account struct {
-	ID        string          `db:"id"`
-	Name      string          `db:"name"`
-	SpaceID   string          `db:"space_id"`
-	Balance   decimal.Decimal `db:"balance"`
-	Currency  string          `db:"currency"`
-	CreatedAt time.Time       `db:"created_at"`
-	UpdatedAt time.Time       `db:"updated_at"`
+	ID                string          `db:"id"`
+	Name              string          `db:"name"`
+	SpaceID           string          `db:"space_id"`
+	Balance           decimal.Decimal `db:"balance"`
+	Currency          string          `db:"currency"`
+	IsInvestment      bool            `db:"is_investment"`
+	InvestmentSubtype *string         `db:"investment_subtype"`
+	CreatedAt         time.Time       `db:"created_at"`
+	UpdatedAt         time.Time       `db:"updated_at"`
+}
+
+type InvestmentSubtype string
+
+const (
+	InvestmentSubtypeTFSA     InvestmentSubtype = "tfsa"
+	InvestmentSubtypeRRSP     InvestmentSubtype = "rrsp"
+	InvestmentSubtypeFHSA     InvestmentSubtype = "fhsa"
+	InvestmentSubtypePersonal InvestmentSubtype = "personal"
+	InvestmentSubtypeOther    InvestmentSubtype = "other"
+)
+
+func IsValidInvestmentSubtype(s string) bool {
+	switch InvestmentSubtype(s) {
+	case InvestmentSubtypeTFSA, InvestmentSubtypeRRSP, InvestmentSubtypeFHSA,
+		InvestmentSubtypePersonal, InvestmentSubtypeOther:
+		return true
+	}
+	return false
 }
 
 type TransactionType string

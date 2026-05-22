@@ -99,6 +99,16 @@ templ spaceOverviewSidebarContent() {
 					<span>Shared with me</span>
 				}
 			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.investments"),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.investments"),
+					Tooltip:  "Investments",
+				}) {
+					@icon.TrendingUp()
+					<span>Investments</span>
+				}
+			}
 		}
 	}
 }

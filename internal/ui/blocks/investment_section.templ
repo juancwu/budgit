@@ -1,0 +1,220 @@
+package blocks
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/shopspring/decimal"
+
+	"git.juancwu.dev/juancwu/budgit/internal/model"
+	"git.juancwu.dev/juancwu/budgit/internal/routeurl"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+	"git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+)
+
+type InvestmentSectionProps struct {
+	SpaceID   string
+	AccountID string
+	Currency  string
+	Summary   *model.InvestmentAccountSummary
+	Positions []model.HoldingPosition
+}
+
+func fmtMoney(d decimal.Decimal) string {
+	s, _ := utils.FormatDecimalWithThousands(d.StringFixedBank(2))
+	return s
+}
+
+func subtypeLabel(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return strings.ToUpper(*s)
+}
+
+func plClass(d decimal.Decimal) string {
+	if d.IsNegative() {
+		return "text-red-600 dark:text-red-400"
+	}
+	if d.IsPositive() {
+		return "text-green-600 dark:text-green-400"
+	}
+	return ""
+}
+
+templ InvestmentSection(props InvestmentSectionProps) {
+	<div id="investment-section" class="space-y-4">
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Header() {
+				<div class="flex items-start justify-between gap-3">
+					<div>
+						@card.Title() {
+							<div class="flex items-center gap-2">
+								Contribution Room ({ fmt.Sprintf("%d", props.Summary.Year) })
+								if label := subtypeLabel(props.Summary.Account.InvestmentSubtype); label != "" {
+									@badge.Badge(badge.Props{Variant: badge.VariantSecondary, Class: "text-xs"}) {
+										{ label }
+									}
+								}
+							</div>
+						}
+						@card.Description() {
+							Track yearly contributions against the room you set.
+						}
+					</div>
+				</div>
+			}
+			@card.Content(card.ContentProps{Class: "space-y-4"}) {
+				<div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+					<div>
+						<div class="text-muted-foreground">Room</div>
+						<div class="text-lg font-semibold">
+							if props.Summary.RoomAmount != nil {
+								${ fmtMoney(*props.Summary.RoomAmount) }
+							} else {
+								<span class="text-muted-foreground italic">Not set</span>
+							}
+						</div>
+					</div>
+					<div>
+						<div class="text-muted-foreground">YTD Contributions</div>
+						<div class="text-lg font-semibold">${ fmtMoney(props.Summary.YTDContributions) }</div>
+					</div>
+					<div>
+						<div class="text-muted-foreground">YTD Withdrawals</div>
+						<div class="text-lg font-semibold">${ fmtMoney(props.Summary.YTDWithdrawals) }</div>
+					</div>
+					<div>
+						<div class="text-muted-foreground">Remaining</div>
+						<div class={ "text-lg font-semibold", plClass(remainingValue(props.Summary)) }>
+							if props.Summary.RoomRemaining != nil {
+								${ fmtMoney(*props.Summary.RoomRemaining) }
+							} else {
+								<span class="text-muted-foreground">—</span>
+							}
+						</div>
+					</div>
+				</div>
+				<form
+					hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.investments.contribution-room", "spaceID", props.SpaceID, "accountID", props.AccountID) }
+					hx-target="#investment-section"
+					hx-swap="outerHTML"
+					class="flex flex-wrap items-end gap-2"
+				>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs text-muted-foreground" for="room-year">Year</label>
+						@input.Input(input.Props{
+							ID:    "room-year",
+							Name:  "year",
+							Type:  input.TypeNumber,
+							Value: fmt.Sprintf("%d", props.Summary.Year),
+							Class: "w-28 rounded-sm",
+						})
+					</div>
+					<div class="flex flex-col gap-1">
+						<label class="text-xs text-muted-foreground" for="room-amount">Room amount ({ props.Currency })</label>
+						{{
+							currentRoom := ""
+							if props.Summary.RoomAmount != nil {
+								currentRoom = props.Summary.RoomAmount.StringFixedBank(2)
+							}
+						}}
+						@input.Input(input.Props{
+							ID:          "room-amount",
+							Name:        "room",
+							Type:        input.TypeText,
+							Value:       currentRoom,
+							Placeholder: "0.00",
+							Class:       "w-40 rounded-sm",
+							Required:    true,
+						})
+					</div>
+					@button.Button(button.Props{Type: button.TypeSubmit, Class: "rounded-sm"}) {
+						Save room
+					}
+				</form>
+			}
+		}
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Header() {
+				<div class="flex items-center justify-between">
+					<div>
+						@card.Title() {
+							Holdings
+						}
+						@card.Description() {
+							Track shares and buy/sell prices. Cost basis is computed from your trades.
+						}
+					</div>
+					@button.Button(button.Props{
+						Variant: button.VariantSecondary,
+						Class:   "flex gap-2 items-center rounded-sm",
+						Href:    routeurl.URL("page.app.spaces.space.accounts.account.investments.holdings.create", "spaceID", props.SpaceID, "accountID", props.AccountID),
+					}) {
+						@icon.Plus()
+						Add holding
+					}
+				</div>
+			}
+			@card.Content() {
+				if len(props.Positions) == 0 {
+					<p class="text-sm text-muted-foreground">No holdings yet. Add one to start tracking shares and trades.</p>
+				} else {
+					<div class="overflow-x-auto">
+						<table class="w-full text-sm">
+							<thead class="text-left text-muted-foreground border-b">
+								<tr>
+									<th class="py-2 pr-2">Symbol</th>
+									<th class="py-2 pr-2">Quantity</th>
+									<th class="py-2 pr-2">Avg cost</th>
+									<th class="py-2 pr-2">Cost basis</th>
+									<th class="py-2 pr-2">Realized P/L</th>
+									<th class="py-2"></th>
+								</tr>
+							</thead>
+							<tbody>
+								for _, pos := range props.Positions {
+									<tr class="border-b last:border-b-0">
+										<td class="py-2 pr-2">
+											<a
+												class="font-medium hover:underline"
+												href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.accounts.account.investments.holdings.holding", "spaceID", props.SpaceID, "accountID", props.AccountID, "holdingID", pos.Holding.ID)) }
+											>
+												{ pos.Holding.Symbol }
+											</a>
+											<div class="text-xs text-muted-foreground">{ pos.Holding.DisplayName }</div>
+										</td>
+										<td class="py-2 pr-2">{ pos.Quantity.StringFixedBank(4) }</td>
+										<td class="py-2 pr-2">${ fmtMoney(pos.AvgCost) }</td>
+										<td class="py-2 pr-2">${ fmtMoney(pos.CostBasis) }</td>
+										<td class={ "py-2 pr-2", plClass(pos.RealizedPL) }>${ fmtMoney(pos.RealizedPL) }</td>
+										<td class="py-2 text-right">
+											@button.Button(button.Props{
+												Variant: button.VariantGhost,
+												Class:   "h-8 px-2",
+												Href:    routeurl.URL("page.app.spaces.space.accounts.account.investments.holdings.holding", "spaceID", props.SpaceID, "accountID", props.AccountID, "holdingID", pos.Holding.ID),
+											}) {
+												@icon.ChevronRight()
+											}
+										</td>
+									</tr>
+								}
+							</tbody>
+						</table>
+					</div>
+				}
+			}
+		}
+	</div>
+}
+
+func remainingValue(s *model.InvestmentAccountSummary) decimal.Decimal {
+	if s.RoomRemaining == nil {
+		return decimal.Zero
+	}
+	return *s.RoomRemaining
+}

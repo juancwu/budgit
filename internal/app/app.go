@@ -27,6 +27,7 @@ type App struct {
 	AuditLogService       *service.SpaceAuditLogService
 	TxAuditLogService     *service.TransactionAuditLogService
 	AccountActivitySvc    *service.AccountActivityService
+	InvestmentService     *service.InvestmentService
 	AccountDeletionWorker *worker.AccountDeletionWorker
 }
 
@@ -56,6 +57,9 @@ func New(cfg *config.Config) (*App, error) {
 	txAuditLogRepository := repository.NewTransactionAuditLogRepository(database)
 	recurringEventRepository := repository.NewRecurringEventRepository(database)
 	accountDeletionRequestRepo := repository.NewAccountDeletionRequestRepository(database)
+	contributionRoomRepo := repository.NewInvestmentContributionRoomRepository(database)
+	holdingRepo := repository.NewInvestmentHoldingRepository(database)
+	tradeRepo := repository.NewInvestmentTradeRepository(database)
 
 	// Services
 	emailService := service.NewEmailService(
@@ -94,6 +98,7 @@ func New(cfg *config.Config) (*App, error) {
 	)
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService, auditLogService)
 	recurringEventService := service.NewRecurringEventService(recurringEventRepository, transactionService, accountService)
+	investmentService := service.NewInvestmentService(accountRepository, contributionRoomRepo, holdingRepo, tradeRepo, transactionRepository)
 
 	return &App{
 		Cfg:                   cfg,
@@ -110,6 +115,7 @@ func New(cfg *config.Config) (*App, error) {
 		AuditLogService:       auditLogService,
 		TxAuditLogService:     txAuditLogService,
 		AccountActivitySvc:    accountActivityService,
+		InvestmentService:     investmentService,
 		AccountDeletionWorker: accountDeletionWorker,
 	}, nil
 }

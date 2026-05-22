@@ -19,9 +19,10 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.AllocationService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.AllocationService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc, a.InvestmentService)
 	allocationH := handler.NewAllocationHandler(a.AllocationService, a.AccountService)
 	recurringH := handler.NewRecurringEventHandler(a.RecurringEventService, a.AccountService, a.SpaceService)
+	investmentH := handler.NewInvestmentHandler(a.AccountService, a.SpaceService, a.InvestmentService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -95,6 +96,8 @@ func SetupRoutes(a *app.App) http.Handler {
 
 		g.Get("/home", spaceH.HomePage).Name("page.app.home")
 
+		g.Get("/investments", investmentH.InvestmentsOverviewPage).Name("page.app.investments")
+
 		g.SubGroup("/spaces", func(g *router.Group) {
 			g.Get("", spaceH.SpacesPage).Name("page.app.spaces")
 			g.Get("/create", spaceH.CreateSpacePage).Name("page.app.spaces.create")
@@ -136,6 +139,7 @@ func SetupRoutes(a *app.App) http.Handler {
 					g.Post("/settings/rename", spaceH.HandleRenameAccount).Name("action.app.spaces.space.accounts.account.settings.rename")
 					g.Post("/settings/currency", spaceH.HandleChangeAccountCurrency).Name("action.app.spaces.space.accounts.account.settings.currency")
 					g.Post("/settings/delete", spaceH.HandleDeleteAccount).Name("action.app.spaces.space.accounts.account.settings.delete")
+					g.Post("/settings/investment", spaceH.HandleSetInvestmentFlag).Name("action.app.spaces.space.accounts.account.settings.investment")
 					g.Get("/bills/create", spaceH.SpaceCreateBillPage).Name("page.app.spaces.space.accounts.account.bills.create")
 					g.Post("/bills/create", spaceH.HandleCreateBill).Name("action.app.spaces.space.accounts.account.bills.create")
 					g.Get("/deposits/create", spaceH.SpaceCreateDepositPage).Name("page.app.spaces.space.accounts.account.deposits.create")
@@ -146,6 +150,14 @@ func SetupRoutes(a *app.App) http.Handler {
 					g.Post("/allocations/create", allocationH.HandleCreate).Name("action.app.spaces.space.accounts.account.allocations.create")
 					g.Post("/allocations/{allocationID}/edit", allocationH.HandleEdit).Name("action.app.spaces.space.accounts.account.allocations.allocation.edit")
 					g.Post("/allocations/{allocationID}/delete", allocationH.HandleDelete).Name("action.app.spaces.space.accounts.account.allocations.allocation.delete")
+
+					g.Post("/investments/contribution-room", investmentH.HandleSetContributionRoom).Name("action.app.spaces.space.accounts.account.investments.contribution-room")
+					g.Get("/investments/holdings/create", investmentH.CreateHoldingPage).Name("page.app.spaces.space.accounts.account.investments.holdings.create")
+					g.Post("/investments/holdings/create", investmentH.HandleCreateHolding).Name("action.app.spaces.space.accounts.account.investments.holdings.create")
+					g.Get("/investments/holdings/{holdingID}", investmentH.HoldingDetailPage).Name("page.app.spaces.space.accounts.account.investments.holdings.holding")
+					g.Post("/investments/holdings/{holdingID}/delete", investmentH.HandleDeleteHolding).Name("action.app.spaces.space.accounts.account.investments.holdings.holding.delete")
+					g.Post("/investments/holdings/{holdingID}/trades/create", investmentH.HandleCreateTrade).Name("action.app.spaces.space.accounts.account.investments.holdings.holding.trades.create")
+					g.Post("/investments/holdings/{holdingID}/trades/{tradeID}/delete", investmentH.HandleDeleteTrade).Name("action.app.spaces.space.accounts.account.investments.holdings.holding.trades.trade.delete")
 				})
 			})
 		})

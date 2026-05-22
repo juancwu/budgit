@@ -29,6 +29,12 @@ type AccountRepository interface {
 	// ChangeCurrency atomically updates an account's currency and balance and
 	// rewrites each provided allocation's amount/target in the new currency.
 	ChangeCurrency(accountID, newCurrency string, newBalance decimal.Decimal, allocationConversions []AllocationConversion) error
+	// SetInvestment toggles the investment flag and subtype for an account.
+	// subtype is the canonical lowercase string (e.g. "tfsa"); pass nil to clear.
+	SetInvestment(id string, isInvestment bool, subtype *string) error
+	// InvestmentAccountsByUserID returns all investment-flagged accounts the
+	// user owns, across every space the user owns.
+	InvestmentAccountsByUserID(userID string) ([]*model.Account, error)
 }
 
 type accountRepository struct {
@@ -40,9 +46,10 @@ func NewAccountRepository(db *sqlx.DB) AccountRepository {
 }
 
 func (r *accountRepository) Create(account *model.Account) error {
-	query := `INSERT INTO accounts (id, name, space_id, currency, created_at, updated_at)
-	          VALUES ($1, $2, $3, $4, $5, $6);`
-	_, err := r.db.Exec(query, account.ID, account.Name, account.SpaceID, account.Currency, account.CreatedAt, account.UpdatedAt)
+	query := `INSERT INTO accounts (id, name, space_id, currency, is_investment, investment_subtype, created_at, updated_at)
+	          VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`
+	_, err := r.db.Exec(query, account.ID, account.Name, account.SpaceID, account.Currency,
+		account.IsInvestment, account.InvestmentSubtype, account.CreatedAt, account.UpdatedAt)
 	return err
 }
 
@@ -76,6 +83,36 @@ func (r *accountRepository) Delete(id string) error {
 	query := `DELETE FROM accounts WHERE id = $1;`
 	_, err := r.db.Exec(query, id)
 	return err
+}
+
+func (r *accountRepository) SetInvestment(id string, isInvestment bool, subtype *string) error {
+	query := `UPDATE accounts
+	          SET is_investment = $1, investment_subtype = $2, updated_at = CURRENT_TIMESTAMP
+	          WHERE id = $3;`
+	res, err := r.db.Exec(query, isInvestment, subtype, id)
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrAccountNotFound
+	}
+	return nil
+}
+
+func (r *accountRepository) InvestmentAccountsByUserID(userID string) ([]*model.Account, error) {
+	var accounts []*model.Account
+	query := `SELECT a.* FROM accounts a
+	          JOIN space_members sm ON sm.space_id = a.space_id
+	          WHERE sm.user_id = $1 AND a.is_investment = TRUE
+	          ORDER BY a.created_at ASC;`
+	if err := r.db.Select(&accounts, query, userID); err != nil {
+		return nil, err
+	}
+	return accounts, nil
 }
 
 func (r *accountRepository) ChangeCurrency(accountID, newCurrency string, newBalance decimal.Decimal, allocationConversions []AllocationConversion) error {
