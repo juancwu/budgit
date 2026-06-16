@@ -23,6 +23,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	allocationH := handler.NewAllocationHandler(a.AllocationService, a.AccountService)
 	recurringH := handler.NewRecurringEventHandler(a.RecurringEventService, a.AccountService, a.SpaceService)
 	investmentH := handler.NewInvestmentHandler(a.AccountService, a.SpaceService, a.InvestmentService)
+	planH := handler.NewBudgetPlanHandler(a.BudgetPlanService, a.SpaceService)
 	redirectH := handler.NewRedirectHandler()
 
 	r := router.New()
@@ -125,6 +126,15 @@ func SetupRoutes(a *app.App) http.Handler {
 				g.Post("/recurring/{eventID}/delete", recurringH.HandleDelete).Name("action.app.spaces.space.recurring.event.delete")
 				g.Post("/recurring/{eventID}/pause", recurringH.HandlePause).Name("action.app.spaces.space.recurring.event.pause")
 				g.Post("/recurring/{eventID}/resume", recurringH.HandleResume).Name("action.app.spaces.space.recurring.event.resume")
+
+				g.Get("/plans", planH.ListPage).Name("page.app.spaces.space.plans")
+				g.Post("/plans", planH.HandleCreate).Name("action.app.spaces.space.plans.create")
+				g.Get("/plans/{planID}", planH.EditorPage).Name("page.app.spaces.space.plans.plan")
+				g.Post("/plans/{planID}/rename", planH.HandleRename).Name("action.app.spaces.space.plans.plan.rename")
+				g.Post("/plans/{planID}/delete", planH.HandleDelete).Name("action.app.spaces.space.plans.plan.delete")
+				g.Post("/plans/{planID}/lines", planH.HandleAddLine).Name("action.app.spaces.space.plans.plan.lines.create")
+				g.Post("/plans/{planID}/lines/{lineID}", planH.HandleUpdateLine).Name("action.app.spaces.space.plans.plan.lines.line.update")
+				g.Post("/plans/{planID}/lines/{lineID}/delete", planH.HandleDeleteLine).Name("action.app.spaces.space.plans.plan.lines.line.delete")
 
 				g.SubGroup("/accounts/{accountID}", func(g *router.Group) {
 					g.Get("/overview", spaceH.SpaceAccountPage).Name("page.app.spaces.space.accounts.account.overview")

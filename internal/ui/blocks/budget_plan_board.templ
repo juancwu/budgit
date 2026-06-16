@@ -1,0 +1,426 @@
+package blocks
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+
+// BudgetPlanBoard is the live region of the plan editor. Every line mutation
+// targets #plan-board with hx-swap="outerHTML" so the totals and lists refresh
+// together in a single swap.
+templ BudgetPlanBoard(props BudgetPlanBoardProps) {
+	<div id="plan-board" class="space-y-6">
+		@planSummaryHeader(props.Summary)
+		@planIncomeVsExpense(props.Summary)
+		<div class="grid gap-4 lg:grid-cols-2">
+			@planIncomeCard(props)
+			@planExpenseCard(props)
+		</div>
+		if len(props.Summary.ExpenseGroups) > 0 {
+			<div class="grid gap-4 lg:grid-cols-2">
+				@planCategoryBars(props.Summary)
+				@planTopExpenses(props.Summary)
+			</div>
+		}
+	</div>
+}
+
+// planIncomeVsExpense draws two bars comparing planned income and expenses,
+// each scaled against the larger of the two.
+templ planIncomeVsExpense(summary *model.PlanSummary) {
+	if summary.TotalIncome.IsPositive() || summary.TotalExpense.IsPositive() {
+		{{
+			max := summary.TotalIncome
+			if summary.TotalExpense.GreaterThan(max) {
+				max = summary.TotalExpense
+			}
+		}}
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Content(card.ContentProps{Class: "p-4 space-y-3"}) {
+				<p class="text-sm font-semibold">Income vs expenses</p>
+				<div class="space-y-1">
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-muted-foreground">Income</span>
+						<span class="tabular-nums">${ utils.FormatDecimalWithThousands(summary.TotalIncome.StringFixedBank(2)) }</span>
+					</div>
+					<div class="h-3 bg-muted rounded-full overflow-hidden">
+						<div class="h-full bg-green-600 dark:bg-green-500" style={ barWidthStyle(summary.TotalIncome, max) }></div>
+					</div>
+				</div>
+				<div class="space-y-1">
+					<div class="flex items-center justify-between text-sm">
+						<span class="text-muted-foreground">Expenses</span>
+						<span class="tabular-nums">${ utils.FormatDecimalWithThousands(summary.TotalExpense.StringFixedBank(2)) }</span>
+					</div>
+					<div class="h-3 bg-muted rounded-full overflow-hidden">
+						<div class="h-full bg-primary" style={ barWidthStyle(summary.TotalExpense, max) }></div>
+					</div>
+				</div>
+			}
+		}
+	}
+}
+
+// planCategoryBars shows each expense category's share of total planned
+// expenses, largest first.
+templ planCategoryBars(summary *model.PlanSummary) {
+	@card.Card(card.Props{Class: "rounded-sm"}) {
+		@card.Header() {
+			@card.Title() {
+				Spending by category
+			}
+		}
+		@card.Content(card.ContentProps{Class: "space-y-3"}) {
+			for _, ct := range summary.CategoryTotals {
+				<div class="space-y-1">
+					<div class="flex items-center justify-between text-sm gap-3">
+						<span class="truncate">{ ct.CategoryName }</span>
+						<span class="text-muted-foreground tabular-nums shrink-0">
+							${ utils.FormatDecimalWithThousands(ct.Total.StringFixedBank(2)) } · { percentLabel(ct.Percent) }
+						</span>
+					</div>
+					<div class="h-2 bg-muted rounded-full overflow-hidden">
+						<div class="h-full bg-primary" style={ barWidthStyle(ct.Total, summary.TotalExpense) }></div>
+					</div>
+				</div>
+			}
+		}
+	}
+}
+
+// planTopExpenses lists the largest individual expense lines.
+templ planTopExpenses(summary *model.PlanSummary) {
+	@card.Card(card.Props{Class: "rounded-sm"}) {
+		@card.Header() {
+			@card.Title() {
+				Top expenses
+			}
+		}
+		@card.Content() {
+			<ol class="space-y-2">
+				for i, line := range summary.TopExpenses {
+					<li class="flex items-center justify-between gap-3 text-sm">
+						<span class="truncate">
+							<span class="text-muted-foreground mr-2 tabular-nums">{ rankLabel(i) }</span>
+							{ line.Label }
+						</span>
+						<span class="tabular-nums shrink-0">${ utils.FormatDecimalWithThousands(line.Amount.StringFixedBank(2)) }</span>
+					</li>
+				}
+			</ol>
+		}
+	}
+}
+
+templ planSummaryHeader(summary *model.PlanSummary) {
+	{{
+		surplus := summary.Surplus
+		surplusClass := "text-2xl font-bold text-green-600 dark:text-green-400"
+		surplusLabel := "Left to budget"
+		if surplus.IsNegative() {
+			surplusClass = "text-2xl font-bold text-red-600 dark:text-red-400"
+			surplusLabel = "Over budget"
+		}
+	}}
+	@card.Card(card.Props{Class: "rounded-sm"}) {
+		@card.Content(card.ContentProps{Class: "p-4 grid gap-4 sm:grid-cols-3"}) {
+			<div>
+				<p class="text-xs text-muted-foreground uppercase tracking-wide">Planned income</p>
+				<p class="text-2xl font-bold">${ utils.FormatDecimalWithThousands(summary.TotalIncome.StringFixedBank(2)) }</p>
+			</div>
+			<div>
+				<p class="text-xs text-muted-foreground uppercase tracking-wide">Planned expenses</p>
+				<p class="text-2xl font-bold">${ utils.FormatDecimalWithThousands(summary.TotalExpense.StringFixedBank(2)) }</p>
+			</div>
+			<div>
+				<p class="text-xs text-muted-foreground uppercase tracking-wide">{ surplusLabel }</p>
+				<p class={ surplusClass }>${ utils.FormatDecimalWithThousands(surplus.StringFixedBank(2)) }</p>
+			</div>
+		}
+	}
+}
+
+// ---------- Income ----------
+
+templ planIncomeCard(props BudgetPlanBoardProps) {
+	{{
+		formClass := "hidden"
+		if props.ShowIncomeForm {
+			formClass = ""
+		}
+	}}
+	@card.Card(card.Props{Class: "rounded-sm"}) {
+		@card.Header() {
+			<div class="flex items-start justify-between gap-4">
+				<div>
+					@card.Title() {
+						Income
+					}
+					@card.Description() {
+						${ utils.FormatDecimalWithThousands(props.Summary.TotalIncome.StringFixedBank(2)) } planned
+					}
+				</div>
+				@button.Button(button.Props{
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Class:   "flex items-center gap-2",
+					Attributes: templ.Attributes{
+						"_": "on click toggle .hidden on #plan-income-form",
+					},
+				}) {
+					@icon.Plus(icon.Props{Class: "size-4"})
+					Add income
+				}
+			</div>
+		}
+		@card.Content(card.ContentProps{Class: "space-y-3"}) {
+			<div id="plan-income-form" class={ formClass }>
+				@planAddLineForm(props, model.PlanLineKindIncome, props.IncomeForm)
+			</div>
+			if len(props.Summary.IncomeLines) == 0 {
+				<p class="text-sm text-muted-foreground">No income planned yet.</p>
+			} else {
+				<div class="space-y-2">
+					for _, line := range props.Summary.IncomeLines {
+						@planLineRow(props, line)
+					}
+				</div>
+			}
+		}
+	}
+}
+
+// ---------- Expenses ----------
+
+templ planExpenseCard(props BudgetPlanBoardProps) {
+	{{
+		formClass := "hidden"
+		if props.ShowExpenseForm {
+			formClass = ""
+		}
+	}}
+	@card.Card(card.Props{Class: "rounded-sm"}) {
+		@card.Header() {
+			<div class="flex items-start justify-between gap-4">
+				<div>
+					@card.Title() {
+						Expenses
+					}
+					@card.Description() {
+						${ utils.FormatDecimalWithThousands(props.Summary.TotalExpense.StringFixedBank(2)) } planned
+					}
+				</div>
+				@button.Button(button.Props{
+					Variant: button.VariantOutline,
+					Size:    button.SizeSm,
+					Class:   "flex items-center gap-2",
+					Attributes: templ.Attributes{
+						"_": "on click toggle .hidden on #plan-expense-form",
+					},
+				}) {
+					@icon.Plus(icon.Props{Class: "size-4"})
+					Add expense
+				}
+			</div>
+		}
+		@card.Content(card.ContentProps{Class: "space-y-4"}) {
+			<div id="plan-expense-form" class={ formClass }>
+				@planAddLineForm(props, model.PlanLineKindExpense, props.ExpenseForm)
+			</div>
+			if len(props.Summary.ExpenseGroups) == 0 {
+				<p class="text-sm text-muted-foreground">No expenses planned yet.</p>
+			} else {
+				for _, group := range props.Summary.ExpenseGroups {
+					<div class="space-y-2">
+						<div class="flex items-center justify-between text-sm font-semibold border-b pb-1">
+							<span>{ group.CategoryName }</span>
+							<span>${ utils.FormatDecimalWithThousands(group.Subtotal.StringFixedBank(2)) }</span>
+						</div>
+						for _, line := range group.Lines {
+							@planLineRow(props, line)
+						}
+					</div>
+				}
+			}
+		}
+	}
+}
+
+// ---------- Line row (view + inline edit) ----------
+
+templ planLineRow(props BudgetPlanBoardProps, line *model.BudgetPlanLine) {
+	{{
+		viewID := "plan-line-view-" + line.ID
+		editID := "plan-line-edit-" + line.ID
+		editing := props.EditLineID == line.ID
+
+		state := LineFormState{Label: line.Label, Amount: line.Amount.StringFixedBank(2)}
+		if line.CategoryID != nil {
+			state.CategoryID = *line.CategoryID
+		}
+		if editing {
+			state = props.EditForm
+		}
+
+		viewClass := "flex items-center justify-between gap-3"
+		editClass := "hidden"
+		if editing {
+			viewClass = "hidden"
+			editClass = ""
+		}
+	}}
+	<div id={ "plan-line-" + line.ID }>
+		<div id={ viewID } class={ viewClass }>
+			<span class="truncate">{ line.Label }</span>
+			<div class="flex items-center gap-2 shrink-0">
+				<span class="tabular-nums">${ utils.FormatDecimalWithThousands(line.Amount.StringFixedBank(2)) }</span>
+				@button.Button(button.Props{
+					Variant: button.VariantGhost,
+					Size:    button.SizeIcon,
+					Attributes: templ.Attributes{
+						"_": "on click add .hidden to #" + viewID + " then remove .hidden from #" + editID,
+					},
+				}) {
+					@icon.Pencil(icon.Props{Class: "size-4"})
+				}
+				<form
+					hx-post={ routeurl.URL("action.app.spaces.space.plans.plan.lines.line.delete", "spaceID", props.SpaceID, "planID", props.PlanID, "lineID", line.ID) }
+					hx-target="#plan-board"
+					hx-swap="outerHTML"
+				>
+					@button.Button(button.Props{
+						Type:    button.TypeSubmit,
+						Variant: button.VariantGhost,
+						Size:    button.SizeIcon,
+					}) {
+						@icon.Trash2(icon.Props{Class: "size-4"})
+					}
+				</form>
+			</div>
+		</div>
+		<div id={ editID } class={ editClass }>
+			<form
+				hx-post={ routeurl.URL("action.app.spaces.space.plans.plan.lines.line.update", "spaceID", props.SpaceID, "planID", props.PlanID, "lineID", line.ID) }
+				hx-target="#plan-board"
+				hx-swap="outerHTML"
+				class="border rounded-md p-3 space-y-3"
+			>
+				if state.Err != "" {
+					@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+						{ state.Err }
+					}
+				}
+				@planLineFields(props, line.Kind, state)
+				<div class="flex justify-end gap-2">
+					@button.Button(button.Props{
+						Variant: button.VariantGhost,
+						Size:    button.SizeSm,
+						Attributes: templ.Attributes{
+							"type": "button",
+							"_":    "on click add .hidden to #" + editID + " then remove .hidden from #" + viewID,
+						},
+					}) {
+						Cancel
+					}
+					@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+						Save
+					}
+				</div>
+			</form>
+		</div>
+	</div>
+}
+
+// ---------- Add-line form ----------
+
+templ planAddLineForm(props BudgetPlanBoardProps, kind model.PlanLineKind, state LineFormState) {
+	{{
+		toggleTarget := "#plan-income-form"
+		if kind == model.PlanLineKindExpense {
+			toggleTarget = "#plan-expense-form"
+		}
+	}}
+	<form
+		hx-post={ routeurl.URL("action.app.spaces.space.plans.plan.lines.create", "spaceID", props.SpaceID, "planID", props.PlanID) }
+		hx-target="#plan-board"
+		hx-swap="outerHTML"
+		class="border rounded-md p-3 space-y-3"
+	>
+		<input type="hidden" name="kind" value={ string(kind) }/>
+		if state.Err != "" {
+			@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+				{ state.Err }
+			}
+		}
+		@planLineFields(props, kind, state)
+		<div class="flex justify-end gap-2">
+			@button.Button(button.Props{
+				Variant: button.VariantGhost,
+				Size:    button.SizeSm,
+				Attributes: templ.Attributes{
+					"type": "button",
+					"_":    "on click add .hidden to " + toggleTarget,
+				},
+			}) {
+				Cancel
+			}
+			@button.Button(button.Props{Type: button.TypeSubmit, Size: button.SizeSm}) {
+				Add
+			}
+		</div>
+	</form>
+}
+
+templ planLineFields(props BudgetPlanBoardProps, kind model.PlanLineKind, state LineFormState) {
+	@form.Item() {
+		@form.Label(form.LabelProps{For: "label"}) {
+			Label
+		}
+		@input.Input(input.Props{
+			ID: "label", Name: "label", Type: input.TypeText, Class: "rounded-sm",
+			Value: state.Label, Required: true,
+			Placeholder: planLabelPlaceholder(kind),
+			Attributes:  templ.Attributes{"autocomplete": "off"},
+		})
+	}
+	<div class="grid grid-cols-2 gap-3">
+		@form.Item() {
+			@form.Label(form.LabelProps{For: "amount"}) {
+				Amount
+			}
+			@input.Input(input.Props{
+				ID: "amount", Name: "amount", Type: input.TypeText, Class: "rounded-sm",
+				Value: state.Amount, Required: true,
+				Placeholder: "0.00",
+				Attributes:  templ.Attributes{"inputmode": "decimal"},
+			})
+		}
+		if kind == model.PlanLineKindExpense {
+			@form.Item() {
+				@form.Label(form.LabelProps{For: "category_id"}) {
+					Category
+				}
+				<select
+					name="category_id"
+					class="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+				>
+					<option value="" selected?={ state.CategoryID == "" }>Uncategorized</option>
+					for _, c := range props.Categories {
+						<option value={ c.ID } selected?={ state.CategoryID == c.ID }>{ c.Name }</option>
+					}
+				</select>
+			}
+		}
+	</div>
+}
+
+func planLabelPlaceholder(kind model.PlanLineKind) string {
+	if kind == model.PlanLineKindIncome {
+		return "e.g. Salary"
+	}
+	return "e.g. Rent"
+}

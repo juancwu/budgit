@@ -28,6 +28,7 @@ type App struct {
 	TxAuditLogService     *service.TransactionAuditLogService
 	AccountActivitySvc    *service.AccountActivityService
 	InvestmentService     *service.InvestmentService
+	BudgetPlanService     *service.BudgetPlanService
 	AccountDeletionWorker *worker.AccountDeletionWorker
 }
 
@@ -60,6 +61,8 @@ func New(cfg *config.Config) (*App, error) {
 	contributionRoomRepo := repository.NewInvestmentContributionRoomRepository(database)
 	holdingRepo := repository.NewInvestmentHoldingRepository(database)
 	tradeRepo := repository.NewInvestmentTradeRepository(database)
+	budgetPlanRepo := repository.NewBudgetPlanRepository(database)
+	budgetPlanLineRepo := repository.NewBudgetPlanLineRepository(database)
 
 	// Services
 	emailService := service.NewEmailService(
@@ -99,6 +102,7 @@ func New(cfg *config.Config) (*App, error) {
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService, auditLogService)
 	recurringEventService := service.NewRecurringEventService(recurringEventRepository, transactionService, accountService)
 	investmentService := service.NewInvestmentService(accountRepository, contributionRoomRepo, holdingRepo, tradeRepo, transactionRepository)
+	budgetPlanService := service.NewBudgetPlanService(budgetPlanRepo, budgetPlanLineRepo, categoryRepository)
 
 	return &App{
 		Cfg:                   cfg,
@@ -116,6 +120,7 @@ func New(cfg *config.Config) (*App, error) {
 		TxAuditLogService:     txAuditLogService,
 		AccountActivitySvc:    accountActivityService,
 		InvestmentService:     investmentService,
+		BudgetPlanService:     budgetPlanService,
 		AccountDeletionWorker: accountDeletionWorker,
 	}, nil
 }

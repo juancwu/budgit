@@ -1,0 +1,152 @@
+package pages
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/badge"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/csrf"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+
+type SpaceBudgetPlansPageProps struct {
+	SpaceID   string
+	SpaceName string
+	Plans     []*model.BudgetPlan
+}
+
+templ SpaceBudgetPlansPage(props SpaceBudgetPlansPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Plans",
+		spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "Plans"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+	) {
+		<div class="container max-w-4xl px-6 py-8 mx-auto space-y-6">
+			<div class="flex items-start justify-between gap-4">
+				<div>
+					<h1 class="text-3xl font-bold">Budget plans</h1>
+					<p class="text-muted-foreground mt-2">
+						Standalone sheets for planning income and expenses. These are for planning only and don't affect your accounts.
+					</p>
+				</div>
+				@button.Button(button.Props{
+					Class: "flex gap-2 items-center",
+					Attributes: templ.Attributes{
+						"_": "on click toggle .hidden on #plan-create-form",
+					},
+				}) {
+					@icon.Plus()
+					New plan
+				}
+			</div>
+			<div id="plan-create-form" class="hidden">
+				@budgetPlanCreateForm(props.SpaceID)
+			</div>
+			if len(props.Plans) == 0 {
+				@card.Card(card.Props{Class: "rounded-sm"}) {
+					@card.Content(card.ContentProps{Class: "p-8 text-center text-muted-foreground"}) {
+						No plans yet. Create one to start budgeting.
+					}
+				}
+			} else {
+				<div class="grid gap-3 sm:grid-cols-2">
+					for _, plan := range props.Plans {
+						@budgetPlanCard(props.SpaceID, plan)
+					}
+				</div>
+			}
+		</div>
+	}
+}
+
+templ budgetPlanCard(spaceID string, plan *model.BudgetPlan) {
+	<a
+		href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.plans.plan", "spaceID", spaceID, "planID", plan.ID)) }
+		class="block"
+	>
+		@card.Card(card.Props{Class: "rounded-sm hover:border-primary transition-colors h-full"}) {
+			@card.Content(card.ContentProps{Class: "p-4 space-y-2"}) {
+				<div class="flex items-center justify-between gap-2">
+					<span class="font-semibold truncate">{ plan.Name }</span>
+					@badge.Badge(badge.Props{Variant: badge.VariantSecondary}) {
+						{ plan.Currency }
+					}
+				</div>
+				if plan.Note != nil && *plan.Note != "" {
+					<p class="text-sm text-muted-foreground line-clamp-2">{ *plan.Note }</p>
+				}
+				<p class="text-xs text-muted-foreground">Created { plan.CreatedAt.Format("Jan 2, 2006") }</p>
+			}
+		}
+	</a>
+}
+
+templ budgetPlanCreateForm(spaceID string) {
+	<form
+		method="post"
+		action={ templ.SafeURL(routeurl.URL("action.app.spaces.space.plans.create", "spaceID", spaceID)) }
+	>
+		@csrf.Token()
+		@card.Card(card.Props{Class: "rounded-sm"}) {
+			@card.Content(card.ContentProps{Class: "p-4 space-y-4"}) {
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "name"}) {
+						Plan name
+					}
+					@input.Input(input.Props{
+						ID: "name", Name: "name", Type: input.TypeText, Class: "rounded-sm",
+						Placeholder: "e.g. Monthly budget", Required: true,
+						Attributes: templ.Attributes{"autocomplete": "off"},
+					})
+				}
+				<div class="grid gap-4 sm:grid-cols-2">
+					@form.Item() {
+						@form.Label(form.LabelProps{For: "currency"}) {
+							Currency
+						}
+						<select
+							id="currency"
+							name="currency"
+							class="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+						>
+							for _, c := range budgetPlanCurrencies() {
+								<option value={ c } selected?={ c == "USD" }>{ c }</option>
+							}
+						</select>
+					}
+				</div>
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "note"}) {
+						Note (optional)
+					}
+					@input.Input(input.Props{
+						ID: "note", Name: "note", Type: input.TypeText, Class: "rounded-sm",
+						Placeholder: "What is this plan for?",
+						Attributes:  templ.Attributes{"autocomplete": "off"},
+					})
+				}
+				<div class="flex justify-end gap-2">
+					@button.Button(button.Props{
+						Variant: button.VariantGhost,
+						Attributes: templ.Attributes{
+							"type": "button",
+							"_":    "on click add .hidden to #plan-create-form",
+						},
+					}) {
+						Cancel
+					}
+					@button.Button(button.Props{Type: button.TypeSubmit}) {
+						Create plan
+					}
+				</div>
+			}
+		}
+	</form>
+}
+
+func budgetPlanCurrencies() []string {
+	return []string{"USD", "CAD", "EUR", "GBP", "AUD", "JPY"}
+}
