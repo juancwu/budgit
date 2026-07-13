@@ -98,6 +98,9 @@ func (s *TransactionService) PayBill(input PayBillInput) (*model.Transaction, er
 	if c := strings.TrimSpace(input.CategoryID); c != "" {
 		categoryID = &c
 	}
+	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+		return nil, err
+	}
 
 	txn := &model.Transaction{
 		ID:          uuid.NewString(),
@@ -435,6 +438,9 @@ func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transacti
 	if c := strings.TrimSpace(input.CategoryID); c != "" {
 		categoryID = &c
 	}
+	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+		return nil, err
+	}
 
 	oldCategoryID, _ := s.transactionRepo.GetCategoryID(input.TransactionID)
 	changes := diffTransactionFields(existing, title, input.Amount, input.OccurredAt, description)
@@ -714,10 +720,19 @@ func (s *TransactionService) CountByAccountFiltered(accountID string, filter mod
 	return count, nil
 }
 
-func (s *TransactionService) ListCategories() ([]*model.Category, error) {
-	categories, err := s.categoryRepo.All()
-	if err != nil {
-		return nil, fmt.Errorf("failed to list categories: %w", err)
+// validateCategoryForSpace ensures a bill's category (when set) exists and
+// belongs to the given space, preventing a crafted request from tagging a bill
+// with another space's category.
+func (s *TransactionService) validateCategoryForSpace(categoryID *string, spaceID string) error {
+	if categoryID == nil {
+		return nil
 	}
-	return categories, nil
+	cat, err := s.categoryRepo.ByID(*categoryID)
+	if err != nil {
+		return fmt.Errorf("failed to load category: %w", err)
+	}
+	if cat == nil || cat.SpaceID != spaceID {
+		return fmt.Errorf("invalid category")
+	}
+	return nil
 }

@@ -413,6 +413,16 @@ templ planLineFields(props BudgetPlanBoardProps, kind model.PlanLineKind, state 
 						<option value={ c.ID } selected?={ state.CategoryID == c.ID }>{ c.Name }</option>
 					}
 				</select>
+				if len(props.Categories) == 0 {
+					@form.Description() {
+						No categories yet.
+						<a
+							href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.categories", "spaceID", props.SpaceID)) }
+							class="underline hover:no-underline"
+						>Create one</a>
+						to group expenses.
+					}
+				}
 			}
 		}
 	</div>

@@ -103,6 +103,27 @@ func CreateTestAccount(t *testing.T, db *sqlx.DB, spaceID, name string) *model.A
 	return account
 }
 
+// CreateTestCategory inserts a space-scoped category directly into the database.
+func CreateTestCategory(t *testing.T, db *sqlx.DB, spaceID, name string) *model.Category {
+	t.Helper()
+	now := time.Now()
+	category := &model.Category{
+		ID:        uuid.NewString(),
+		SpaceID:   spaceID,
+		Name:      name,
+		CreatedAt: now,
+		UpdatedAt: now,
+	}
+	_, err := db.Exec(
+		`INSERT INTO categories (id, space_id, name, description, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6)`,
+		category.ID, category.SpaceID, category.Name, category.Description, category.CreatedAt, category.UpdatedAt,
+	)
+	if err != nil {
+		t.Fatalf("CreateTestCategory: %v", err)
+	}
+	return category
+}
+
 // CreateTestTransaction inserts a transaction directly into the database.
 func CreateTestTransaction(t *testing.T, db *sqlx.DB, accountID, title string, txnType model.TransactionType, amount decimal.Decimal) *model.Transaction {
 	t.Helper()

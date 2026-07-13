@@ -22,6 +22,7 @@ type App struct {
 	AccountService        *service.AccountService
 	AllocationService     *service.AllocationService
 	TransactionService    *service.TransactionService
+	CategoryService       *service.CategoryService
 	RecurringEventService *service.RecurringEventService
 	InviteService         *service.InviteService
 	AuditLogService       *service.SpaceAuditLogService
@@ -86,6 +87,7 @@ func New(cfg *config.Config) (*App, error) {
 	transactionService := service.NewTransactionService(transactionRepository, categoryRepository, accountService)
 	transactionService.SetAuditLogger(txAuditLogService)
 	transactionService.SetAllocationService(allocationService)
+	categoryService := service.NewCategoryService(categoryRepository)
 	accountActivityService := service.NewAccountActivityService(auditLogService, txAuditLogService)
 	authService := service.NewAuthService(
 		emailService,
@@ -114,6 +116,7 @@ func New(cfg *config.Config) (*App, error) {
 		AccountService:        accountService,
 		AllocationService:     allocationService,
 		TransactionService:    transactionService,
+		CategoryService:       categoryService,
 		RecurringEventService: recurringEventService,
 		InviteService:         inviteService,
 		AuditLogService:       auditLogService,

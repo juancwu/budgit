@@ -1,0 +1,129 @@
+package pages
+
+import "strconv"
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/forms"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/dialog"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+
+type SpaceCategoriesPageProps struct {
+	SpaceID    string
+	SpaceName  string
+	Categories []*model.Category
+	CreateForm forms.CreateCategoryProps
+}
+
+templ SpaceCategoriesPage(props SpaceCategoriesPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Categories",
+		spaceChildBreadcrumb(props.SpaceID, props.SpaceName, "Categories"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+	) {
+		<div class="container max-w-3xl px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Categories</h1>
+				<p class="text-muted-foreground mt-2">
+					Create categories to tag bills and budget plan lines in { props.SpaceName }.
+				</p>
+			</div>
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Header() {
+					@card.Title() {
+						Add a category
+					}
+					@card.Description() {
+						Categories are shared across every account and budget plan in this space.
+					}
+				}
+				@card.Content() {
+					@forms.CreateCategory(props.CreateForm)
+				}
+			}
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Header() {
+					@card.Title() {
+						{ categoryCountLabel(len(props.Categories)) }
+					}
+				}
+				@card.Content() {
+					if len(props.Categories) == 0 {
+						<p class="text-sm text-muted-foreground py-2">
+							No categories yet. Add one above to start tagging bills and budget lines.
+						</p>
+					} else {
+						<ul class="divide-y">
+							for _, c := range props.Categories {
+								@categoryRow(props.SpaceID, c)
+							}
+						</ul>
+					}
+				}
+			}
+		</div>
+	}
+}
+
+func categoryCountLabel(n int) string {
+	if n == 1 {
+		return "1 category"
+	}
+	return strconv.Itoa(n) + " categories"
+}
+
+templ categoryRow(spaceID string, c *model.Category) {
+	<li class="flex items-center justify-between gap-4 py-3">
+		<div class="flex items-center gap-3 min-w-0">
+			<div class="w-9 h-9 shrink-0 rounded-full bg-muted flex items-center justify-center">
+				@icon.Tag(icon.Props{Class: "size-4 text-muted-foreground"})
+			</div>
+			<div class="min-w-0">
+				<p class="font-medium truncate">{ c.Name }</p>
+				if c.Description != nil && *c.Description != "" {
+					<p class="text-xs text-muted-foreground truncate">{ *c.Description }</p>
+				}
+			</div>
+		</div>
+		@dialog.Dialog() {
+			@dialog.Trigger() {
+				@button.Button(button.Props{
+					Variant:    button.VariantGhost,
+					Size:       button.SizeIcon,
+					Attributes: templ.Attributes{"aria-label": "Delete category"},
+				}) {
+					@icon.Trash2(icon.Props{Class: "size-4 text-destructive"})
+				}
+			}
+			@dialog.Content() {
+				@dialog.Header() {
+					@dialog.Title() {
+						Delete { c.Name }?
+					}
+					@dialog.Description() {
+						Bills tagged with this category become uncategorized, and budget plan lines using it are cleared. This can't be undone.
+					}
+				}
+				@dialog.Footer(dialog.FooterProps{Class: "mt-2"}) {
+					@dialog.Close() {
+						@button.Button(button.Props{Variant: button.VariantOutline}) {
+							Cancel
+						}
+					}
+					<form hx-post={ routeurl.URL("action.app.spaces.space.categories.delete", "spaceID", spaceID, "categoryID", c.ID) }>
+						@button.Button(button.Props{
+							Type:    button.TypeSubmit,
+							Variant: button.VariantDestructive,
+						}) {
+							Delete
+						}
+					</form>
+				}
+			}
+		}
+	</li>
+}

@@ -87,8 +87,8 @@ func (s *BudgetPlanService) DeletePlan(id string) error {
 	return s.planRepo.Delete(id)
 }
 
-func (s *BudgetPlanService) Categories() ([]*model.Category, error) {
-	return s.categoryRepo.All()
+func (s *BudgetPlanService) CategoriesForSpace(spaceID string) ([]*model.Category, error) {
+	return s.categoryRepo.ListBySpace(spaceID)
 }
 
 // ---------- Lines ----------
@@ -115,7 +115,11 @@ func (s *BudgetPlanService) AddLine(in AddPlanLineInput) (*model.BudgetPlanLine,
 	if err := validatePlanAmount(in.Amount); err != nil {
 		return nil, err
 	}
-	categoryID, err := s.resolveCategory(in.Kind, in.CategoryID)
+	plan, err := s.planRepo.ByID(in.PlanID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load plan: %w", err)
+	}
+	categoryID, err := s.resolveCategory(in.Kind, in.CategoryID, plan.SpaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -151,7 +155,11 @@ func (s *BudgetPlanService) UpdateLine(line *model.BudgetPlanLine, label string,
 	if err := validatePlanAmount(amount); err != nil {
 		return err
 	}
-	resolved, err := s.resolveCategory(line.Kind, categoryID)
+	plan, err := s.planRepo.ByID(line.PlanID)
+	if err != nil {
+		return fmt.Errorf("failed to load plan: %w", err)
+	}
+	resolved, err := s.resolveCategory(line.Kind, categoryID, plan.SpaceID)
 	if err != nil {
 		return err
 	}
@@ -176,7 +184,7 @@ func (s *BudgetPlanService) Summarize(planID string) (*model.PlanSummary, error)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load plan lines: %w", err)
 	}
-	names, err := s.categoryNames()
+	names, err := s.categoryNames(plan.SpaceID)
 	if err != nil {
 		return nil, err
 	}
@@ -252,35 +260,34 @@ func (s *BudgetPlanService) Summarize(planID string) (*model.PlanSummary, error)
 // ---------- helpers ----------
 
 // resolveCategory enforces that income lines carry no category and that an
-// expense's category, if any, refers to a real category.
-func (s *BudgetPlanService) resolveCategory(kind model.PlanLineKind, categoryID *string) (*string, error) {
+// expense's category, if any, refers to a real category owned by the plan's
+// space.
+func (s *BudgetPlanService) resolveCategory(kind model.PlanLineKind, categoryID *string, spaceID string) (*string, error) {
 	if kind == model.PlanLineKindIncome {
 		return nil, nil
 	}
 	if categoryID == nil {
 		return nil, nil
 	}
-	if err := s.ensureCategory(*categoryID); err != nil {
+	if err := s.ensureCategory(spaceID, *categoryID); err != nil {
 		return nil, err
 	}
 	return categoryID, nil
 }
 
-func (s *BudgetPlanService) ensureCategory(id string) error {
-	cats, err := s.categoryRepo.All()
+func (s *BudgetPlanService) ensureCategory(spaceID, id string) error {
+	cat, err := s.categoryRepo.ByID(id)
 	if err != nil {
-		return fmt.Errorf("failed to load categories: %w", err)
+		return fmt.Errorf("failed to load category: %w", err)
 	}
-	for _, c := range cats {
-		if c.ID == id {
-			return nil
-		}
+	if cat == nil || cat.SpaceID != spaceID {
+		return fmt.Errorf("unknown category")
 	}
-	return fmt.Errorf("unknown category")
+	return nil
 }
 
-func (s *BudgetPlanService) categoryNames() (map[string]string, error) {
-	cats, err := s.categoryRepo.All()
+func (s *BudgetPlanService) categoryNames(spaceID string) (map[string]string, error) {
+	cats, err := s.categoryRepo.ListBySpace(spaceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load categories: %w", err)
 	}

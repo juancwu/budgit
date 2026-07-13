@@ -25,6 +25,7 @@ type spaceHandler struct {
 	spaceService       *service.SpaceService
 	accountService     *service.AccountService
 	transactionService *service.TransactionService
+	categoryService    *service.CategoryService
 	allocationService  *service.AllocationService
 	inviteService      *service.InviteService
 	auditLogService    *service.SpaceAuditLogService
@@ -37,6 +38,7 @@ func NewSpaceHandler(
 	spaceService *service.SpaceService,
 	accountService *service.AccountService,
 	transactionService *service.TransactionService,
+	categoryService *service.CategoryService,
 	allocationService *service.AllocationService,
 	inviteService *service.InviteService,
 	auditLogService *service.SpaceAuditLogService,
@@ -48,6 +50,7 @@ func NewSpaceHandler(
 		spaceService:       spaceService,
 		accountService:     accountService,
 		transactionService: transactionService,
+		categoryService:    categoryService,
 		allocationService:  allocationService,
 		inviteService:      inviteService,
 		auditLogService:    auditLogService,
@@ -775,6 +778,90 @@ func (h *spaceHandler) HandleCancelInvite(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusOK)
 }
 
+func (h *spaceHandler) SpaceCategoriesPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	categories, err := h.categoryService.ListBySpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load categories", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
+
+	ui.Render(w, r, pages.SpaceCategoriesPage(pages.SpaceCategoriesPageProps{
+		SpaceID:    spaceID,
+		SpaceName:  space.Name,
+		Categories: categories,
+		CreateForm: forms.CreateCategoryProps{SpaceID: spaceID},
+	}))
+}
+
+func (h *spaceHandler) HandleCreateCategory(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+
+	if _, err := h.spaceService.GetSpace(spaceID); err != nil {
+		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	name := strings.TrimSpace(r.FormValue("name"))
+	description := strings.TrimSpace(r.FormValue("description"))
+	formProps := forms.CreateCategoryProps{
+		SpaceID:     spaceID,
+		Name:        name,
+		Description: description,
+	}
+
+	if _, err := h.categoryService.Create(spaceID, name, description); err != nil {
+		switch {
+		case errors.Is(err, service.ErrCategoryNameTaken):
+			formProps.NameErr = "A category with this name already exists."
+		case name == "":
+			formProps.NameErr = "Name is required."
+		case len(name) > 60:
+			formProps.NameErr = "Name must be at most 60 characters."
+		default:
+			slog.Error("failed to create category", "error", err, "space_id", spaceID)
+			formProps.GeneralErr = "Something went wrong. Please try again."
+		}
+		ui.Render(w, r, forms.CreateCategory(formProps))
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *spaceHandler) HandleDeleteCategory(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	categoryID := r.PathValue("categoryID")
+
+	if _, err := h.spaceService.GetSpace(spaceID); err != nil {
+		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+		return
+	}
+
+	if err := h.categoryService.Delete(spaceID, categoryID); err != nil {
+		if errors.Is(err, service.ErrCategoryNotFound) {
+			ui.RenderError(w, r, "Category not found", http.StatusNotFound)
+			return
+		}
+		slog.Error("failed to delete category", "error", err, "space_id", spaceID, "category_id", categoryID)
+		ui.RenderError(w, r, "Failed to delete category", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("HX-Refresh", "true")
+	w.WriteHeader(http.StatusOK)
+}
+
 func (h *spaceHandler) SpaceActivityPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
 
@@ -1076,7 +1163,7 @@ func (h *spaceHandler) SpaceCreateBillPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	categories, err := h.transactionService.ListCategories()
+	categories, err := h.categoryService.ListBySpace(spaceID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -1260,7 +1347,7 @@ func (h *spaceHandler) SpaceTransactionPage(w http.ResponseWriter, r *http.Reque
 		if err != nil {
 			slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
 		} else if categoryID != "" {
-			categories, err := h.transactionService.ListCategories()
+			categories, err := h.categoryService.ListBySpace(spaceID)
 			if err != nil {
 				slog.Error("failed to load categories", "error", err)
 			} else {
@@ -1512,7 +1599,7 @@ func (h *spaceHandler) SpaceEditTransactionPage(w http.ResponseWriter, r *http.R
 			Description:   description,
 		}
 	} else {
-		categories, err := h.transactionService.ListCategories()
+		categories, err := h.categoryService.ListBySpace(spaceID)
 		if err != nil {
 			slog.Error("failed to load categories", "error", err)
 			ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -1658,7 +1745,7 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 	}
 
 	categoryInput := strings.TrimSpace(r.FormValue("category"))
-	categories, err := h.transactionService.ListCategories()
+	categories, err := h.categoryService.ListBySpace(spaceID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -1991,7 +2078,7 @@ func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) 
 	descriptionInput := strings.TrimSpace(r.FormValue("description"))
 	categoryInput := strings.TrimSpace(r.FormValue("category"))
 
-	categories, err := h.transactionService.ListCategories()
+	categories, err := h.categoryService.ListBySpace(spaceID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)

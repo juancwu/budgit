@@ -76,6 +76,16 @@ templ spaceSpecificSidebarContent(spaceID string) {
 			}
 			@sidebar.MenuItem() {
 				@sidebar.MenuButton(sidebar.MenuButtonProps{
+					Href:     routeurl.URL("page.app.spaces.space.categories", "spaceID", spaceID),
+					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.categories", "spaceID", spaceID),
+					Tooltip:  "Categories",
+				}) {
+					@icon.Tags()
+					<span>Categories</span>
+				}
+			}
+			@sidebar.MenuItem() {
+				@sidebar.MenuButton(sidebar.MenuButtonProps{
 					Href:     routeurl.URL("page.app.spaces.space.recurring", "spaceID", spaceID),
 					IsActive: ctxkeys.URLPath(ctx) == routeurl.URL("page.app.spaces.space.recurring", "spaceID", spaceID),
 					Tooltip:  "Recurring",

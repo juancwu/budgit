@@ -95,7 +95,7 @@ func (h *budgetPlanHandler) EditorPage(w http.ResponseWriter, r *http.Request) {
 		ui.RenderError(w, r, "Failed to load plan", http.StatusInternalServerError)
 		return
 	}
-	categories, err := h.planService.Categories()
+	categories, err := h.planService.CategoriesForSpace(plan.SpaceID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		categories = nil
@@ -228,7 +228,7 @@ func (h *budgetPlanHandler) renderBoard(w http.ResponseWriter, r *http.Request, 
 		ui.RenderError(w, r, "Failed to load plan", http.StatusInternalServerError)
 		return
 	}
-	categories, err := h.planService.Categories()
+	categories, err := h.planService.CategoriesForSpace(plan.SpaceID)
 	if err != nil {
 		categories = nil
 	}

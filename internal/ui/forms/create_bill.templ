@@ -119,8 +119,19 @@ templ CreateBill(props CreateBillProps) {
 							<option value={ c.ID } selected?={ props.CategoryID == c.ID }>{ c.Name }</option>
 						}
 					</select>
-					@form.Description() {
-						Optional. Helps with budget reporting.
+					if len(props.Categories) == 0 {
+						@form.Description() {
+							No categories yet.
+							<a
+								href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.categories", "spaceID", props.SpaceID)) }
+								class="underline hover:no-underline"
+							>Create one</a>
+							to tag this bill.
+						}
+					} else {
+						@form.Description() {
+							Optional. Helps with budget reporting.
+						}
 					}
 				}
 				@form.Item() {

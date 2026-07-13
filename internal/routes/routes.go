@@ -19,7 +19,7 @@ func SetupRoutes(a *app.App) http.Handler {
 	authH := handler.NewAuthHandler(a.AuthService, a.InviteService, a.SpaceService)
 	homeH := handler.NewHomeHandler()
 	settingsH := handler.NewSettingsHandler(a.AuthService, a.UserService)
-	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.AllocationService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc, a.InvestmentService)
+	spaceH := handler.NewSpaceHandler(a.SpaceService, a.AccountService, a.TransactionService, a.CategoryService, a.AllocationService, a.InviteService, a.AuditLogService, a.TxAuditLogService, a.AccountActivitySvc, a.InvestmentService)
 	allocationH := handler.NewAllocationHandler(a.AllocationService, a.AccountService)
 	recurringH := handler.NewRecurringEventHandler(a.RecurringEventService, a.AccountService, a.SpaceService)
 	investmentH := handler.NewInvestmentHandler(a.AccountService, a.SpaceService, a.InvestmentService)
@@ -115,6 +115,11 @@ func SetupRoutes(a *app.App) http.Handler {
 				g.Post("/members/invite", spaceH.HandleInviteMember).Name("action.app.spaces.space.members.invite")
 				g.Post("/members/{userID}/remove", spaceH.HandleRemoveMember).Name("action.app.spaces.space.members.remove")
 				g.Post("/invitations/{token}/cancel", spaceH.HandleCancelInvite).Name("action.app.spaces.space.invitations.cancel")
+
+				g.Get("/categories", spaceH.SpaceCategoriesPage).Name("page.app.spaces.space.categories")
+				g.Post("/categories", spaceH.HandleCreateCategory).Name("action.app.spaces.space.categories.create")
+				g.Post("/categories/{categoryID}/delete", spaceH.HandleDeleteCategory).Name("action.app.spaces.space.categories.delete")
+
 				g.Get("/accounts/create", spaceH.SpaceCreateAccountPage).Name("page.app.spaces.space.accounts.create")
 				g.Post("/accounts/create", spaceH.HandleCreateAccount).Name("action.app.spaces.space.accounts.create")
 

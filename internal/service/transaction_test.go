@@ -638,12 +638,9 @@ func TestTransactionService_DeleteTransaction_RemovesCategoryLink(t *testing.T) 
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)
 
-		categories, err := f.svc.ListCategories()
-		require.NoError(t, err)
-		require.NotEmpty(t, categories, "expected at least one seeded category")
-		categoryID := categories[0].ID
+		categoryID := testutil.CreateTestCategory(t, dbi.DB, f.account.SpaceID, "Groceries").ID
 
-		_, err = f.svc.Deposit(DepositInput{
+		_, err := f.svc.Deposit(DepositInput{
 			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(100),
 			OccurredAt: time.Now(), ActorID: f.user.ID,
 		})

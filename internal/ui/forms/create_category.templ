@@ -1,0 +1,74 @@
+package forms
+
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+
+type CreateCategoryProps struct {
+	SpaceID string
+
+	Name        string
+	Description string
+
+	NameErr    string
+	GeneralErr string
+}
+
+templ CreateCategory(props CreateCategoryProps) {
+	<form
+		id="create-category-form"
+		hx-post={ routeurl.URL("action.app.spaces.space.categories.create", "spaceID", props.SpaceID) }
+		hx-swap="outerHTML"
+	>
+		<div class="space-y-4">
+			if props.GeneralErr != "" {
+				@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+					{ props.GeneralErr }
+				}
+			}
+			<div class="flex flex-col sm:flex-row gap-2">
+				@form.Item(form.ItemProps{Class: "flex-1"}) {
+					@form.Label(form.LabelProps{For: "name", Class: "sr-only"}) {
+						Name
+					}
+					@input.Input(input.Props{
+						ID:          "name",
+						Name:        "name",
+						Type:        input.TypeText,
+						Placeholder: "Category name (e.g. Groceries)",
+						Class:       "rounded-sm",
+						Value:       props.Name,
+						HasError:    props.NameErr != "",
+						Required:    true,
+						Attributes: templ.Attributes{
+							"autocomplete": "off",
+							"maxlength":    "60",
+						},
+					})
+					if props.NameErr != "" {
+						@form.Message(form.MessageProps{Variant: form.MessageVariantError}) {
+							{ props.NameErr }
+						}
+					}
+				}
+				@form.Item(form.ItemProps{Class: "flex-1"}) {
+					@form.Label(form.LabelProps{For: "description", Class: "sr-only"}) {
+						Description
+					}
+					@input.Input(input.Props{
+						ID:          "description",
+						Name:        "description",
+						Type:        input.TypeText,
+						Placeholder: "Description (optional)",
+						Class:       "rounded-sm",
+						Value:       props.Description,
+					})
+				}
+				@button.Button(button.Props{Type: button.TypeSubmit, Class: "shrink-0"}) {
+					Add category
+				}
+			</div>
+		</div>
+	</form>
+}
