@@ -2,6 +2,8 @@ package repository
 
 import (
 	"database/sql"
+	"fmt"
+	"strings"
 	"time"
 
 	"git.juancwu.dev/juancwu/budgit/internal/model"
@@ -22,6 +24,11 @@ type TransactionRepository interface {
 	TransferIDsIn(ids []string) (map[string]bool, error)
 	ListByAccount(accountID string, limit, offset int) ([]*model.Transaction, error)
 	CountByAccount(accountID string) (int, error)
+	// ListByAccountFiltered lists transactions for an account narrowed by the
+	// given filter, ordered newest first, paginated by limit/offset.
+	ListByAccountFiltered(accountID string, filter model.TransactionFilter, limit, offset int) ([]*model.Transaction, error)
+	// CountByAccountFiltered counts transactions for an account matching the filter.
+	CountByAccountFiltered(accountID string, filter model.TransactionFilter) (int, error)
 	// SumByAccountYearType totals transaction values for an account, year,
 	// and type (deposit or withdrawal). Returns zero when no rows match.
 	SumByAccountYearType(accountID string, year int, txType model.TransactionType) (decimal.Decimal, error)
@@ -306,6 +313,63 @@ func (r *transactionRepository) ListByAccount(accountID string, limit, offset in
 func (r *transactionRepository) CountByAccount(accountID string) (int, error) {
 	var count int
 	if err := r.db.Get(&count, `SELECT COUNT(*) FROM transactions WHERE account_id = $1;`, accountID); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+// transactionFilterClause builds a WHERE clause (without the WHERE keyword) and
+// positional args for the given account and filter. The account condition is
+// always present, so the returned clause is never empty. Amount comparisons cast
+// the TEXT value column to numeric so they order numerically, not lexically.
+func transactionFilterClause(accountID string, filter model.TransactionFilter) (string, []any) {
+	conds := []string{"account_id = $1"}
+	args := []any{accountID}
+	add := func(format string, val any) {
+		args = append(args, val)
+		conds = append(conds, fmt.Sprintf(format, len(args)))
+	}
+	if title := strings.TrimSpace(filter.Title); title != "" {
+		add("title ILIKE $%d", "%"+title+"%")
+	}
+	if filter.DateFrom != nil {
+		add("occurred_at >= $%d", *filter.DateFrom)
+	}
+	if filter.DateTo != nil {
+		add("occurred_at <= $%d", *filter.DateTo)
+	}
+	if filter.AmountMin != nil {
+		add("value::numeric >= $%d::numeric", filter.AmountMin.String())
+	}
+	if filter.AmountMax != nil {
+		add("value::numeric <= $%d::numeric", filter.AmountMax.String())
+	}
+	return strings.Join(conds, " AND "), args
+}
+
+func (r *transactionRepository) ListByAccountFiltered(accountID string, filter model.TransactionFilter, limit, offset int) ([]*model.Transaction, error) {
+	where, args := transactionFilterClause(accountID, filter)
+	query := fmt.Sprintf(`
+		SELECT id, value, type, account_id, title, description, occurred_at, created_at, updated_at
+		FROM transactions
+		WHERE %s
+		ORDER BY occurred_at DESC, created_at DESC
+		LIMIT $%d OFFSET $%d;
+	`, where, len(args)+1, len(args)+2)
+	args = append(args, limit, offset)
+
+	txns := []*model.Transaction{}
+	if err := r.db.Select(&txns, query, args...); err != nil {
+		return nil, err
+	}
+	return txns, nil
+}
+
+func (r *transactionRepository) CountByAccountFiltered(accountID string, filter model.TransactionFilter) (int, error) {
+	where, args := transactionFilterClause(accountID, filter)
+	query := fmt.Sprintf(`SELECT COUNT(*) FROM transactions WHERE %s;`, where)
+	var count int
+	if err := r.db.Get(&count, query, args...); err != nil {
 		return 0, err
 	}
 	return count, nil

@@ -56,6 +56,31 @@ type Transaction struct {
 	UpdatedAt   time.Time       `db:"updated_at"`
 }
 
+// TransactionFilter describes optional criteria for narrowing a transaction
+// listing. All fields are optional and combine with AND — an empty filter
+// matches everything. Amounts are compared against the stored magnitude
+// (value is unsigned; direction is derived from Type).
+type TransactionFilter struct {
+	// Title matches transactions whose title contains this text (case-insensitive).
+	Title string
+	// DateFrom / DateTo bound occurred_at (inclusive).
+	DateFrom *time.Time
+	DateTo   *time.Time
+	// AmountMin / AmountMax bound value (inclusive). For an exact amount set both
+	// to the same value.
+	AmountMin *decimal.Decimal
+	AmountMax *decimal.Decimal
+}
+
+// IsZero reports whether the filter has no active criteria.
+func (f TransactionFilter) IsZero() bool {
+	return f.Title == "" &&
+		f.DateFrom == nil &&
+		f.DateTo == nil &&
+		f.AmountMin == nil &&
+		f.AmountMax == nil
+}
+
 type Tag struct {
 	ID        string    `db:"id"`
 	Name      string    `db:"name"`

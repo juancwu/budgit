@@ -1,6 +1,7 @@
 package pages
 
 import "fmt"
+import "net/url"
 import "git.juancwu.dev/juancwu/budgit/internal/model"
 import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/blocks"
@@ -8,7 +9,54 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/pagination"
+
+// TransactionFilterValues holds the raw (string) filter inputs used to
+// re-populate the filter form and rebuild pagination links.
+type TransactionFilterValues struct {
+	Title      string
+	DateFrom   string
+	DateTo     string
+	AmountMode string // "", "exact", or "range"
+	Amount     string
+	AmountMin  string
+	AmountMax  string
+	// Active is true when at least one criterion is applied.
+	Active bool
+}
+
+// QueryString encodes the active filter values (excluding pagination) into a
+// URL query string without a leading "?". Returns "" when nothing is set.
+func (f TransactionFilterValues) QueryString() string {
+	q := url.Values{}
+	if f.Title != "" {
+		q.Set("q", f.Title)
+	}
+	if f.DateFrom != "" {
+		q.Set("date_from", f.DateFrom)
+	}
+	if f.DateTo != "" {
+		q.Set("date_to", f.DateTo)
+	}
+	switch f.AmountMode {
+	case "exact":
+		q.Set("amount_mode", "exact")
+		if f.Amount != "" {
+			q.Set("amount", f.Amount)
+		}
+	case "range":
+		q.Set("amount_mode", "range")
+		if f.AmountMin != "" {
+			q.Set("amount_min", f.AmountMin)
+		}
+		if f.AmountMax != "" {
+			q.Set("amount_max", f.AmountMax)
+		}
+	}
+	return q.Encode()
+}
 
 type SpaceAccountTransactionsPageProps struct {
 	SpaceID                  string
@@ -21,6 +69,10 @@ type SpaceAccountTransactionsPageProps struct {
 	TotalPages               int
 	TotalCount               int
 	PerPage                  int
+	Filter                   TransactionFilterValues
+	// FilterQuery is the encoded filter query string (no leading "?") appended
+	// to pagination links so filters survive page navigation.
+	FilterQuery string
 }
 
 templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
@@ -52,6 +104,7 @@ templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
 					}
 				</div>
 			</div>
+			@transactionsFilter(props)
 			@card.Card() {
 				@card.Header() {
 					@card.Title() {
@@ -81,16 +134,154 @@ templ SpaceAccountTransactionsPage(props SpaceAccountTransactionsPageProps) {
 
 func transactionsRangeLabel(props SpaceAccountTransactionsPageProps) string {
 	if props.TotalCount == 0 {
+		if props.Filter.Active {
+			return "No transactions match your filters."
+		}
 		return "No transactions yet."
 	}
 	start := (props.CurrentPage-1)*props.PerPage + 1
 	end := start + len(props.Transactions) - 1
+	if props.Filter.Active {
+		return fmt.Sprintf("Showing %d–%d of %d matching", start, end, props.TotalCount)
+	}
 	return fmt.Sprintf("Showing %d–%d of %d", start, end, props.TotalCount)
 }
 
-func transactionsPageURL(spaceID, accountID string, page int) string {
-	base := routeurl.URL("page.app.spaces.space.accounts.account.transactions", "spaceID", spaceID, "accountID", accountID)
-	return fmt.Sprintf("%s?page=%d", base, page)
+func transactionsBaseURL(spaceID, accountID string) string {
+	return routeurl.URL("page.app.spaces.space.accounts.account.transactions", "spaceID", spaceID, "accountID", accountID)
+}
+
+func transactionsPageURL(spaceID, accountID, filterQuery string, page int) string {
+	u := fmt.Sprintf("%s?page=%d", transactionsBaseURL(spaceID, accountID), page)
+	if filterQuery != "" {
+		u += "&" + filterQuery
+	}
+	return u
+}
+
+// transactionsFilter renders the search/filter form. It submits via GET so
+// filters land in the URL (bookmarkable, and pagination can preserve them).
+templ transactionsFilter(props SpaceAccountTransactionsPageProps) {
+	{{ inputBase := "flex h-9 w-full min-w-0 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] dark:bg-input/30" }}
+	@card.Card() {
+		@card.Content() {
+			<form method="get" action={ templ.SafeURL(transactionsBaseURL(props.SpaceID, props.AccountID)) } class="space-y-4 pt-6">
+				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "filter-title"}) {
+							Title
+						}
+						@input.Input(input.Props{
+							ID:          "filter-title",
+							Name:        "q",
+							Type:        input.TypeSearch,
+							Placeholder: "Search by title…",
+							Value:       props.Filter.Title,
+						})
+					</div>
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "filter-date-from"}) {
+							Date from
+						}
+						@input.Input(input.Props{
+							ID:    "filter-date-from",
+							Name:  "date_from",
+							Type:  input.TypeDate,
+							Value: props.Filter.DateFrom,
+						})
+					</div>
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "filter-date-to"}) {
+							Date to
+						}
+						@input.Input(input.Props{
+							ID:    "filter-date-to",
+							Name:  "date_to",
+							Type:  input.TypeDate,
+							Value: props.Filter.DateTo,
+						})
+					</div>
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "filter-amount-mode"}) {
+							Amount
+						}
+						<select
+							id="filter-amount-mode"
+							name="amount_mode"
+							class={ inputBase }
+							_="on change
+								if my.value is 'exact' then remove .hidden from #amount-exact-field else add .hidden to #amount-exact-field end
+								if my.value is 'range' then remove .hidden from #amount-range-field else add .hidden to #amount-range-field end"
+						>
+							<option value="" selected?={ props.Filter.AmountMode == "" }>Any amount</option>
+							<option value="exact" selected?={ props.Filter.AmountMode == "exact" }>Exact amount</option>
+							<option value="range" selected?={ props.Filter.AmountMode == "range" }>Amount range</option>
+						</select>
+					</div>
+					<div id="amount-exact-field" class={ "space-y-1.5", templ.KV("hidden", props.Filter.AmountMode != "exact") }>
+						@label.Label(label.Props{For: "filter-amount"}) {
+							Exact amount
+						}
+						@input.Input(input.Props{
+							ID:          "filter-amount",
+							Name:        "amount",
+							Type:        input.TypeNumber,
+							Placeholder: "0.00",
+							Value:       props.Filter.Amount,
+							Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+						})
+					</div>
+					<div id="amount-range-field" class={ "grid grid-cols-2 gap-2", templ.KV("hidden", props.Filter.AmountMode != "range") }>
+						<div class="space-y-1.5">
+							@label.Label(label.Props{For: "filter-amount-min"}) {
+								Min amount
+							}
+							@input.Input(input.Props{
+								ID:          "filter-amount-min",
+								Name:        "amount_min",
+								Type:        input.TypeNumber,
+								Placeholder: "0.00",
+								Value:       props.Filter.AmountMin,
+								Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+							})
+						</div>
+						<div class="space-y-1.5">
+							@label.Label(label.Props{For: "filter-amount-max"}) {
+								Max amount
+							}
+							@input.Input(input.Props{
+								ID:          "filter-amount-max",
+								Name:        "amount_max",
+								Type:        input.TypeNumber,
+								Placeholder: "0.00",
+								Value:       props.Filter.AmountMax,
+								Attributes:  templ.Attributes{"step": "0.01", "min": "0"},
+							})
+						</div>
+					</div>
+				</div>
+				<div class="flex items-center gap-2">
+					@button.Button(button.Props{
+						Type:  button.TypeSubmit,
+						Class: "flex gap-2 items-center",
+					}) {
+						@icon.Search(icon.Props{Class: "size-4"})
+						Apply filters
+					}
+					if props.Filter.Active {
+						@button.Button(button.Props{
+							Variant: button.VariantOutline,
+							Href:    transactionsBaseURL(props.SpaceID, props.AccountID),
+							Class:   "flex gap-2 items-center",
+						}) {
+							@icon.X(icon.Props{Class: "size-4"})
+							Clear
+						}
+					}
+				</div>
+			</form>
+		}
+	}
 }
 
 templ transactionsPagination(props SpaceAccountTransactionsPageProps) {
@@ -99,7 +290,7 @@ templ transactionsPagination(props SpaceAccountTransactionsPageProps) {
 		@pagination.Content() {
 			@pagination.Item() {
 				@pagination.Previous(pagination.PreviousProps{
-					Href:     transactionsPageURL(props.SpaceID, props.AccountID, p.CurrentPage-1),
+					Href:     transactionsPageURL(props.SpaceID, props.AccountID, props.FilterQuery, p.CurrentPage-1),
 					Disabled: !p.HasPrevious,
 					Label:    "Previous",
 				})
@@ -107,7 +298,7 @@ templ transactionsPagination(props SpaceAccountTransactionsPageProps) {
 			for _, page := range p.Pages {
 				@pagination.Item() {
 					@pagination.Link(pagination.LinkProps{
-						Href:     transactionsPageURL(props.SpaceID, props.AccountID, page),
+						Href:     transactionsPageURL(props.SpaceID, props.AccountID, props.FilterQuery, page),
 						IsActive: page == p.CurrentPage,
 					}) {
 						{ fmt.Sprintf("%d", page) }
@@ -116,7 +307,7 @@ templ transactionsPagination(props SpaceAccountTransactionsPageProps) {
 			}
 			@pagination.Item() {
 				@pagination.Next(pagination.NextProps{
-					Href:     transactionsPageURL(props.SpaceID, props.AccountID, p.CurrentPage+1),
+					Href:     transactionsPageURL(props.SpaceID, props.AccountID, props.FilterQuery, p.CurrentPage+1),
 					Disabled: !p.HasNext,
 					Label:    "Next",
 				})

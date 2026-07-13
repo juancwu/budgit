@@ -407,7 +407,9 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 		}
 	}
 
-	total, err := h.transactionService.CountByAccount(accountID)
+	filter, filterValues := parseTransactionFilter(r)
+
+	total, err := h.transactionService.CountByAccountFiltered(accountID, filter)
 	if err != nil {
 		slog.Error("failed to count transactions", "error", err, "account_id", accountID)
 		ui.RenderError(w, r, "Failed to load transactions", http.StatusInternalServerError)
@@ -423,7 +425,7 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 	}
 
 	offset := (page - 1) * perPage
-	txns, err := h.transactionService.ListByAccount(accountID, perPage, offset)
+	txns, err := h.transactionService.ListByAccountFiltered(accountID, filter, perPage, offset)
 	if err != nil {
 		slog.Error("failed to load transactions", "error", err, "account_id", accountID)
 		ui.RenderError(w, r, "Failed to load transactions", http.StatusInternalServerError)
@@ -441,7 +443,61 @@ func (h *spaceHandler) SpaceAccountTransactionsPage(w http.ResponseWriter, r *ht
 		TotalPages:                totalPages,
 		TotalCount:                total,
 		PerPage:                   perPage,
+		Filter:                    filterValues,
+		FilterQuery:               filterValues.QueryString(),
 	}))
+}
+
+// parseTransactionFilter reads the transaction filter query params off the
+// request, returning both the model filter used for querying and the raw
+// string values used to re-populate the filter form. Malformed values (a bad
+// date or a non-numeric amount) are ignored rather than erroring so a partial
+// filter still applies.
+func parseTransactionFilter(r *http.Request) (model.TransactionFilter, pages.TransactionFilterValues) {
+	q := r.URL.Query()
+	vals := pages.TransactionFilterValues{
+		Title:      strings.TrimSpace(q.Get("q")),
+		DateFrom:   strings.TrimSpace(q.Get("date_from")),
+		DateTo:     strings.TrimSpace(q.Get("date_to")),
+		AmountMode: strings.TrimSpace(q.Get("amount_mode")),
+		Amount:     strings.TrimSpace(q.Get("amount")),
+		AmountMin:  strings.TrimSpace(q.Get("amount_min")),
+		AmountMax:  strings.TrimSpace(q.Get("amount_max")),
+	}
+	if vals.AmountMode != "exact" && vals.AmountMode != "range" {
+		vals.AmountMode = ""
+	}
+
+	var filter model.TransactionFilter
+	filter.Title = vals.Title
+	if t, err := time.Parse("2006-01-02", vals.DateFrom); err == nil {
+		from := t
+		filter.DateFrom = &from
+	}
+	if t, err := time.Parse("2006-01-02", vals.DateTo); err == nil {
+		// Include the entire day by extending to just before the next midnight.
+		to := t.Add(24*time.Hour - time.Nanosecond)
+		filter.DateTo = &to
+	}
+	switch vals.AmountMode {
+	case "exact":
+		if d, err := decimal.NewFromString(vals.Amount); err == nil {
+			filter.AmountMin = &d
+			filter.AmountMax = &d
+		}
+	case "range":
+		if d, err := decimal.NewFromString(vals.AmountMin); err == nil {
+			min := d
+			filter.AmountMin = &min
+		}
+		if d, err := decimal.NewFromString(vals.AmountMax); err == nil {
+			max := d
+			filter.AmountMax = &max
+		}
+	}
+
+	vals.Active = !filter.IsZero()
+	return filter, vals
 }
 
 // nonEditableTransactionIDs returns the subset of the given transactions that

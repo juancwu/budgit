@@ -692,6 +692,28 @@ func (s *TransactionService) CountByAccount(accountID string) (int, error) {
 	return count, nil
 }
 
+func (s *TransactionService) ListByAccountFiltered(accountID string, filter model.TransactionFilter, limit, offset int) ([]*model.Transaction, error) {
+	if limit <= 0 {
+		limit = 25
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	txns, err := s.transactionRepo.ListByAccountFiltered(accountID, filter, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list transactions: %w", err)
+	}
+	return txns, nil
+}
+
+func (s *TransactionService) CountByAccountFiltered(accountID string, filter model.TransactionFilter) (int, error) {
+	count, err := s.transactionRepo.CountByAccountFiltered(accountID, filter)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count transactions: %w", err)
+	}
+	return count, nil
+}
+
 func (s *TransactionService) ListCategories() ([]*model.Category, error) {
 	categories, err := s.categoryRepo.All()
 	if err != nil {
