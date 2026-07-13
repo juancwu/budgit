@@ -1213,15 +1213,23 @@ func (h *spaceHandler) SpaceCreateDepositPage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
+	categories, err := h.categoryService.ListBySpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load categories", "error", err)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
+
 	ui.Render(w, r, pages.SpaceCreateDepositPage(pages.SpaceCreateDepositPageProps{
 		SpaceID:     spaceID,
 		SpaceName:   space.Name,
 		AccountID:   accountID,
 		AccountName: account.Name,
 		Form: forms.CreateDepositProps{
-			SpaceID:   spaceID,
-			AccountID: accountID,
-			Date:      time.Now().Format("2006-01-02"),
+			SpaceID:    spaceID,
+			AccountID:  accountID,
+			Categories: categories,
+			Date:       time.Now().Format("2006-01-02"),
 		},
 	}))
 }
@@ -1234,14 +1242,24 @@ func (h *spaceHandler) HandleCreateDeposit(w http.ResponseWriter, r *http.Reques
 	amountInput := strings.TrimSpace(r.FormValue("amount"))
 	dateInput := strings.TrimSpace(r.FormValue("date"))
 	descriptionInput := strings.TrimSpace(r.FormValue("description"))
+	categoryInput := strings.TrimSpace(r.FormValue("category"))
+
+	categories, err := h.categoryService.ListBySpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load categories", "error", err)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
 
 	formProps := forms.CreateDepositProps{
 		SpaceID:     spaceID,
 		AccountID:   accountID,
+		Categories:  categories,
 		Title:       titleInput,
 		Amount:      amountInput,
 		Date:        dateInput,
 		Description: descriptionInput,
+		CategoryID:  categoryInput,
 	}
 
 	hasErr := false
@@ -1293,12 +1311,13 @@ func (h *spaceHandler) HandleCreateDeposit(w http.ResponseWriter, r *http.Reques
 	if u := ctxkeys.User(r.Context()); u != nil {
 		actorID = u.ID
 	}
-	_, err := h.transactionService.Deposit(service.DepositInput{
+	_, err = h.transactionService.Deposit(service.DepositInput{
 		AccountID:   accountID,
 		Title:       titleInput,
 		Amount:      amount,
 		OccurredAt:  occurredAt,
 		Description: descriptionInput,
+		CategoryID:  categoryInput,
 		ActorID:     actorID,
 	})
 	if err != nil {
@@ -1342,20 +1361,17 @@ func (h *spaceHandler) SpaceTransactionPage(w http.ResponseWriter, r *http.Reque
 	}
 
 	categoryName := ""
-	if txn.Type == model.TransactionTypeWithdrawal {
-		categoryID, err := h.transactionService.GetTransactionCategoryID(transactionID)
+	if categoryID, err := h.transactionService.GetTransactionCategoryID(transactionID); err != nil {
+		slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
+	} else if categoryID != "" {
+		categories, err := h.categoryService.ListBySpace(spaceID)
 		if err != nil {
-			slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
-		} else if categoryID != "" {
-			categories, err := h.categoryService.ListBySpace(spaceID)
-			if err != nil {
-				slog.Error("failed to load categories", "error", err)
-			} else {
-				for _, c := range categories {
-					if c.ID == categoryID {
-						categoryName = c.Name
-						break
-					}
+			slog.Error("failed to load categories", "error", err)
+		} else {
+			for _, c := range categories {
+				if c.ID == categoryID {
+					categoryName = c.Name
+					break
 				}
 			}
 		}
@@ -1588,28 +1604,31 @@ func (h *spaceHandler) SpaceEditTransactionPage(w http.ResponseWriter, r *http.R
 		TransactionType: txn.Type,
 	}
 
+	categories, err := h.categoryService.ListBySpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load categories", "error", err)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
+	categoryID, err := h.transactionService.GetTransactionCategoryID(transactionID)
+	if err != nil {
+		slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
+		categoryID = ""
+	}
+
 	if txn.Type == model.TransactionTypeDeposit {
 		pageProps.DepositForm = forms.EditDepositProps{
 			SpaceID:       spaceID,
 			AccountID:     accountID,
 			TransactionID: transactionID,
+			Categories:    categories,
 			Title:         txn.Title,
 			Amount:        txn.Value.StringFixedBank(2),
 			Date:          txn.OccurredAt.Format("2006-01-02"),
 			Description:   description,
+			CategoryID:    categoryID,
 		}
 	} else {
-		categories, err := h.categoryService.ListBySpace(spaceID)
-		if err != nil {
-			slog.Error("failed to load categories", "error", err)
-			ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
-			return
-		}
-		categoryID, err := h.transactionService.GetTransactionCategoryID(transactionID)
-		if err != nil {
-			slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
-			categoryID = ""
-		}
 		pageProps.BillForm = forms.EditBillProps{
 			SpaceID:       spaceID,
 			AccountID:     accountID,
@@ -1656,6 +1675,14 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 	amountInput := strings.TrimSpace(r.FormValue("amount"))
 	dateInput := strings.TrimSpace(r.FormValue("date"))
 	descriptionInput := strings.TrimSpace(r.FormValue("description"))
+	categoryInput := strings.TrimSpace(r.FormValue("category"))
+
+	categories, err := h.categoryService.ListBySpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load categories", "error", err)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
 
 	titleErr, amountErr, dateErr := "", "", ""
 	hasErr := false
@@ -1704,10 +1731,12 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 			SpaceID:       spaceID,
 			AccountID:     accountID,
 			TransactionID: transactionID,
+			Categories:    categories,
 			Title:         titleInput,
 			Amount:        amountInput,
 			Date:          dateInput,
 			Description:   descriptionInput,
+			CategoryID:    categoryInput,
 			TitleErr:      titleErr,
 			AmountErr:     amountErr,
 			DateErr:       dateErr,
@@ -1726,6 +1755,7 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 			Amount:        amount,
 			OccurredAt:    occurredAt,
 			Description:   descriptionInput,
+			CategoryID:    categoryInput,
 			ActorID:       actorID,
 		}); err != nil {
 			slog.Error("failed to update deposit", "error", err, "transaction_id", transactionID)
@@ -1744,13 +1774,6 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	categoryInput := strings.TrimSpace(r.FormValue("category"))
-	categories, err := h.categoryService.ListBySpace(spaceID)
-	if err != nil {
-		slog.Error("failed to load categories", "error", err)
-		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
-		return
-	}
 	formProps := forms.EditBillProps{
 		SpaceID:       spaceID,
 		AccountID:     accountID,

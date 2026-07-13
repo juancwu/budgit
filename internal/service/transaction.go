@@ -139,6 +139,7 @@ type DepositInput struct {
 	Amount      decimal.Decimal
 	OccurredAt  time.Time
 	Description string
+	CategoryID  string
 	ActorID     string
 }
 
@@ -169,6 +170,13 @@ func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, er
 	if d := strings.TrimSpace(input.Description); d != "" {
 		description = &d
 	}
+	var categoryID *string
+	if c := strings.TrimSpace(input.CategoryID); c != "" {
+		categoryID = &c
+	}
+	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+		return nil, err
+	}
 
 	txn := &model.Transaction{
 		ID:          uuid.NewString(),
@@ -182,7 +190,7 @@ func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, er
 		UpdatedAt:   now,
 	}
 
-	if err := s.transactionRepo.CreateDepositAtomic(txn, newBalance); err != nil {
+	if err := s.transactionRepo.CreateDepositAtomic(txn, newBalance, categoryID); err != nil {
 		return nil, fmt.Errorf("failed to create deposit transaction: %w", err)
 	}
 
@@ -481,6 +489,7 @@ type UpdateDepositInput struct {
 	Amount        decimal.Decimal
 	OccurredAt    time.Time
 	Description   string
+	CategoryID    string
 	ActorID       string
 }
 
@@ -523,8 +532,22 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 	if d := strings.TrimSpace(input.Description); d != "" {
 		description = &d
 	}
+	var categoryID *string
+	if c := strings.TrimSpace(input.CategoryID); c != "" {
+		categoryID = &c
+	}
+	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+		return nil, err
+	}
 
+	oldCategoryID, _ := s.transactionRepo.GetCategoryID(input.TransactionID)
 	changes := diffTransactionFields(existing, title, input.Amount, input.OccurredAt, description)
+	if !ptrEq(oldCategoryID, categoryID) {
+		changes["category_id"] = map[string]any{
+			"old": ptrOrEmpty(oldCategoryID),
+			"new": ptrOrEmpty(categoryID),
+		}
+	}
 
 	existing.Value = input.Amount
 	existing.Title = title
@@ -532,7 +555,7 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 	existing.OccurredAt = input.OccurredAt
 	existing.UpdatedAt = time.Now()
 
-	if err := s.transactionRepo.UpdateDepositAtomic(existing, newBalance); err != nil {
+	if err := s.transactionRepo.UpdateDepositAtomic(existing, newBalance, categoryID); err != nil {
 		return nil, fmt.Errorf("failed to update deposit transaction: %w", err)
 	}
 	if len(changes) > 0 {

@@ -13,9 +13,9 @@ import (
 
 type TransactionRepository interface {
 	CreateBillAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error
-	CreateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal) error
+	CreateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error
 	UpdateBillAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error
-	UpdateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal) error
+	UpdateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error
 	DeleteAtomic(transactionID, accountID string, newBalance decimal.Decimal) error
 	TransferAtomic(withdrawal, deposit *model.Transaction, sourceNewBalance, destNewBalance decimal.Decimal) error
 	GetByID(id string) (*model.Transaction, error)
@@ -77,7 +77,7 @@ func (r *transactionRepository) CreateBillAtomic(t *model.Transaction, newBalanc
 	})
 }
 
-func (r *transactionRepository) CreateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal) error {
+func (r *transactionRepository) CreateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error {
 	return WithTx(r.db, func(tx *sqlx.Tx) error {
 		insertTxn := `
 			INSERT INTO transactions
@@ -96,6 +96,13 @@ func (r *transactionRepository) CreateDepositAtomic(t *model.Transaction, newBal
 		updateBalance := `UPDATE accounts SET balance = $1, updated_at = $2 WHERE id = $3;`
 		if _, err := tx.Exec(updateBalance, newBalance, time.Now(), t.AccountID); err != nil {
 			return err
+		}
+
+		if categoryID != nil && *categoryID != "" {
+			linkCategory := `INSERT INTO transaction_categories (category_id, transaction_id) VALUES ($1, $2);`
+			if _, err := tx.Exec(linkCategory, *categoryID, t.ID); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
@@ -133,7 +140,7 @@ func (r *transactionRepository) UpdateBillAtomic(t *model.Transaction, newBalanc
 	})
 }
 
-func (r *transactionRepository) UpdateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal) error {
+func (r *transactionRepository) UpdateDepositAtomic(t *model.Transaction, newBalance decimal.Decimal, categoryID *string) error {
 	return WithTx(r.db, func(tx *sqlx.Tx) error {
 		updateTxn := `
 			UPDATE transactions
@@ -150,6 +157,16 @@ func (r *transactionRepository) UpdateDepositAtomic(t *model.Transaction, newBal
 		updateBalance := `UPDATE accounts SET balance = $1, updated_at = $2 WHERE id = $3;`
 		if _, err := tx.Exec(updateBalance, newBalance, time.Now(), t.AccountID); err != nil {
 			return err
+		}
+
+		if _, err := tx.Exec(`DELETE FROM transaction_categories WHERE transaction_id = $1;`, t.ID); err != nil {
+			return err
+		}
+		if categoryID != nil && *categoryID != "" {
+			linkCategory := `INSERT INTO transaction_categories (category_id, transaction_id) VALUES ($1, $2);`
+			if _, err := tx.Exec(linkCategory, *categoryID, t.ID); err != nil {
+				return err
+			}
 		}
 		return nil
 	})

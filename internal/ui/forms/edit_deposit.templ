@@ -1,5 +1,6 @@
 package forms
 
+import "git.juancwu.dev/juancwu/budgit/internal/model"
 import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
@@ -11,11 +12,13 @@ type EditDepositProps struct {
 	SpaceID       string
 	AccountID     string
 	TransactionID string
+	Categories    []*model.Category
 
 	Title       string
 	Amount      string
 	Date        string
 	Description string
+	CategoryID  string
 
 	TitleErr   string
 	AmountErr  string
@@ -109,6 +112,35 @@ templ EditDeposit(props EditDepositProps) {
 						}
 					}
 				</div>
+				@form.Item() {
+					@form.Label(form.LabelProps{For: "category"}) {
+						Category
+					}
+					<select
+						id="category"
+						name="category"
+						class="flex h-9 w-full items-center rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+					>
+						<option value="" selected?={ props.CategoryID == "" }>Uncategorized</option>
+						for _, c := range props.Categories {
+							<option value={ c.ID } selected?={ props.CategoryID == c.ID }>{ c.Name }</option>
+						}
+					</select>
+					if len(props.Categories) == 0 {
+						@form.Description() {
+							No categories yet.
+							<a
+								href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.categories", "spaceID", props.SpaceID)) }
+								class="underline hover:no-underline"
+							>Create one</a>
+							to tag this deposit.
+						}
+					} else {
+						@form.Description() {
+							Optional. Helps with reporting.
+						}
+					}
+				}
 				@form.Item() {
 					@form.Label(form.LabelProps{For: "description"}) {
 						Description

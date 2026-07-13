@@ -774,3 +774,76 @@ func TestTransactionService_Validations(t *testing.T) {
 		assert.Error(t, err, "missing account id")
 	})
 }
+
+func TestTransactionService_Deposit_TagsAndUpdatesCategory(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+
+		income := testutil.CreateTestCategory(t, dbi.DB, f.account.SpaceID, "Income")
+		other := testutil.CreateTestCategory(t, dbi.DB, f.account.SpaceID, "Side")
+
+		// Create a deposit tagged with a category.
+		dep, err := f.svc.Deposit(DepositInput{
+			AccountID:  f.account.ID,
+			Title:      "Paycheck",
+			Amount:     decimal.NewFromInt(1000),
+			OccurredAt: time.Now(),
+			CategoryID: income.ID,
+			ActorID:    f.user.ID,
+		})
+		require.NoError(t, err)
+
+		got, err := f.svc.GetTransactionCategoryID(dep.ID)
+		require.NoError(t, err)
+		assert.Equal(t, income.ID, got)
+
+		// Re-tag it via update.
+		_, err = f.svc.UpdateDeposit(UpdateDepositInput{
+			TransactionID: dep.ID,
+			Title:         "Paycheck",
+			Amount:        decimal.NewFromInt(1000),
+			OccurredAt:    time.Now(),
+			CategoryID:    other.ID,
+			ActorID:       f.user.ID,
+		})
+		require.NoError(t, err)
+		got, err = f.svc.GetTransactionCategoryID(dep.ID)
+		require.NoError(t, err)
+		assert.Equal(t, other.ID, got)
+
+		// Clearing the category leaves it uncategorized.
+		_, err = f.svc.UpdateDeposit(UpdateDepositInput{
+			TransactionID: dep.ID,
+			Title:         "Paycheck",
+			Amount:        decimal.NewFromInt(1000),
+			OccurredAt:    time.Now(),
+			CategoryID:    "",
+			ActorID:       f.user.ID,
+		})
+		require.NoError(t, err)
+		got, err = f.svc.GetTransactionCategoryID(dep.ID)
+		require.NoError(t, err)
+		assert.Equal(t, "", got)
+	})
+}
+
+func TestTransactionService_Deposit_RejectsForeignCategory(t *testing.T) {
+	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
+		f := newTxnFixture(t, dbi)
+
+		// A category owned by a different space must not be assignable.
+		otherUser := testutil.CreateTestUser(t, dbi.DB, "foreign-dep@example.com", nil)
+		otherSpace := testutil.CreateTestSpace(t, dbi.DB, otherUser.ID, "Other")
+		foreign := testutil.CreateTestCategory(t, dbi.DB, otherSpace.ID, "Foreign")
+
+		_, err := f.svc.Deposit(DepositInput{
+			AccountID:  f.account.ID,
+			Title:      "Paycheck",
+			Amount:     decimal.NewFromInt(500),
+			OccurredAt: time.Now(),
+			CategoryID: foreign.ID,
+			ActorID:    f.user.ID,
+		})
+		assert.Error(t, err, "a category from another space must be rejected")
+	})
+}
