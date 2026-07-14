@@ -13,11 +13,10 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
 
 type BudgetPlanEditorPageProps struct {
-	SpaceID    string
-	SpaceName  string
-	Plan       *model.BudgetPlan
-	Summary    *model.PlanSummary
-	Categories []*model.Category
+	SpaceID   string
+	SpaceName string
+	Plan      *model.BudgetPlan
+	Summary   *model.PlanSummary
 }
 
 templ BudgetPlanEditorPage(props BudgetPlanEditorPageProps) {
@@ -46,11 +45,10 @@ templ BudgetPlanEditorPage(props BudgetPlanEditorPageProps) {
 				</div>
 			</div>
 			@blocks.BudgetPlanBoard(blocks.BudgetPlanBoardProps{
-				SpaceID:    props.SpaceID,
-				PlanID:     props.Plan.ID,
-				Currency:   props.Plan.Currency,
-				Summary:    props.Summary,
-				Categories: props.Categories,
+				SpaceID:  props.SpaceID,
+				PlanID:   props.Plan.ID,
+				Currency: props.Plan.Currency,
+				Summary:  props.Summary,
 			})
 		</div>
 	}

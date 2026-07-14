@@ -6,7 +6,8 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/form"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
 
 type CreateCategoryProps struct {
-	SpaceID string
+	SpaceID   string
+	AccountID string
 
 	Name        string
 	Description string
@@ -18,7 +19,7 @@ type CreateCategoryProps struct {
 templ CreateCategory(props CreateCategoryProps) {
 	<form
 		id="create-category-form"
-		hx-post={ routeurl.URL("action.app.spaces.space.categories.create", "spaceID", props.SpaceID) }
+		hx-post={ routeurl.URL("action.app.spaces.space.accounts.account.categories.create", "spaceID", props.SpaceID, "accountID", props.AccountID) }
 		hx-swap="outerHTML"
 	>
 		<div class="space-y-4">

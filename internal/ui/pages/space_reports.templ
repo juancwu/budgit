@@ -1,0 +1,238 @@
+package pages
+
+import "fmt"
+import "time"
+
+import "git.juancwu.dev/juancwu/budgit/internal/model"
+import "git.juancwu.dev/juancwu/budgit/internal/routeurl"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/layouts"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/button"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/card"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/chart"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/icon"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/input"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/label"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/utils"
+
+type SpaceReportsPageProps struct {
+	SpaceID              string
+	SpaceName            string
+	AccountID            string
+	AccountName          string
+	Series               *model.CategoryTimeSeries
+	Type                 string // "spending" or "income"
+	Granularity          string // "day", "month", or "year"
+	From                 string // YYYY-MM-DD
+	To                   string // YYYY-MM-DD
+	IncludeUncategorized bool
+	ErrorMsg             string
+}
+
+// reportPalette is the categorical color palette. Uncategorized always uses
+// reportUncategorizedColor so it reads as "other" regardless of position.
+var reportPalette = []string{
+	"#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
+	"#ec4899", "#14b8a6", "#f97316", "#6366f1", "#84cc16",
+}
+
+const reportUncategorizedColor = "#94a3b8"
+
+func reportSeriesColor(s model.CategorySeriesData, i int) string {
+	if s.CategoryID == "" {
+		return reportUncategorizedColor
+	}
+	return reportPalette[i%len(reportPalette)]
+}
+
+func reportBucketLabel(t time.Time, granularity string) string {
+	switch granularity {
+	case "year":
+		return t.Format("2006")
+	case "day":
+		return t.Format("Jan 2")
+	default:
+		return t.Format("Jan 2006")
+	}
+}
+
+func reportChartData(s *model.CategoryTimeSeries, granularity string) chart.Data {
+	labels := make([]string, len(s.Buckets))
+	for i, b := range s.Buckets {
+		labels[i] = reportBucketLabel(b, granularity)
+	}
+	datasets := make([]chart.Dataset, 0, len(s.Series))
+	for i, series := range s.Series {
+		values := make([]float64, len(series.Values))
+		for j, v := range series.Values {
+			values[j] = v.InexactFloat64()
+		}
+		datasets = append(datasets, chart.Dataset{
+			Label:           series.CategoryName,
+			Data:            values,
+			BackgroundColor: reportSeriesColor(series, i),
+			BorderWidth:     0,
+		})
+	}
+	return chart.Data{Labels: labels, Datasets: datasets}
+}
+
+func reportHasData(s *model.CategoryTimeSeries) bool {
+	return s != nil && len(s.Series) > 0 && s.Total.IsPositive()
+}
+
+func reportTypeNoun(t string) string {
+	if t == "income" {
+		return "income"
+	}
+	return "spending"
+}
+
+templ SpaceReportsPage(props SpaceReportsPageProps) {
+	@layouts.AppWithBreadcrumb(
+		"Reports",
+		accountChildBreadcrumb(props.SpaceID, props.SpaceName, props.AccountID, props.AccountName, "Reports"),
+		spaceOverviewSidebarContent(),
+		spaceSpecificSidebarContent(props.SpaceID),
+		spaceAccountSidebarContent(props.SpaceID, props.AccountID),
+	) {
+		<div class="container px-6 py-8 mx-auto space-y-8">
+			<div>
+				<h1 class="text-3xl font-bold">Reports</h1>
+				<p class="text-muted-foreground mt-2">
+					{ reportTypeNoun(props.Type) } by category over time in { props.AccountName }.
+				</p>
+			</div>
+			@reportsControls(props)
+			@card.Card(card.Props{Class: "rounded-sm"}) {
+				@card.Header() {
+					@card.Title() {
+						{ reportChartTitle(props) }
+					}
+					@card.Description() {
+						{ reportRangeLabel(props) }
+					}
+				}
+				@card.Content() {
+					if props.ErrorMsg != "" {
+						<p class="text-sm text-destructive py-8 text-center">{ props.ErrorMsg }</p>
+					} else if reportHasData(props.Series) {
+						<div class="h-80 w-full">
+							@chart.Chart(chart.Props{
+								Variant:     chart.VariantBar,
+								Data:        reportChartData(props.Series, props.Granularity),
+								Stacked:     true,
+								ShowLegend:  true,
+								ShowXAxis:   true,
+								ShowYAxis:   true,
+								ShowXLabels: true,
+								ShowYLabels: true,
+								ShowYGrid:   true,
+								Class:       "h-80 w-full",
+							})
+						</div>
+						@reportsLegend(props.Series)
+					} else {
+						<p class="text-sm text-muted-foreground py-8 text-center">
+							No { reportTypeNoun(props.Type) } in this range.
+						</p>
+					}
+				}
+			}
+		</div>
+	}
+}
+
+func reportChartTitle(props SpaceReportsPageProps) string {
+	if props.Type == "income" {
+		return "Income by category"
+	}
+	return "Spending by category"
+}
+
+func reportRangeLabel(props SpaceReportsPageProps) string {
+	if props.From == "" || props.To == "" {
+		return ""
+	}
+	return fmt.Sprintf("%s to %s · grouped by %s", props.From, props.To, props.Granularity)
+}
+
+templ reportsLegend(s *model.CategoryTimeSeries) {
+	<div class="mt-6 border-t pt-4">
+		<div class="flex items-center justify-between text-sm font-medium mb-3">
+			<span>Totals</span>
+			<span class="tabular-nums">${ utils.FormatDecimalWithThousands(s.Total.StringFixedBank(2)) }</span>
+		</div>
+		<ul class="space-y-2">
+			for i, series := range s.Series {
+				<li class="flex items-center justify-between gap-3 text-sm">
+					<span class="flex items-center gap-2 min-w-0">
+						<span class="w-3 h-3 rounded-sm shrink-0" style={ fmt.Sprintf("background-color:%s", reportSeriesColor(series, i)) }></span>
+						<span class="truncate">{ series.CategoryName }</span>
+					</span>
+					<span class="tabular-nums text-muted-foreground shrink-0">
+						${ utils.FormatDecimalWithThousands(series.Total.StringFixedBank(2)) }
+					</span>
+				</li>
+			}
+		</ul>
+	</div>
+}
+
+templ reportsControls(props SpaceReportsPageProps) {
+	{{ selectClass := "flex h-9 w-full items-center rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] dark:bg-input/30" }}
+	@card.Card(card.Props{Class: "rounded-sm"}) {
+		@card.Content() {
+			<form method="get" action={ templ.SafeURL(routeurl.URL("page.app.spaces.space.accounts.account.reports", "spaceID", props.SpaceID, "accountID", props.AccountID)) } class="space-y-4 pt-6">
+				<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "report-type"}) {
+							Show
+						}
+						<select id="report-type" name="type" class={ selectClass }>
+							<option value="spending" selected?={ props.Type != "income" }>Spending (bills)</option>
+							<option value="income" selected?={ props.Type == "income" }>Income (deposits)</option>
+						</select>
+					</div>
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "report-granularity"}) {
+							Group by
+						}
+						<select id="report-granularity" name="granularity" class={ selectClass }>
+							<option value="day" selected?={ props.Granularity == "day" }>Day</option>
+							<option value="month" selected?={ props.Granularity == "month" || props.Granularity == "" }>Month</option>
+							<option value="year" selected?={ props.Granularity == "year" }>Year</option>
+						</select>
+					</div>
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "report-from"}) {
+							From
+						}
+						@input.Input(input.Props{ID: "report-from", Name: "from", Type: input.TypeDate, Value: props.From})
+					</div>
+					<div class="space-y-1.5">
+						@label.Label(label.Props{For: "report-to"}) {
+							To
+						}
+						@input.Input(input.Props{ID: "report-to", Name: "to", Type: input.TypeDate, Value: props.To})
+					</div>
+				</div>
+				<div class="flex items-center justify-between flex-wrap gap-4">
+					<label class="flex items-center gap-2 text-sm cursor-pointer">
+						<input
+							type="checkbox"
+							name="include_uncategorized"
+							value="1"
+							checked?={ props.IncludeUncategorized }
+							class="size-4 rounded border-input"
+						/>
+						Include uncategorized transactions
+					</label>
+					@button.Button(button.Props{Type: button.TypeSubmit, Class: "flex gap-2 items-center"}) {
+						@icon.ChartPie(icon.Props{Class: "size-4"})
+						Update chart
+					}
+				</div>
+			</form>
+		}
+	}
+}

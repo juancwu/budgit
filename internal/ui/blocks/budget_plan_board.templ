@@ -20,11 +20,8 @@ templ BudgetPlanBoard(props BudgetPlanBoardProps) {
 			@planIncomeCard(props)
 			@planExpenseCard(props)
 		</div>
-		if len(props.Summary.ExpenseGroups) > 0 {
-			<div class="grid gap-4 lg:grid-cols-2">
-				@planCategoryBars(props.Summary)
-				@planTopExpenses(props.Summary)
-			</div>
+		if len(props.Summary.TopExpenses) > 0 {
+			@planTopExpenses(props.Summary)
 		}
 	</div>
 }
@@ -58,33 +55,6 @@ templ planIncomeVsExpense(summary *model.PlanSummary) {
 					</div>
 					<div class="h-3 bg-muted rounded-full overflow-hidden">
 						<div class="h-full bg-primary" style={ barWidthStyle(summary.TotalExpense, max) }></div>
-					</div>
-				</div>
-			}
-		}
-	}
-}
-
-// planCategoryBars shows each expense category's share of total planned
-// expenses, largest first.
-templ planCategoryBars(summary *model.PlanSummary) {
-	@card.Card(card.Props{Class: "rounded-sm"}) {
-		@card.Header() {
-			@card.Title() {
-				Spending by category
-			}
-		}
-		@card.Content(card.ContentProps{Class: "space-y-3"}) {
-			for _, ct := range summary.CategoryTotals {
-				<div class="space-y-1">
-					<div class="flex items-center justify-between text-sm gap-3">
-						<span class="truncate">{ ct.CategoryName }</span>
-						<span class="text-muted-foreground tabular-nums shrink-0">
-							${ utils.FormatDecimalWithThousands(ct.Total.StringFixedBank(2)) } · { percentLabel(ct.Percent) }
-						</span>
-					</div>
-					<div class="h-2 bg-muted rounded-full overflow-hidden">
-						<div class="h-full bg-primary" style={ barWidthStyle(ct.Total, summary.TotalExpense) }></div>
 					</div>
 				</div>
 			}
@@ -231,20 +201,14 @@ templ planExpenseCard(props BudgetPlanBoardProps) {
 			<div id="plan-expense-form" class={ formClass }>
 				@planAddLineForm(props, model.PlanLineKindExpense, props.ExpenseForm)
 			</div>
-			if len(props.Summary.ExpenseGroups) == 0 {
+			if len(props.Summary.ExpenseLines) == 0 {
 				<p class="text-sm text-muted-foreground">No expenses planned yet.</p>
 			} else {
-				for _, group := range props.Summary.ExpenseGroups {
-					<div class="space-y-2">
-						<div class="flex items-center justify-between text-sm font-semibold border-b pb-1">
-							<span>{ group.CategoryName }</span>
-							<span>${ utils.FormatDecimalWithThousands(group.Subtotal.StringFixedBank(2)) }</span>
-						</div>
-						for _, line := range group.Lines {
-							@planLineRow(props, line)
-						}
-					</div>
-				}
+				<div class="space-y-2">
+					for _, line := range props.Summary.ExpenseLines {
+						@planLineRow(props, line)
+					}
+				</div>
 			}
 		}
 	}
@@ -259,9 +223,6 @@ templ planLineRow(props BudgetPlanBoardProps, line *model.BudgetPlanLine) {
 		editing := props.EditLineID == line.ID
 
 		state := LineFormState{Label: line.Label, Amount: line.Amount.StringFixedBank(2)}
-		if line.CategoryID != nil {
-			state.CategoryID = *line.CategoryID
-		}
 		if editing {
 			state = props.EditForm
 		}
@@ -387,45 +348,17 @@ templ planLineFields(props BudgetPlanBoardProps, kind model.PlanLineKind, state 
 			Attributes:  templ.Attributes{"autocomplete": "off"},
 		})
 	}
-	<div class="grid grid-cols-2 gap-3">
-		@form.Item() {
-			@form.Label(form.LabelProps{For: "amount"}) {
-				Amount
-			}
-			@input.Input(input.Props{
-				ID: "amount", Name: "amount", Type: input.TypeText, Class: "rounded-sm",
-				Value: state.Amount, Required: true,
-				Placeholder: "0.00",
-				Attributes:  templ.Attributes{"inputmode": "decimal"},
-			})
+	@form.Item() {
+		@form.Label(form.LabelProps{For: "amount"}) {
+			Amount
 		}
-		if kind == model.PlanLineKindExpense {
-			@form.Item() {
-				@form.Label(form.LabelProps{For: "category_id"}) {
-					Category
-				}
-				<select
-					name="category_id"
-					class="flex h-9 w-full rounded-sm border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
-				>
-					<option value="" selected?={ state.CategoryID == "" }>Uncategorized</option>
-					for _, c := range props.Categories {
-						<option value={ c.ID } selected?={ state.CategoryID == c.ID }>{ c.Name }</option>
-					}
-				</select>
-				if len(props.Categories) == 0 {
-					@form.Description() {
-						No categories yet.
-						<a
-							href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.categories", "spaceID", props.SpaceID)) }
-							class="underline hover:no-underline"
-						>Create one</a>
-						to group expenses.
-					}
-				}
-			}
-		}
-	</div>
+		@input.Input(input.Props{
+			ID: "amount", Name: "amount", Type: input.TypeText, Class: "rounded-sm",
+			Value: state.Amount, Required: true,
+			Placeholder: "0.00",
+			Attributes:  templ.Attributes{"inputmode": "decimal"},
+		})
+	}
 }
 
 func planLabelPlaceholder(kind model.PlanLineKind) string {

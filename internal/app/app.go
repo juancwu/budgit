@@ -104,7 +104,7 @@ func New(cfg *config.Config) (*App, error) {
 	inviteService := service.NewInviteService(invitationRepository, spaceRepository, userRepository, emailService, auditLogService)
 	recurringEventService := service.NewRecurringEventService(recurringEventRepository, transactionService, accountService)
 	investmentService := service.NewInvestmentService(accountRepository, contributionRoomRepo, holdingRepo, tradeRepo, transactionRepository)
-	budgetPlanService := service.NewBudgetPlanService(budgetPlanRepo, budgetPlanLineRepo, categoryRepository)
+	budgetPlanService := service.NewBudgetPlanService(budgetPlanRepo, budgetPlanLineRepo)
 
 	return &App{
 		Cfg:                   cfg,

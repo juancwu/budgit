@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -98,7 +99,7 @@ func (s *TransactionService) PayBill(input PayBillInput) (*model.Transaction, er
 	if c := strings.TrimSpace(input.CategoryID); c != "" {
 		categoryID = &c
 	}
-	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+	if err := s.validateCategoryForAccount(categoryID, account.ID); err != nil {
 		return nil, err
 	}
 
@@ -174,7 +175,7 @@ func (s *TransactionService) Deposit(input DepositInput) (*model.Transaction, er
 	if c := strings.TrimSpace(input.CategoryID); c != "" {
 		categoryID = &c
 	}
-	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+	if err := s.validateCategoryForAccount(categoryID, account.ID); err != nil {
 		return nil, err
 	}
 
@@ -446,7 +447,7 @@ func (s *TransactionService) UpdateBill(input UpdateBillInput) (*model.Transacti
 	if c := strings.TrimSpace(input.CategoryID); c != "" {
 		categoryID = &c
 	}
-	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+	if err := s.validateCategoryForAccount(categoryID, account.ID); err != nil {
 		return nil, err
 	}
 
@@ -536,7 +537,7 @@ func (s *TransactionService) UpdateDeposit(input UpdateDepositInput) (*model.Tra
 	if c := strings.TrimSpace(input.CategoryID); c != "" {
 		categoryID = &c
 	}
-	if err := s.validateCategoryForSpace(categoryID, account.SpaceID); err != nil {
+	if err := s.validateCategoryForAccount(categoryID, account.ID); err != nil {
 		return nil, err
 	}
 
@@ -743,10 +744,10 @@ func (s *TransactionService) CountByAccountFiltered(accountID string, filter mod
 	return count, nil
 }
 
-// validateCategoryForSpace ensures a bill's category (when set) exists and
-// belongs to the given space, preventing a crafted request from tagging a bill
-// with another space's category.
-func (s *TransactionService) validateCategoryForSpace(categoryID *string, spaceID string) error {
+// validateCategoryForAccount ensures a transaction's category (when set) exists
+// and belongs to the same account, preventing a crafted request from tagging a
+// transaction with another account's category.
+func (s *TransactionService) validateCategoryForAccount(categoryID *string, accountID string) error {
 	if categoryID == nil {
 		return nil
 	}
@@ -754,8 +755,154 @@ func (s *TransactionService) validateCategoryForSpace(categoryID *string, spaceI
 	if err != nil {
 		return fmt.Errorf("failed to load category: %w", err)
 	}
-	if cat == nil || cat.SpaceID != spaceID {
+	if cat == nil || cat.AccountID != accountID {
 		return fmt.Errorf("invalid category")
 	}
 	return nil
+}
+
+// maxSeriesBuckets caps how many time buckets a single report can span, a guard
+// against a pathological range (e.g. daily granularity over centuries) building
+// an enormous, unreadable chart.
+const maxSeriesBuckets = 1000
+
+var validSeriesGranularities = map[string]bool{"day": true, "month": true, "year": true}
+
+// CategorySeriesInput parameterizes a category-over-time report for an account.
+type CategorySeriesInput struct {
+	AccountID            string
+	Type                 model.TransactionType // withdrawal (spending) or deposit (income)
+	From                 time.Time
+	To                   time.Time
+	Granularity          string // "day", "month", or "year"
+	IncludeUncategorized bool
+}
+
+// CategoryTimeSeries aggregates an account's transactions into a stacked
+// time-series: one x-axis bucket per period and one series per category (plus an
+// "Uncategorized" series when requested). Buckets with no activity are
+// zero-filled so the axis is continuous. Series are ordered largest-total first.
+func (s *TransactionService) CategoryTimeSeries(in CategorySeriesInput) (*model.CategoryTimeSeries, error) {
+	if in.AccountID == "" {
+		return nil, fmt.Errorf("account id is required")
+	}
+	if !validSeriesGranularities[in.Granularity] {
+		return nil, fmt.Errorf("invalid granularity")
+	}
+	if in.To.Before(in.From) {
+		return nil, fmt.Errorf("end date must be on or after start date")
+	}
+
+	buckets := generateBuckets(in.From, in.To, in.Granularity)
+	if len(buckets) > maxSeriesBuckets {
+		return nil, fmt.Errorf("date range is too large for %s granularity", in.Granularity)
+	}
+	indexByKey := make(map[string]int, len(buckets))
+	for i, b := range buckets {
+		indexByKey[bucketKey(b, in.Granularity)] = i
+	}
+
+	rows, err := s.transactionRepo.SumByCategoryBucket(in.AccountID, in.Type, in.From, in.To, in.Granularity, in.IncludeUncategorized)
+	if err != nil {
+		return nil, fmt.Errorf("failed to aggregate transactions: %w", err)
+	}
+
+	cats, err := s.categoryRepo.ListByAccount(in.AccountID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load categories: %w", err)
+	}
+	nameByID := make(map[string]string, len(cats))
+	for _, c := range cats {
+		nameByID[c.ID] = c.Name
+	}
+
+	// Accumulate values per series (keyed by category ID; "" = uncategorized),
+	// aligned to the bucket axis.
+	byKey := map[string]*model.CategorySeriesData{}
+	order := []string{}
+	grand := decimal.Zero
+	for _, row := range rows {
+		idx, ok := indexByKey[bucketKey(row.Bucket, in.Granularity)]
+		if !ok {
+			continue
+		}
+		catID := ""
+		if row.CategoryID != nil {
+			catID = *row.CategoryID
+		}
+		series, exists := byKey[catID]
+		if !exists {
+			name := "Uncategorized"
+			if catID != "" {
+				if n, ok := nameByID[catID]; ok {
+					name = n
+				} else {
+					name = "Unknown"
+				}
+			}
+			values := make([]decimal.Decimal, len(buckets))
+			for i := range values {
+				values[i] = decimal.Zero
+			}
+			series = &model.CategorySeriesData{CategoryID: catID, CategoryName: name, Values: values}
+			byKey[catID] = series
+			order = append(order, catID)
+		}
+		series.Values[idx] = series.Values[idx].Add(row.Total)
+		series.Total = series.Total.Add(row.Total)
+		grand = grand.Add(row.Total)
+	}
+
+	result := &model.CategoryTimeSeries{Buckets: buckets, Total: grand}
+	for _, k := range order {
+		result.Series = append(result.Series, *byKey[k])
+	}
+	sort.SliceStable(result.Series, func(i, j int) bool {
+		return result.Series[i].Total.GreaterThan(result.Series[j].Total)
+	})
+	return result, nil
+}
+
+// bucketKey returns a canonical string for the period containing t at the given
+// granularity, used to align DB-returned buckets with the generated axis without
+// relying on time.Time equality across locations.
+func bucketKey(t time.Time, granularity string) string {
+	u := t.UTC()
+	switch granularity {
+	case "year":
+		return u.Format("2006")
+	case "month":
+		return u.Format("2006-01")
+	default:
+		return u.Format("2006-01-02")
+	}
+}
+
+// generateBuckets returns the continuous list of period-start times from `from`
+// through `to` (inclusive) at the given granularity.
+func generateBuckets(from, to time.Time, granularity string) []time.Time {
+	from = from.UTC()
+	to = to.UTC()
+	var cur time.Time
+	switch granularity {
+	case "year":
+		cur = time.Date(from.Year(), 1, 1, 0, 0, 0, 0, time.UTC)
+	case "month":
+		cur = time.Date(from.Year(), from.Month(), 1, 0, 0, 0, 0, time.UTC)
+	default:
+		cur = time.Date(from.Year(), from.Month(), from.Day(), 0, 0, 0, 0, time.UTC)
+	}
+	buckets := []time.Time{}
+	for !cur.After(to) {
+		buckets = append(buckets, cur)
+		switch granularity {
+		case "year":
+			cur = cur.AddDate(1, 0, 0)
+		case "month":
+			cur = cur.AddDate(0, 1, 0)
+		default:
+			cur = cur.AddDate(0, 0, 1)
+		}
+	}
+	return buckets
 }

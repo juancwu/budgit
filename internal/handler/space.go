@@ -780,34 +780,45 @@ func (h *spaceHandler) HandleCancelInvite(w http.ResponseWriter, r *http.Request
 
 func (h *spaceHandler) SpaceCategoriesPage(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
 
-	space, err := h.spaceService.GetSpace(spaceID)
-	if err != nil {
-		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
 		ui.Render(w, r, pages.NotFound())
 		return
 	}
 
-	categories, err := h.categoryService.ListBySpace(spaceID)
+	space, err := h.spaceService.GetSpace(spaceID)
 	if err != nil {
-		slog.Error("failed to load categories", "error", err, "space_id", spaceID)
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
+		return
+	}
+
+	categories, err := h.categoryService.ListByAccount(accountID)
+	if err != nil {
+		slog.Error("failed to load categories", "error", err, "account_id", accountID)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
 		return
 	}
 
 	ui.Render(w, r, pages.SpaceCategoriesPage(pages.SpaceCategoriesPageProps{
-		SpaceID:    spaceID,
-		SpaceName:  space.Name,
-		Categories: categories,
-		CreateForm: forms.CreateCategoryProps{SpaceID: spaceID},
+		SpaceID:     spaceID,
+		SpaceName:   space.Name,
+		AccountID:   accountID,
+		AccountName: account.Name,
+		Categories:  categories,
+		CreateForm:  forms.CreateCategoryProps{SpaceID: spaceID, AccountID: accountID},
 	}))
 }
 
 func (h *spaceHandler) HandleCreateCategory(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
 
-	if _, err := h.spaceService.GetSpace(spaceID); err != nil {
-		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
 		return
 	}
 
@@ -815,11 +826,12 @@ func (h *spaceHandler) HandleCreateCategory(w http.ResponseWriter, r *http.Reque
 	description := strings.TrimSpace(r.FormValue("description"))
 	formProps := forms.CreateCategoryProps{
 		SpaceID:     spaceID,
+		AccountID:   accountID,
 		Name:        name,
 		Description: description,
 	}
 
-	if _, err := h.categoryService.Create(spaceID, name, description); err != nil {
+	if _, err := h.categoryService.Create(accountID, name, description); err != nil {
 		switch {
 		case errors.Is(err, service.ErrCategoryNameTaken):
 			formProps.NameErr = "A category with this name already exists."
@@ -828,7 +840,7 @@ func (h *spaceHandler) HandleCreateCategory(w http.ResponseWriter, r *http.Reque
 		case len(name) > 60:
 			formProps.NameErr = "Name must be at most 60 characters."
 		default:
-			slog.Error("failed to create category", "error", err, "space_id", spaceID)
+			slog.Error("failed to create category", "error", err, "account_id", accountID)
 			formProps.GeneralErr = "Something went wrong. Please try again."
 		}
 		ui.Render(w, r, forms.CreateCategory(formProps))
@@ -841,25 +853,120 @@ func (h *spaceHandler) HandleCreateCategory(w http.ResponseWriter, r *http.Reque
 
 func (h *spaceHandler) HandleDeleteCategory(w http.ResponseWriter, r *http.Request) {
 	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
 	categoryID := r.PathValue("categoryID")
 
-	if _, err := h.spaceService.GetSpace(spaceID); err != nil {
-		ui.RenderError(w, r, "Space not found", http.StatusNotFound)
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.RenderError(w, r, "Account not found", http.StatusNotFound)
 		return
 	}
 
-	if err := h.categoryService.Delete(spaceID, categoryID); err != nil {
+	if err := h.categoryService.Delete(accountID, categoryID); err != nil {
 		if errors.Is(err, service.ErrCategoryNotFound) {
 			ui.RenderError(w, r, "Category not found", http.StatusNotFound)
 			return
 		}
-		slog.Error("failed to delete category", "error", err, "space_id", spaceID, "category_id", categoryID)
+		slog.Error("failed to delete category", "error", err, "account_id", accountID, "category_id", categoryID)
 		ui.RenderError(w, r, "Failed to delete category", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("HX-Refresh", "true")
 	w.WriteHeader(http.StatusOK)
+}
+
+func (h *spaceHandler) SpaceReportsPage(w http.ResponseWriter, r *http.Request) {
+	spaceID := r.PathValue("spaceID")
+	accountID := r.PathValue("accountID")
+
+	account, err := h.accountService.GetAccount(accountID)
+	if err != nil || account.SpaceID != spaceID {
+		ui.Render(w, r, pages.NotFound())
+		return
+	}
+
+	space, err := h.spaceService.GetSpace(spaceID)
+	if err != nil {
+		slog.Error("failed to load space", "error", err, "space_id", spaceID)
+		ui.RenderError(w, r, "Failed to load reports", http.StatusInternalServerError)
+		return
+	}
+
+	q := r.URL.Query()
+
+	typeParam := q.Get("type")
+	txType := model.TransactionTypeWithdrawal
+	if typeParam == "income" {
+		txType = model.TransactionTypeDeposit
+	} else {
+		typeParam = "spending"
+	}
+
+	granularity := strings.TrimSpace(q.Get("granularity"))
+	if granularity != "day" && granularity != "year" {
+		granularity = "month"
+	}
+
+	includeUncategorized := q.Get("include_uncategorized") != ""
+
+	now := time.Now().UTC()
+	fromDate, toDate := defaultReportRange(now, granularity)
+	if v := strings.TrimSpace(q.Get("from")); v != "" {
+		if parsed, err := time.Parse("2006-01-02", v); err == nil {
+			fromDate = parsed
+		}
+	}
+	if v := strings.TrimSpace(q.Get("to")); v != "" {
+		if parsed, err := time.Parse("2006-01-02", v); err == nil {
+			toDate = parsed
+		}
+	}
+	// The query bound is inclusive of the whole "to" day.
+	toBound := toDate.Add(24*time.Hour - time.Nanosecond)
+
+	props := pages.SpaceReportsPageProps{
+		SpaceID:              spaceID,
+		SpaceName:            space.Name,
+		AccountID:            accountID,
+		AccountName:          account.Name,
+		Type:                 typeParam,
+		Granularity:          granularity,
+		From:                 fromDate.Format("2006-01-02"),
+		To:                   toDate.Format("2006-01-02"),
+		IncludeUncategorized: includeUncategorized,
+	}
+
+	series, err := h.transactionService.CategoryTimeSeries(service.CategorySeriesInput{
+		AccountID:            accountID,
+		Type:                 txType,
+		From:                 fromDate,
+		To:                   toBound,
+		Granularity:          granularity,
+		IncludeUncategorized: includeUncategorized,
+	})
+	if err != nil {
+		slog.Error("failed to build report", "error", err, "account_id", accountID)
+		props.ErrorMsg = "Couldn't build the report for this range. Try a smaller range or a coarser grouping."
+	} else {
+		props.Series = series
+	}
+
+	ui.Render(w, r, pages.SpaceReportsPage(props))
+}
+
+// defaultReportRange returns the default [from, to] date window for a report at
+// the given granularity: last 30 days (day), last 12 months (month), or last 5
+// years (year).
+func defaultReportRange(now time.Time, granularity string) (time.Time, time.Time) {
+	switch granularity {
+	case "day":
+		return now.AddDate(0, 0, -29), now
+	case "year":
+		return time.Date(now.Year()-4, 1, 1, 0, 0, 0, 0, time.UTC), now
+	default: // month
+		return time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC).AddDate(0, -11, 0), now
+	}
 }
 
 func (h *spaceHandler) SpaceActivityPage(w http.ResponseWriter, r *http.Request) {
@@ -1163,7 +1270,7 @@ func (h *spaceHandler) SpaceCreateBillPage(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	categories, err := h.categoryService.ListBySpace(spaceID)
+	categories, err := h.categoryService.ListByAccount(accountID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -1213,7 +1320,7 @@ func (h *spaceHandler) SpaceCreateDepositPage(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	categories, err := h.categoryService.ListBySpace(spaceID)
+	categories, err := h.categoryService.ListByAccount(accountID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -1244,7 +1351,7 @@ func (h *spaceHandler) HandleCreateDeposit(w http.ResponseWriter, r *http.Reques
 	descriptionInput := strings.TrimSpace(r.FormValue("description"))
 	categoryInput := strings.TrimSpace(r.FormValue("category"))
 
-	categories, err := h.categoryService.ListBySpace(spaceID)
+	categories, err := h.categoryService.ListByAccount(accountID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -1364,7 +1471,7 @@ func (h *spaceHandler) SpaceTransactionPage(w http.ResponseWriter, r *http.Reque
 	if categoryID, err := h.transactionService.GetTransactionCategoryID(transactionID); err != nil {
 		slog.Error("failed to load transaction category", "error", err, "transaction_id", transactionID)
 	} else if categoryID != "" {
-		categories, err := h.categoryService.ListBySpace(spaceID)
+		categories, err := h.categoryService.ListByAccount(accountID)
 		if err != nil {
 			slog.Error("failed to load categories", "error", err)
 		} else {
@@ -1604,7 +1711,7 @@ func (h *spaceHandler) SpaceEditTransactionPage(w http.ResponseWriter, r *http.R
 		TransactionType: txn.Type,
 	}
 
-	categories, err := h.categoryService.ListBySpace(spaceID)
+	categories, err := h.categoryService.ListByAccount(accountID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -1677,7 +1784,7 @@ func (h *spaceHandler) HandleEditTransaction(w http.ResponseWriter, r *http.Requ
 	descriptionInput := strings.TrimSpace(r.FormValue("description"))
 	categoryInput := strings.TrimSpace(r.FormValue("category"))
 
-	categories, err := h.categoryService.ListBySpace(spaceID)
+	categories, err := h.categoryService.ListByAccount(accountID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)
@@ -2101,7 +2208,7 @@ func (h *spaceHandler) HandleCreateBill(w http.ResponseWriter, r *http.Request) 
 	descriptionInput := strings.TrimSpace(r.FormValue("description"))
 	categoryInput := strings.TrimSpace(r.FormValue("category"))
 
-	categories, err := h.categoryService.ListBySpace(spaceID)
+	categories, err := h.categoryService.ListByAccount(accountID)
 	if err != nil {
 		slog.Error("failed to load categories", "error", err)
 		ui.RenderError(w, r, "Failed to load categories", http.StatusInternalServerError)

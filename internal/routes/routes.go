@@ -116,10 +116,6 @@ func SetupRoutes(a *app.App) http.Handler {
 				g.Post("/members/{userID}/remove", spaceH.HandleRemoveMember).Name("action.app.spaces.space.members.remove")
 				g.Post("/invitations/{token}/cancel", spaceH.HandleCancelInvite).Name("action.app.spaces.space.invitations.cancel")
 
-				g.Get("/categories", spaceH.SpaceCategoriesPage).Name("page.app.spaces.space.categories")
-				g.Post("/categories", spaceH.HandleCreateCategory).Name("action.app.spaces.space.categories.create")
-				g.Post("/categories/{categoryID}/delete", spaceH.HandleDeleteCategory).Name("action.app.spaces.space.categories.delete")
-
 				g.Get("/accounts/create", spaceH.SpaceCreateAccountPage).Name("page.app.spaces.space.accounts.create")
 				g.Post("/accounts/create", spaceH.HandleCreateAccount).Name("action.app.spaces.space.accounts.create")
 
@@ -161,6 +157,12 @@ func SetupRoutes(a *app.App) http.Handler {
 					g.Post("/deposits/create", spaceH.HandleCreateDeposit).Name("action.app.spaces.space.accounts.account.deposits.create")
 					g.Get("/transfers/create", spaceH.SpaceCreateTransferPage).Name("page.app.spaces.space.accounts.account.transfers.create")
 					g.Post("/transfers/create", spaceH.HandleCreateTransfer).Name("action.app.spaces.space.accounts.account.transfers.create")
+
+					g.Get("/categories", spaceH.SpaceCategoriesPage).Name("page.app.spaces.space.accounts.account.categories")
+					g.Post("/categories", spaceH.HandleCreateCategory).Name("action.app.spaces.space.accounts.account.categories.create")
+					g.Post("/categories/{categoryID}/delete", spaceH.HandleDeleteCategory).Name("action.app.spaces.space.accounts.account.categories.delete")
+
+					g.Get("/reports", spaceH.SpaceReportsPage).Name("page.app.spaces.space.accounts.account.reports")
 
 					g.Post("/allocations/create", allocationH.HandleCreate).Name("action.app.spaces.space.accounts.account.allocations.create")
 					g.Post("/allocations/{allocationID}/edit", allocationH.HandleEdit).Name("action.app.spaces.space.accounts.account.allocations.allocation.edit")

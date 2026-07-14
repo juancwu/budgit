@@ -37,49 +37,27 @@ type BudgetPlan struct {
 }
 
 // BudgetPlanLine is a single planned income or expense entry within a plan.
-// CategoryID is only meaningful for expense lines; a nil value renders as
-// "Uncategorized".
 type BudgetPlanLine struct {
-	ID         string          `db:"id"`
-	PlanID     string          `db:"plan_id"`
-	Kind       PlanLineKind    `db:"kind"`
-	CategoryID *string         `db:"category_id"`
-	Label      string          `db:"label"`
-	Amount     decimal.Decimal `db:"amount"`
-	SortOrder  int             `db:"sort_order"`
-	CreatedAt  time.Time       `db:"created_at"`
-	UpdatedAt  time.Time       `db:"updated_at"`
-}
-
-// ExpenseGroup is a set of expense lines that share a category, with their
-// rolled-up subtotal. Used to render expenses grouped on the plan editor.
-type ExpenseGroup struct {
-	CategoryID   *string
-	CategoryName string
-	Lines        []*BudgetPlanLine
-	Subtotal     decimal.Decimal
-}
-
-// CategoryTotal is the planned-expense total for a single category, plus its
-// share of total expenses. Feeds the per-category bar visualization.
-type CategoryTotal struct {
-	CategoryID   *string
-	CategoryName string
-	Total        decimal.Decimal
-	Percent      decimal.Decimal // 0–100, share of total expenses
+	ID        string          `db:"id"`
+	PlanID    string          `db:"plan_id"`
+	Kind      PlanLineKind    `db:"kind"`
+	Label     string          `db:"label"`
+	Amount    decimal.Decimal `db:"amount"`
+	SortOrder int             `db:"sort_order"`
+	CreatedAt time.Time       `db:"created_at"`
+	UpdatedAt time.Time       `db:"updated_at"`
 }
 
 // PlanSummary is the fully derived view of a budget plan: its lines split into
-// income and grouped expenses, plus rolled-up totals and the aggregates the
-// visualizations consume. Everything here is computed at read time.
+// income and expenses, plus rolled-up totals. Everything here is computed at
+// read time.
 type PlanSummary struct {
-	Plan          *BudgetPlan
-	IncomeLines   []*BudgetPlanLine
-	ExpenseGroups []ExpenseGroup
-	TotalIncome   decimal.Decimal
-	TotalExpense  decimal.Decimal
-	Surplus       decimal.Decimal
+	Plan         *BudgetPlan
+	IncomeLines  []*BudgetPlanLine
+	ExpenseLines []*BudgetPlanLine
+	TotalIncome  decimal.Decimal
+	TotalExpense decimal.Decimal
+	Surplus      decimal.Decimal
 
-	CategoryTotals []CategoryTotal   // largest first, for per-category bars
-	TopExpenses    []*BudgetPlanLine // largest individual lines first
+	TopExpenses []*BudgetPlanLine // largest individual lines first
 }

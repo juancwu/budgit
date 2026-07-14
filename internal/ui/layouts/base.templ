@@ -13,6 +13,7 @@ import "git.juancwu.dev/juancwu/budgit/internal/ui/components/datepicker"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/progress"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/selectbox"
 import "git.juancwu.dev/juancwu/budgit/internal/ui/components/tagsinput"
+import "git.juancwu.dev/juancwu/budgit/internal/ui/components/chart"
 
 import "fmt"
 import "time"
@@ -54,6 +55,7 @@ templ Base(props ...SEOProps) {
 			@progress.Script()
 			@tagsinput.Script()
 			@selectbox.Script()
+			@chart.Script()
 
 			// Site-wide enhancements
 			@themeScript()

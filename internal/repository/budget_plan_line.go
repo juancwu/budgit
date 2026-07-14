@@ -15,7 +15,7 @@ type BudgetPlanLineRepository interface {
 	Create(l *model.BudgetPlanLine) error
 	ByID(id string) (*model.BudgetPlanLine, error)
 	ByPlanID(planID string) ([]*model.BudgetPlanLine, error)
-	Update(id, label string, amount decimal.Decimal, categoryID *string) error
+	Update(id, label string, amount decimal.Decimal) error
 	Delete(id string) error
 }
 
@@ -29,10 +29,10 @@ func NewBudgetPlanLineRepository(db *sqlx.DB) BudgetPlanLineRepository {
 
 func (r *budgetPlanLineRepository) Create(l *model.BudgetPlanLine) error {
 	query := `INSERT INTO budget_plan_lines (
-	    id, plan_id, kind, category_id, label, amount, sort_order, created_at, updated_at
-	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);`
+	    id, plan_id, kind, label, amount, sort_order, created_at, updated_at
+	) VALUES ($1, $2, $3, $4, $5, $6, $7, $8);`
 	_, err := r.db.Exec(query,
-		l.ID, l.PlanID, l.Kind, l.CategoryID, l.Label, l.Amount, l.SortOrder, l.CreatedAt, l.UpdatedAt,
+		l.ID, l.PlanID, l.Kind, l.Label, l.Amount, l.SortOrder, l.CreatedAt, l.UpdatedAt,
 	)
 	return err
 }
@@ -58,12 +58,12 @@ func (r *budgetPlanLineRepository) ByPlanID(planID string) ([]*model.BudgetPlanL
 	return lines, err
 }
 
-func (r *budgetPlanLineRepository) Update(id, label string, amount decimal.Decimal, categoryID *string) error {
+func (r *budgetPlanLineRepository) Update(id, label string, amount decimal.Decimal) error {
 	res, err := r.db.Exec(
 		`UPDATE budget_plan_lines
-		 SET label = $1, amount = $2, category_id = $3, updated_at = CURRENT_TIMESTAMP
-		 WHERE id = $4;`,
-		label, amount, categoryID, id,
+		 SET label = $1, amount = $2, updated_at = CURRENT_TIMESTAMP
+		 WHERE id = $3;`,
+		label, amount, id,
 	)
 	if err != nil {
 		return err

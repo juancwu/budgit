@@ -35,6 +35,20 @@ type TransactionRepository interface {
 	// SumLifetimeByAccountType totals transaction values for an account over
 	// its full history, restricted to one type.
 	SumLifetimeByAccountType(accountID string, txType model.TransactionType) (decimal.Decimal, error)
+	// SumByCategoryBucket aggregates an account's transaction values, grouped by a
+	// time bucket (day/month/year via date_trunc) and category. Transfer halves
+	// are excluded (internal moves aren't spending or income). When
+	// includeUncategorized is false, rows with no category are dropped.
+	// Granularity must be one of "day", "month", "year".
+	SumByCategoryBucket(accountID string, txType model.TransactionType, from, to time.Time, granularity string, includeUncategorized bool) ([]CategoryBucketRow, error)
+}
+
+// CategoryBucketRow is one (time bucket, category) aggregate of transaction
+// values. CategoryID is nil for the uncategorized group.
+type CategoryBucketRow struct {
+	Bucket     time.Time       `db:"bucket"`
+	CategoryID *string         `db:"category_id"`
+	Total      decimal.Decimal `db:"total"`
 }
 
 type transactionRepository struct {
@@ -402,6 +416,37 @@ func (r *transactionRepository) SumByAccountYearType(accountID string, year int,
 		return decimal.Zero, err
 	}
 	return sum, nil
+}
+
+func (r *transactionRepository) SumByCategoryBucket(accountID string, txType model.TransactionType, from, to time.Time, granularity string, includeUncategorized bool) ([]CategoryBucketRow, error) {
+	uncategorizedFilter := ""
+	if !includeUncategorized {
+		uncategorizedFilter = "AND tc.category_id IS NOT NULL"
+	}
+	query := fmt.Sprintf(`
+		SELECT date_trunc($5, t.occurred_at) AS bucket,
+		       tc.category_id AS category_id,
+		       COALESCE(SUM(t.value::numeric), 0)::text AS total
+		FROM transactions t
+		LEFT JOIN transaction_categories tc ON tc.transaction_id = t.id
+		WHERE t.account_id = $1
+		  AND t.type = $2
+		  AND t.occurred_at >= $3
+		  AND t.occurred_at <= $4
+		  %s
+		  AND NOT EXISTS (
+		      SELECT 1 FROM related_transactions r
+		      WHERE r.transaction_one_id = t.id OR r.transaction_two_id = t.id
+		  )
+		GROUP BY bucket, tc.category_id
+		ORDER BY bucket ASC;
+	`, uncategorizedFilter)
+
+	rows := []CategoryBucketRow{}
+	if err := r.db.Select(&rows, query, accountID, txType, from, to, granularity); err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func (r *transactionRepository) SumLifetimeByAccountType(accountID string, txType model.TransactionType) (decimal.Decimal, error) {

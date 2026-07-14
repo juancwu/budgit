@@ -130,7 +130,7 @@ templ EditDeposit(props EditDepositProps) {
 						@form.Description() {
 							No categories yet.
 							<a
-								href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.categories", "spaceID", props.SpaceID)) }
+								href={ templ.SafeURL(routeurl.URL("page.app.spaces.space.accounts.account.categories", "spaceID", props.SpaceID, "accountID", props.AccountID)) }
 								class="underline hover:no-underline"
 							>Create one</a>
 							to tag this deposit.

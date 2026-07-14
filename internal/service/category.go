@@ -12,17 +12,17 @@ import (
 )
 
 // ErrCategoryNameTaken is returned when a category with the same name already
-// exists in the space.
+// exists in the account.
 var ErrCategoryNameTaken = errors.New("a category with this name already exists")
 
 // ErrCategoryNotFound is returned when a category does not exist or does not
-// belong to the requested space.
+// belong to the requested account.
 var ErrCategoryNotFound = errors.New("category not found")
 
 const maxCategoryNameLen = 60
 
-// CategoryService manages the per-space, user-created categories used to tag
-// bills and budget plan lines.
+// CategoryService manages the per-account, user-created categories used to tag
+// bills and deposits.
 type CategoryService struct {
 	repo repository.CategoryRepository
 }
@@ -31,31 +31,31 @@ func NewCategoryService(repo repository.CategoryRepository) *CategoryService {
 	return &CategoryService{repo: repo}
 }
 
-// ListBySpace returns the space's categories ordered by name.
-func (s *CategoryService) ListBySpace(spaceID string) ([]*model.Category, error) {
-	cats, err := s.repo.ListBySpace(spaceID)
+// ListByAccount returns the account's categories ordered by name.
+func (s *CategoryService) ListByAccount(accountID string) ([]*model.Category, error) {
+	cats, err := s.repo.ListByAccount(accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list categories: %w", err)
 	}
 	return cats, nil
 }
 
-// Get returns a single category, verifying it belongs to the space. Returns
+// Get returns a single category, verifying it belongs to the account. Returns
 // ErrCategoryNotFound otherwise.
-func (s *CategoryService) Get(spaceID, categoryID string) (*model.Category, error) {
+func (s *CategoryService) Get(accountID, categoryID string) (*model.Category, error) {
 	cat, err := s.repo.ByID(categoryID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load category: %w", err)
 	}
-	if cat == nil || cat.SpaceID != spaceID {
+	if cat == nil || cat.AccountID != accountID {
 		return nil, ErrCategoryNotFound
 	}
 	return cat, nil
 }
 
-// Create adds a category to the space. Names are trimmed and must be unique
-// within the space (case-insensitive).
-func (s *CategoryService) Create(spaceID, name, description string) (*model.Category, error) {
+// Create adds a category to the account. Names are trimmed and must be unique
+// within the account (case-insensitive).
+func (s *CategoryService) Create(accountID, name, description string) (*model.Category, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return nil, fmt.Errorf("name is required")
@@ -64,7 +64,7 @@ func (s *CategoryService) Create(spaceID, name, description string) (*model.Cate
 		return nil, fmt.Errorf("name must be at most %d characters", maxCategoryNameLen)
 	}
 
-	existing, err := s.repo.ListBySpace(spaceID)
+	existing, err := s.repo.ListByAccount(accountID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load categories: %w", err)
 	}
@@ -82,14 +82,14 @@ func (s *CategoryService) Create(spaceID, name, description string) (*model.Cate
 	now := time.Now()
 	cat := &model.Category{
 		ID:          uuid.NewString(),
-		SpaceID:     spaceID,
+		AccountID:   accountID,
 		Name:        name,
 		Description: desc,
 		CreatedAt:   now,
 		UpdatedAt:   now,
 	}
 	if err := s.repo.Create(cat); err != nil {
-		// The (space_id, name) unique index is the backstop against a race
+		// The (account_id, name) unique index is the backstop against a race
 		// between the check above and the insert.
 		msg := strings.ToLower(err.Error())
 		if strings.Contains(msg, "duplicate key") || strings.Contains(msg, "unique") {
@@ -100,10 +100,9 @@ func (s *CategoryService) Create(spaceID, name, description string) (*model.Cate
 	return cat, nil
 }
 
-// Delete removes a category owned by the space. Bills lose the link (FK
-// cascade) and budget plan lines become uncategorized (FK set null).
-func (s *CategoryService) Delete(spaceID, categoryID string) error {
-	if _, err := s.Get(spaceID, categoryID); err != nil {
+// Delete removes a category owned by the account. Its transaction links cascade.
+func (s *CategoryService) Delete(accountID, categoryID string) error {
+	if _, err := s.Get(accountID, categoryID); err != nil {
 		return err
 	}
 	if err := s.repo.Delete(categoryID); err != nil {

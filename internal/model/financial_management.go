@@ -81,6 +81,29 @@ func (f TransactionFilter) IsZero() bool {
 		f.AmountMax == nil
 }
 
+// CategoryTimeSeries is a bucketed breakdown of transaction totals by category
+// over a time axis, suitable for a stacked time-series chart. Series are ordered
+// largest-total first.
+type CategoryTimeSeries struct {
+	// Buckets are the x-axis time buckets, ascending, one per label. Each is the
+	// start of its period (day/month/year).
+	Buckets []time.Time
+	// Series is one entry per category that has data in the range, plus an
+	// "Uncategorized" entry when requested and non-empty.
+	Series []CategorySeriesData
+	// Total is the grand total across every bucket and series.
+	Total decimal.Decimal
+}
+
+// CategorySeriesData is a single category's values aligned to
+// CategoryTimeSeries.Buckets (same length, zero-filled for empty buckets).
+type CategorySeriesData struct {
+	CategoryID   string // "" for the uncategorized series
+	CategoryName string
+	Values       []decimal.Decimal
+	Total        decimal.Decimal
+}
+
 type Tag struct {
 	ID        string    `db:"id"`
 	Name      string    `db:"name"`
@@ -146,7 +169,7 @@ type RecurringEvent struct {
 
 type Category struct {
 	ID          string    `db:"id"`
-	SpaceID     string    `db:"space_id"`
+	AccountID   string    `db:"account_id"`
 	Name        string    `db:"name"`
 	Description *string   `db:"description"`
 	CreatedAt   time.Time `db:"created_at"`

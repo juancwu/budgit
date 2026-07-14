@@ -10,20 +10,18 @@ import (
 // LineFormState echoes a submitted add/edit line form so the board can be
 // re-rendered with the user's input and an error message after a failed submit.
 type LineFormState struct {
-	Label      string
-	Amount     string
-	CategoryID string
-	Err        string
+	Label  string
+	Amount string
+	Err    string
 }
 
 // BudgetPlanBoardProps drives the #plan-board fragment: the live summary, the
 // income and expense lists, and the inline add/edit forms.
 type BudgetPlanBoardProps struct {
-	SpaceID    string
-	PlanID     string
-	Currency   string
-	Summary    *model.PlanSummary
-	Categories []*model.Category
+	SpaceID  string
+	PlanID   string
+	Currency string
+	Summary  *model.PlanSummary
 
 	// Add-line form echo state. Set after a failed add so the form re-opens
 	// with the user's values and an error.

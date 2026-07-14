@@ -95,17 +95,11 @@ func (h *budgetPlanHandler) EditorPage(w http.ResponseWriter, r *http.Request) {
 		ui.RenderError(w, r, "Failed to load plan", http.StatusInternalServerError)
 		return
 	}
-	categories, err := h.planService.CategoriesForSpace(plan.SpaceID)
-	if err != nil {
-		slog.Error("failed to load categories", "error", err)
-		categories = nil
-	}
 	ui.Render(w, r, pages.BudgetPlanEditorPage(pages.BudgetPlanEditorPageProps{
-		SpaceID:    plan.SpaceID,
-		SpaceName:  space.Name,
-		Plan:       plan,
-		Summary:    summary,
-		Categories: categories,
+		SpaceID:   plan.SpaceID,
+		SpaceName: space.Name,
+		Plan:      plan,
+		Summary:   summary,
 	}))
 }
 
@@ -149,7 +143,7 @@ func (h *budgetPlanHandler) HandleAddLine(w http.ResponseWriter, r *http.Request
 
 	label := strings.TrimSpace(r.FormValue("label"))
 	amountStr := strings.TrimSpace(r.FormValue("amount"))
-	state := blocks.LineFormState{Label: label, Amount: amountStr, CategoryID: strings.TrimSpace(r.FormValue("category_id"))}
+	state := blocks.LineFormState{Label: label, Amount: amountStr}
 
 	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
@@ -158,11 +152,10 @@ func (h *budgetPlanHandler) HandleAddLine(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if _, err := h.planService.AddLine(service.AddPlanLineInput{
-		PlanID:     plan.ID,
-		Kind:       model.PlanLineKind(kind),
-		CategoryID: parseCategoryID(r.FormValue("category_id")),
-		Label:      label,
-		Amount:     amount,
+		PlanID: plan.ID,
+		Kind:   model.PlanLineKind(kind),
+		Label:  label,
+		Amount: amount,
 	}); err != nil {
 		state.Err = err.Error()
 		h.renderBoardFormError(w, r, plan, isIncome, state)
@@ -184,7 +177,7 @@ func (h *budgetPlanHandler) HandleUpdateLine(w http.ResponseWriter, r *http.Requ
 	}
 	label := strings.TrimSpace(r.FormValue("label"))
 	amountStr := strings.TrimSpace(r.FormValue("amount"))
-	state := blocks.LineFormState{Label: label, Amount: amountStr, CategoryID: strings.TrimSpace(r.FormValue("category_id"))}
+	state := blocks.LineFormState{Label: label, Amount: amountStr}
 
 	amount, err := decimal.NewFromString(amountStr)
 	if err != nil {
@@ -192,7 +185,7 @@ func (h *budgetPlanHandler) HandleUpdateLine(w http.ResponseWriter, r *http.Requ
 		h.renderBoard(w, r, plan, blocks.BudgetPlanBoardProps{EditLineID: lineID, EditForm: state})
 		return
 	}
-	if err := h.planService.UpdateLine(line, label, amount, parseCategoryID(r.FormValue("category_id"))); err != nil {
+	if err := h.planService.UpdateLine(line, label, amount); err != nil {
 		state.Err = err.Error()
 		h.renderBoard(w, r, plan, blocks.BudgetPlanBoardProps{EditLineID: lineID, EditForm: state})
 		return
@@ -228,15 +221,10 @@ func (h *budgetPlanHandler) renderBoard(w http.ResponseWriter, r *http.Request, 
 		ui.RenderError(w, r, "Failed to load plan", http.StatusInternalServerError)
 		return
 	}
-	categories, err := h.planService.CategoriesForSpace(plan.SpaceID)
-	if err != nil {
-		categories = nil
-	}
 	props.SpaceID = plan.SpaceID
 	props.PlanID = plan.ID
 	props.Currency = plan.Currency
 	props.Summary = summary
-	props.Categories = categories
 	ui.Render(w, r, blocks.BudgetPlanBoard(props))
 }
 
@@ -250,12 +238,4 @@ func (h *budgetPlanHandler) renderBoardFormError(w http.ResponseWriter, r *http.
 		props.ShowExpenseForm = true
 	}
 	h.renderBoard(w, r, plan, props)
-}
-
-func parseCategoryID(v string) *string {
-	v = strings.TrimSpace(v)
-	if v == "" {
-		return nil
-	}
-	return &v
 }

@@ -638,7 +638,7 @@ func TestTransactionService_DeleteTransaction_RemovesCategoryLink(t *testing.T) 
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)
 
-		categoryID := testutil.CreateTestCategory(t, dbi.DB, f.account.SpaceID, "Groceries").ID
+		categoryID := testutil.CreateTestCategory(t, dbi.DB, f.account.ID, "Groceries").ID
 
 		_, err := f.svc.Deposit(DepositInput{
 			AccountID: f.account.ID, Title: "seed", Amount: decimal.NewFromInt(100),
@@ -779,8 +779,8 @@ func TestTransactionService_Deposit_TagsAndUpdatesCategory(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)
 
-		income := testutil.CreateTestCategory(t, dbi.DB, f.account.SpaceID, "Income")
-		other := testutil.CreateTestCategory(t, dbi.DB, f.account.SpaceID, "Side")
+		income := testutil.CreateTestCategory(t, dbi.DB, f.account.ID, "Income")
+		other := testutil.CreateTestCategory(t, dbi.DB, f.account.ID, "Side")
 
 		// Create a deposit tagged with a category.
 		dep, err := f.svc.Deposit(DepositInput{
@@ -831,10 +831,9 @@ func TestTransactionService_Deposit_RejectsForeignCategory(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
 		f := newTxnFixture(t, dbi)
 
-		// A category owned by a different space must not be assignable.
-		otherUser := testutil.CreateTestUser(t, dbi.DB, "foreign-dep@example.com", nil)
-		otherSpace := testutil.CreateTestSpace(t, dbi.DB, otherUser.ID, "Other")
-		foreign := testutil.CreateTestCategory(t, dbi.DB, otherSpace.ID, "Foreign")
+		// A category owned by a different account must not be assignable.
+		otherAccount := testutil.CreateTestAccount(t, dbi.DB, f.account.SpaceID, "Other")
+		foreign := testutil.CreateTestCategory(t, dbi.DB, otherAccount.ID, "Foreign")
 
 		_, err := f.svc.Deposit(DepositInput{
 			AccountID:  f.account.ID,
@@ -844,6 +843,6 @@ func TestTransactionService_Deposit_RejectsForeignCategory(t *testing.T) {
 			CategoryID: foreign.ID,
 			ActorID:    f.user.ID,
 		})
-		assert.Error(t, err, "a category from another space must be rejected")
+		assert.Error(t, err, "a category from another account must be rejected")
 	})
 }

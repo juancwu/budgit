@@ -15,24 +15,25 @@ func newCategoryFixture(t *testing.T, dbi testutil.DBInfo) (*CategoryService, st
 	svc := NewCategoryService(repository.NewCategoryRepository(dbi.DB))
 	user := testutil.CreateTestUser(t, dbi.DB, "cat@example.com", nil)
 	space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "S")
-	return svc, space.ID
+	account := testutil.CreateTestAccount(t, dbi.DB, space.ID, "Acct")
+	return svc, account.ID
 }
 
 func TestCategoryService_CreateAndList(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		svc, spaceID := newCategoryFixture(t, dbi)
+		svc, accountID := newCategoryFixture(t, dbi)
 
 		// Nothing until created — no predefined categories.
-		cats, err := svc.ListBySpace(spaceID)
+		cats, err := svc.ListByAccount(accountID)
 		require.NoError(t, err)
 		assert.Empty(t, cats)
 
-		created, err := svc.Create(spaceID, "  Groceries  ", "food")
+		created, err := svc.Create(accountID, "  Groceries  ", "food")
 		require.NoError(t, err)
 		assert.Equal(t, "Groceries", created.Name, "name is trimmed")
-		assert.Equal(t, spaceID, created.SpaceID)
+		assert.Equal(t, accountID, created.AccountID)
 
-		cats, err = svc.ListBySpace(spaceID)
+		cats, err = svc.ListByAccount(accountID)
 		require.NoError(t, err)
 		require.Len(t, cats, 1)
 		assert.Equal(t, "Groceries", cats[0].Name)
@@ -41,56 +42,58 @@ func TestCategoryService_CreateAndList(t *testing.T) {
 
 func TestCategoryService_Create_RejectsBlankAndDuplicate(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		svc, spaceID := newCategoryFixture(t, dbi)
+		svc, accountID := newCategoryFixture(t, dbi)
 
-		_, err := svc.Create(spaceID, "   ", "")
+		_, err := svc.Create(accountID, "   ", "")
 		assert.Error(t, err, "blank name rejected")
 
-		_, err = svc.Create(spaceID, "Rent", "")
+		_, err = svc.Create(accountID, "Rent", "")
 		require.NoError(t, err)
 
-		// Case-insensitive duplicate within the same space.
-		_, err = svc.Create(spaceID, "rent", "")
+		// Case-insensitive duplicate within the same account.
+		_, err = svc.Create(accountID, "rent", "")
 		assert.ErrorIs(t, err, ErrCategoryNameTaken)
 	})
 }
 
-func TestCategoryService_Create_SameNameDifferentSpaces(t *testing.T) {
+func TestCategoryService_Create_SameNameDifferentAccounts(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		svc, spaceA := newCategoryFixture(t, dbi)
-		userB := testutil.CreateTestUser(t, dbi.DB, "b@example.com", nil)
-		spaceB := testutil.CreateTestSpace(t, dbi.DB, userB.ID, "B").ID
+		svc, accountA := newCategoryFixture(t, dbi)
+		user := testutil.CreateTestUser(t, dbi.DB, "b@example.com", nil)
+		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "B")
+		accountB := testutil.CreateTestAccount(t, dbi.DB, space.ID, "AcctB").ID
 
-		_, err := svc.Create(spaceA, "Travel", "")
+		_, err := svc.Create(accountA, "Travel", "")
 		require.NoError(t, err)
-		// Same name is fine in a different space.
-		_, err = svc.Create(spaceB, "Travel", "")
+		// Same name is fine in a different account.
+		_, err = svc.Create(accountB, "Travel", "")
 		require.NoError(t, err)
 	})
 }
 
-func TestCategoryService_GetAndDelete_ScopedToSpace(t *testing.T) {
+func TestCategoryService_GetAndDelete_ScopedToAccount(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		svc, spaceA := newCategoryFixture(t, dbi)
-		userB := testutil.CreateTestUser(t, dbi.DB, "b2@example.com", nil)
-		spaceB := testutil.CreateTestSpace(t, dbi.DB, userB.ID, "B").ID
+		svc, accountA := newCategoryFixture(t, dbi)
+		user := testutil.CreateTestUser(t, dbi.DB, "b2@example.com", nil)
+		space := testutil.CreateTestSpace(t, dbi.DB, user.ID, "B")
+		accountB := testutil.CreateTestAccount(t, dbi.DB, space.ID, "AcctB").ID
 
-		cat, err := svc.Create(spaceA, "Health", "")
+		cat, err := svc.Create(accountA, "Health", "")
 		require.NoError(t, err)
 
-		// A different space cannot see or delete it.
-		_, err = svc.Get(spaceB, cat.ID)
+		// A different account cannot see or delete it.
+		_, err = svc.Get(accountB, cat.ID)
 		assert.ErrorIs(t, err, ErrCategoryNotFound)
-		err = svc.Delete(spaceB, cat.ID)
+		err = svc.Delete(accountB, cat.ID)
 		assert.ErrorIs(t, err, ErrCategoryNotFound)
 
-		// The owning space can.
-		got, err := svc.Get(spaceA, cat.ID)
+		// The owning account can.
+		got, err := svc.Get(accountA, cat.ID)
 		require.NoError(t, err)
 		assert.Equal(t, cat.ID, got.ID)
 
-		require.NoError(t, svc.Delete(spaceA, cat.ID))
-		cats, err := svc.ListBySpace(spaceA)
+		require.NoError(t, svc.Delete(accountA, cat.ID))
+		cats, err := svc.ListByAccount(accountA)
 		require.NoError(t, err)
 		assert.Empty(t, cats)
 	})
@@ -98,8 +101,8 @@ func TestCategoryService_GetAndDelete_ScopedToSpace(t *testing.T) {
 
 func TestCategoryService_Get_UnknownID(t *testing.T) {
 	testutil.ForEachDB(t, func(t *testing.T, dbi testutil.DBInfo) {
-		svc, spaceID := newCategoryFixture(t, dbi)
-		_, err := svc.Get(spaceID, "does-not-exist")
+		svc, accountID := newCategoryFixture(t, dbi)
+		_, err := svc.Get(accountID, "does-not-exist")
 		assert.True(t, errors.Is(err, ErrCategoryNotFound))
 	})
 }
